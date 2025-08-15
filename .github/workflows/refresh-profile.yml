@@ -1,3 +1,5 @@
+name: Update Repository States
+
 on:
   schedule:
     - cron: '0 5 * * *'
