@@ -17,7 +17,7 @@ NOW = datetime.now(timezone.utc)
 
 
 def calc_state(pushed_at: datetime) -> str:
-    # TODO: use e.g. last 3 commits, intead of only one last commit
+    # TODO: use e.g. last 3 commits, instead of only one last commit
 
     # Note: 27 makes most sense at the time of writing, to exclude a global search & replace of license files
     DAYS_STALE = int(os.getenv("DAYS_STALE", "27"))
