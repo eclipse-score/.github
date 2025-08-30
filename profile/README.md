@@ -61,7 +61,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) | Incubation repository for AutoSD Development Platform | ✅ active |
 | [inc_process_test_management](https://github.com/eclipse-score/inc_process_test_management) | Incubation repository for Process - Sphinx-Test management | 🕓 stale |
 | [inc_process_variant_management](https://github.com/eclipse-score/inc_process_variant_management) | Incubation repository for Process - Sphinx-Variant management | ✅ active |
-| [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities | 🕓 stale |
+| [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities | ✅ active |
 
 ### Infrastructure / Toolchains
 
