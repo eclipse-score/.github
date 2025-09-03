@@ -1,0 +1,41 @@
+[project]
+name = "S-CORE-Repos-Overview"
+version = "0.0.1"
+description = "Different scripts to generate an overview of S-CORE repositories."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "PyGithub>=2.4",
+  "PyYAML>=6.0",
+]
+
+[project.scripts]
+contrib-report = "s_core_repos_overview.contrib_report:main"
+update-readme  = "s_core_repos_overview.update_readme:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/s_core_repos_overview"]
+
+[tool.hatch.build.targets.editable]
+packages = ["src/s_core_repos_overview"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["ruff>=0.6", "pyright>=1.1"]
+
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+exclude = ["**/__pycache__", ".venv*/**", "bazel-*/**", "data/**"]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["**/__pycache__", ".venv*/**", "bazel-*/**", "data/**"]
+
+# optional: install dev group by default on `uv sync`
+[tool.uv]
+default-groups = ["dev"]

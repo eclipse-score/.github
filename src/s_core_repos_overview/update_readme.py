@@ -70,7 +70,7 @@ def update_readme(original: str, repo_data: dict[str, RepoData]) -> str:
     )
 
 
-if __name__ == "__main__":
+def main():
     repo_data = query_github_org_for_repo_data(gh, ORG)
 
     MD_FILE = pathlib.Path("profile/README.md")

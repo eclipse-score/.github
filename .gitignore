@@ -1,0 +1,10 @@
+# Ultra-minimal Python / uv gitignore
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+.uv/
+.pytest_cache/
+.coverage*
+/uv.lock

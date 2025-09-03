@@ -1,0 +1,15 @@
+# org for analysis
+org: eclipse-score
+
+# Defaults (override via CLI flags)
+options:
+  include_bots: false     # whether to count bot accounts
+  skip_forks: true        # skip forked repos
+  skip_archived: true     # skip archived repos
+
+# Define groups of repos.
+groups:
+  infrastructure:
+    - tooling
+    - docs-as-code
+    - bazel_registry
