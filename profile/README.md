@@ -15,7 +15,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [score](https://github.com/eclipse-score/score) | Score project main repository | ✅ active |
-| [.github](https://github.com/eclipse-score/.github) | Houses the organisation README | ✅ active |
+| [.github](https://github.com/eclipse-score/.github) | Houses the organisation README | 🕓 stale |
 | [process_description](https://github.com/eclipse-score/process_description) | Score project process description | ✅ active |
 
 ### Website
@@ -23,8 +23,8 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | The landing page website for the Score project | 🕓 stale |
-| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | (no description) | 🕓 stale |
-| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | (no description) | 🕓 stale |
+| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | (no description) | ✅ active |
+| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | (no description) | ✅ active |
 | [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | (no description) | 💤 obsolete |
 
 ### Modules
