@@ -15,7 +15,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [score](https://github.com/eclipse-score/score) | Score project main repository | ✅ active |
-| [.github](https://github.com/eclipse-score/.github) | Houses the organisation README | ✅ active |
+| [.github](https://github.com/eclipse-score/.github) | Houses the organisation README | 🕓 stale |
 | [process_description](https://github.com/eclipse-score/process_description) | Score project process description | ✅ active |
 
 ### Website
@@ -69,7 +69,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | Bazel platform definitions used by S-CORE modules | 🕓 stale |
-| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | Bazel toolchains for GNU GCC | 🕓 stale |
+| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | Bazel toolchains for GNU GCC | ✅ active |
 | [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | Bazel toolchains for GNU GCC | 🕓 stale |
 | [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | Bazel toolchains for QNX | ✅ active |
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains | 🕓 stale |
