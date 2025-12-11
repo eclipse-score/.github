@@ -50,7 +50,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker | ✅ active |
-| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker | 💤 obsolete |
+| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for C/C++ static code checker | ✅ active |
 | [inc_config_management](https://github.com/eclipse-score/inc_config_management) | Incubation repository for config management | ✅ active |
 | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module | ✅ active |
 | [inc_feo](https://github.com/eclipse-score/inc_feo) | Incubation repository for the fixed execution order framework | 🕓 stale |
