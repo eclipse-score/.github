@@ -38,15 +38,12 @@ class RepoData:
     name: str
     description: str
     last_commit: Optional[str]
-    open_issues: int
     open_prs: int
     bazel_version: str
     lint_config: str
     ci_setup: str
     test_coverage: str
     latest_release: Optional[str]
-    stars: int
-    forks: int
 
 def file_exists(repo, path):
     try:
@@ -115,30 +112,24 @@ def query_github_org_for_repo_data(gh: Github, org: str):
     for repo in user.get_repos():
         description = repo.description or ""
         last_commit = repo.pushed_at.date().isoformat() if repo.pushed_at else None
-        open_issues = repo.open_issues_count
         open_prs = repo.get_pulls(state="open").totalCount
         bazel_version = detect_bazel_version(repo)
         lint_config = detect_lint_config(repo)
         ci_setup = detect_ci_setup(repo)
         test_coverage = detect_test_coverage(repo)
         latest_release = get_latest_release_date(repo)
-        stars = repo.stargazers_count
-        forks = repo.forks_count
 
         repo_data_list.append(
             RepoData(
                 name=repo.name,
                 description=description.replace("|", "‖"),
                 last_commit=last_commit,
-                open_issues=open_issues,
                 open_prs=open_prs,
                 bazel_version=bazel_version,
                 lint_config=lint_config,
                 ci_setup=ci_setup,
                 test_coverage=test_coverage,
                 latest_release=latest_release,
-                stars=stars,
-                forks=forks,
             )
         )
     return repo_data_list
@@ -147,15 +138,15 @@ def render_markdown(repos):
     header = (
         f"# Cross-Repo Metrics Report\n\n"
         f"Generated on {NOW.isoformat()}\n\n"
-        "| Repo |Last Commit | Issues | PRs | Bazel | Lint | CI | Test Coverage | Latest Release | Stars | Forks |\n"
-        "|------|------------|--------|-----|-------|------|----|---------------|----------------|-------|-------|"
+        "| Repo |Last Commit | PRs | Bazel | Lint | CI | Test Coverage | Latest Release |\n"
+        "|------|------------|-----|-------|------|----|---------------|----------------|"
     )
     rows = []
     for r in sorted(repos, key=lambda x: x.name.lower()):
         rows.append(
             f"| [{r.name}](https://github.com/{ORG}/{r.name}) | {r.last_commit or '-'} | "
-            f"{r.open_issues} | {r.open_prs} | {r.bazel_version} | {r.lint_config} | "
-            f"{r.ci_setup} | {r.test_coverage} | {r.latest_release or '-'} | {r.stars} | {r.forks} |"
+            f"{r.open_prs} | {r.bazel_version} | {r.lint_config} | "
+            f"{r.ci_setup} | {r.test_coverage} | {r.latest_release or '-'}"
         )
     return "\n".join([header] + rows)
 
