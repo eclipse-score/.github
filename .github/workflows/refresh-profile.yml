@@ -23,11 +23,6 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Update README
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/update_readme.py
-
       - name: Collect metrics
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -41,7 +36,6 @@ jobs:
           committer: eclipse-score-bot <187756813+eclipse-score-bot@users.noreply.github.com>
           body: |
             This PR updates:
-            - The repository descriptions and status in `profile/README.md`
             - The cross-repo metrics report in `profile/metrics.md`
             Please review and merge if everything looks good.
           commit-message: "chore: auto-refresh status column"
