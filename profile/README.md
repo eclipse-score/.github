@@ -35,7 +35,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality | ✅ active |
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa | ✅ active |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework | ✅ active |
-| [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository | 🕓 stale |
+| [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository | ✅ active |
 | [operating_system](https://github.com/eclipse-score/operating_system) | Repository for the module operating system | 💤 obsolete |
 | [orchestrator](https://github.com/eclipse-score/orchestrator) | Orchestration framework & Safe async runtime for Rust | ✅ active |
 | [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework | ✅ active |
