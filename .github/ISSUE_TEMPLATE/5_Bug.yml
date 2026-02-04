@@ -11,9 +11,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-name: Problem Report
-description: Issue to track a bug
-title: "Bug: Your bugfix title"
+name: Bug
+description: Issue to track a Bug
+title: "Your Bug title"
 labels: ["codeowner_review"]
 type: 'Bug'
 body:
@@ -42,7 +42,7 @@ body:
         Documentation of the solution
         Link to Pull Request containing the solution
     validations:
-      required: true
+      required: false
   - type: dropdown
     attributes:
       label: Error Occurrence  Rate
@@ -67,29 +67,49 @@ body:
     attributes:
       label: Classification
       options:
-        - minor
-        - major
-        - critical
-        - blocker
+        - Minor
+        - Major
+        - Critical
+        - Blocker
       default: 0
     validations:
       required: true
   - type: dropdown
     attributes:
-      label: Affected Version
+      label: First Affected Release 
       options:
-        - pre-0.5
-        - 0.5
-        - 1.0
+        - '0.5'
+        - '0.6'
+        - '0.7'
+        - '0.8'
+        - '0.9'
+        - '1.0'
       default: 0
     validations:
       required: true
   - type: dropdown
     attributes:
-      label: Expected Closure Version
+      label: Last Affected Release 
       options:
-        - 0.5
-        - 1.0
+        - '0.5'
+        - '0.6'
+        - '0.7'
+        - '0.8'
+        - '0.9'
+        - '1.0'
+      default: 0
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Expected Fixed Release
+      options:
+        - '0.5'
+        - '0.6'
+        - '0.7'
+        - '0.8'
+        - '0.9'
+        - '1.0'
       default: 0
     validations:
       required: false
@@ -97,11 +117,15 @@ body:
     attributes:
       label: Category
       options:
-        - label: Safety Related
-        - label: Security Related
-  - type: textarea
+        - label: Safety Relevant
+        - label: Security Relevant
+  - type: dropdown
     attributes:
       label: ASIL classification
-      description: Add ASIL classification, e.g. ASIL_B or ASIL_D
+      options:
+        - QM
+        - ASIL_B
+        - ASIL_D
+      default: 0
     validations:
       required: false

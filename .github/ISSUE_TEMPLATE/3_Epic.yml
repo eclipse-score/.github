@@ -11,39 +11,39 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-name: "Change Request"
-description: Issue to track a change
-title: "Change: Your Change Request title"
+name: Epic
+description: Issue to track an Epic
+title: "Your Epic title"
 labels: ["codeowner_review"]
+type: 'Epic'
 body:
+  - type: markdown
+    attributes:
+      value: "## <ins>Epic Ticket creation</ins>"
   - type: dropdown
     attributes:
-      label: Change Request Type
+      label: Epic Type
       options:
-        - Feature Request
         - Feature Modification
-        - Component Request
         - Component Modification
+        - Others
       default: 0
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Description of the Change Request
+      label: Epic Description
       description: |
-        - Exact description of the Change Request
-        - Impact to users of the feature/component
+        - Impact to users
         - Use following template within a PR and link it to this issue
           [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_feature_template.html) needs to be used
           [Change Management Component Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_component_template.html) needs to be used
-          [For (Process) Improvements, Improvement Issue Template](https://github.com/eclipse-score/process_description/blob/main/.github/ISSUE_TEMPLATE/2-improvement.yml) needs to be used
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Estimates for realization
-      description: |
-        - Estimate the effort, resources, risk for the realization
+      label: Acceptance Criteria (DoD)
+      description: Details on when the Task is considered "done"
     validations:
       required: true
   - type: checkboxes
@@ -52,8 +52,14 @@ body:
       options:
         - label: Requirements
         - label: Architecture
-        - label: Safety/Security Analysis
+        - label: Safety Analysis
+        - label: Security Analysis 
         - label: Detailed Design
+        - label: Implementation 
+        - label: Test Cases
+        - label: Process
+        - label: Infrastructure
+        - label: Others
           required: true
   - type: textarea
     attributes:
@@ -64,7 +70,7 @@ body:
         If the following template is use within a PR, link it to this issue
         [Change Management Impact Analysis Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_impact_analysis_template.html) needs to be used
     validations:
-      required: true
+      required: false
   - type: checkboxes
     attributes:
       label: Safety or Security relevance
@@ -80,15 +86,20 @@ body:
       options:
         - QM
         - ASIL_B
+        - ASIL_D
       default: 0
     validations:
       required: true
   - type: dropdown
     attributes:
-      label: Expected Implementation Version
+      label: Expected available in Release 
       options:
-        - 0.5
-        - 1.0
+        - '0.5'
+        - '0.6'
+        - '0.7'
+        - '0.8'
+        - '0.9'
+        - '1.0'
       default: 0
     validations:
       required: false
