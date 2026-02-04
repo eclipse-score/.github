@@ -1,0 +1,64 @@
+# *******************************************************************************
+# Copyright (c) 2025 Contributors to the Eclipse Foundation
+#
+# See the NOTICE file(s) distributed with this work for additional
+# information regarding copyright ownership.
+#
+# This program and the accompanying materials are made available under the
+# terms of the Apache License Version 2.0 which is available at
+# https://www.apache.org/licenses/LICENSE-2.0
+#
+# SPDX-License-Identifier: Apache-2.0
+# *******************************************************************************
+
+name: Product Increment
+description: Issue to track a Product Increment
+title: "Your Product Increment title"
+labels: ["codeowner_review"]
+type: 'Product Increment'
+body:
+  - type: markdown
+    attributes:
+      value: "## <ins>Product Increment Ticket creation</ins>"
+  - type: textarea
+    attributes:
+      label: Product Increment Description
+      description: |
+        - Goal of the Product Increment
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Acceptance Criteria (DoD)
+      description: Details on when the Product Increment is considered "done"
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Affects work products
+      options:
+        - label: Requirements
+        - label: Architecture
+        - label: Safety Analysis
+        - label: Security Analysis 
+        - label: Detailed Design
+        - label: Implementation 
+        - label: Test Cases
+        - label: Process
+        - label: Infrastructure
+        - label: Others
+          required: true
+  - type: dropdown
+    attributes:
+      label: Expected available in Release 
+      options:
+        - '0.6'
+        - '0.7'
+        - '0.8'
+        - '0.9'
+        - '1.0'
+        - '2.0'
+        - '3.0'
+      default: 0
+    validations:
+      required: false
