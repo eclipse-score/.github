@@ -11,26 +11,25 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-name: Feature Request
-description: Issue to track a Feature Request
-title: "Your Feature Request title"
+name: Component Request
+description: Issue to track a Component Request
+title: "Your Component Request title"
 labels: ["codeowner_review"]
-type: 'Feature Request'
+type: 'Component Request'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Feature Request Ticket creation</ins>"
+      value: "## <ins>Component Request Ticket creation</ins>"
   - type: textarea
     attributes:
-      label: Feature Request Description
+      label: Component Request Description
       description: |
-        - Use following template within a PR and link it to this issue
-          [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_feature_template.html) needs to be used
+       - Follow the [Change Management Workflow](https://eclipse-score.github.io/score/main/platform_management_plan/change_management.html#change-request-workflow) 
     validations:
       required: true
   - type: dropdown
     attributes:
-      label: Expected available in Release 
+      label: Expected Implementation Version (Release)
       options:
         - '1.0'
         - '2.0'

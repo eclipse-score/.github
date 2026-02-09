@@ -24,7 +24,9 @@ body:
     attributes:
       label: Product Increment Description
       description: |
-        - Goal of the Product Increment
+         - New Functionality / Features
+         - API changes 
+         - Major Fixes 
     validations:
       required: true
   - type: textarea
@@ -47,18 +49,4 @@ body:
         - label: Process
         - label: Infrastructure
         - label: Others
-          required: true
-  - type: dropdown
-    attributes:
-      label: Expected available in Release 
-      options:
-        - '0.6'
-        - '0.7'
-        - '0.8'
-        - '0.9'
-        - '1.0'
-        - '2.0'
-        - '3.0'
-      default: 0
-    validations:
-      required: false
+          required: false

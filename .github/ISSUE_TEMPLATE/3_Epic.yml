@@ -20,24 +20,10 @@ body:
   - type: markdown
     attributes:
       value: "## <ins>Epic Ticket creation</ins>"
-  - type: dropdown
-    attributes:
-      label: Epic Type
-      options:
-        - Feature Modification
-        - Component Modification
-        - Others
-      default: 0
-    validations:
-      required: true
   - type: textarea
     attributes:
       label: Epic Description
-      description: |
-        - Impact to users
-        - Use following template within a PR and link it to this issue
-          [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_feature_template.html) needs to be used
-          [Change Management Component Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_component_template.html) needs to be used
+      description: Goal of the Epic
     validations:
       required: true
   - type: textarea
@@ -61,45 +47,3 @@ body:
         - label: Infrastructure
         - label: Others
           required: true
-  - type: textarea
-    attributes:
-      label: Impact analysis
-      description: |
-        - Details on the impacted work products
-        - Use the following template and/or run the impact analysis tool provided
-        If the following template is use within a PR, link it to this issue
-        [Change Management Impact Analysis Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_impact_analysis_template.html) needs to be used
-    validations:
-      required: false
-  - type: checkboxes
-    attributes:
-      label: Safety or Security relevance
-      options:
-        - label: none
-        - label: Safety relevant
-        - label: Security relevant
-    validations:
-      required: true
-  - type: dropdown
-    attributes:
-      label: ASIL classification
-      options:
-        - QM
-        - ASIL_B
-        - ASIL_D
-      default: 0
-    validations:
-      required: true
-  - type: dropdown
-    attributes:
-      label: Expected available in Release 
-      options:
-        - '0.5'
-        - '0.6'
-        - '0.7'
-        - '0.8'
-        - '0.9'
-        - '1.0'
-      default: 0
-    validations:
-      required: false
