@@ -34,7 +34,7 @@ body:
       description: |
         Documentation of the analysis results
     validations:
-      required: true
+      required: false
   - type: textarea
     attributes:
       label: Solution
@@ -78,12 +78,14 @@ body:
     attributes:
       label: First Affected Release 
       options:
-        - '0.5'
-        - '0.6'
-        - '0.7'
-        - '0.8'
-        - '0.9'
-        - '1.0'
+        - not released (main)        
+        - pre-0.5
+        - 0.5
+        - 0.6
+        - 0.7
+        - 0.8
+        - 0.9
+        - 1.0
       default: 0
     validations:
       required: true
@@ -91,12 +93,14 @@ body:
     attributes:
       label: Last Affected Release 
       options:
-        - '0.5'
-        - '0.6'
-        - '0.7'
-        - '0.8'
-        - '0.9'
-        - '1.0'
+        - not released (main)        
+        - pre-0.5
+        - 0.5
+        - 0.6
+        - 0.7
+        - 0.8
+        - 0.9
+        - 1.0
       default: 0
     validations:
       required: true
@@ -104,12 +108,13 @@ body:
     attributes:
       label: Expected Fixed Release
       options:
-        - '0.5'
-        - '0.6'
-        - '0.7'
-        - '0.8'
-        - '0.9'
-        - '1.0'
+        - before release (main)        
+        - 0.5
+        - 0.6
+        - 0.7
+        - 0.8
+        - 0.9
+        - 1.0
       default: 0
     validations:
       required: false
