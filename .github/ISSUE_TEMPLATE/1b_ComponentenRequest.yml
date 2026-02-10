@@ -27,6 +27,25 @@ body:
        - Follow the [Change Management Workflow](https://eclipse-score.github.io/score/main/platform_management_plan/change_management.html#change-request-workflow) 
     validations:
       required: true
+  - type: checkboxes
+    attributes:
+      label: Safety or Security relevance
+      options:
+        - label: none
+        - label: Safety relevant
+        - label: Security relevant
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: ASIL classification
+      options:
+        - QM
+        - ASIL_B
+        - ASIL_D
+      default: 0
+    validations:
+      required: true
   - type: dropdown
     attributes:
       label: Expected Implementation Version (Release)
