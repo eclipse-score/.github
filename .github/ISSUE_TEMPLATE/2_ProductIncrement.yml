@@ -35,18 +35,4 @@ body:
       description: Details on when the Product Increment is considered "done"
     validations:
       required: true
-  - type: checkboxes
-    attributes:
-      label: Affects work products
-      options:
-        - label: Requirements
-        - label: Architecture
-        - label: Safety Analysis
-        - label: Security Analysis 
-        - label: Detailed Design
-        - label: Implementation 
-        - label: Test Cases
-        - label: Process
-        - label: Infrastructure
-        - label: Others
-          required: false
+  
