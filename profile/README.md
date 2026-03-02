@@ -50,9 +50,9 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker | 🕓 stale |
-| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker | ✅ active |
+| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker | 🕓 stale |
 | [inc_config_management](https://github.com/eclipse-score/inc_config_management) | Incubation repository for config management | 💤 obsolete |
-| [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module | ✅ active |
+| [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module | 🕓 stale |
 | [inc_feo](https://github.com/eclipse-score/inc_feo) | Incubation repository for the fixed execution order framework | 💤 obsolete |
 | [inc_json](https://github.com/eclipse-score/inc_json) | Incubation repository for JSON module | 💤 obsolete |
 | [inc_mw_com](https://github.com/eclipse-score/inc_mw_com) | Incubation repository for interprocess communication framework | 🕓 stale |
