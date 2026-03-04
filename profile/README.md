@@ -1,26 +1,12 @@
-# Welcome to eclipse-score
-
-This Github organization contains artifacts developed by the [Eclipse S-CORE Project](https://projects.eclipse.org/projects/automotive.score).
-
-## Introduction to Eclipse S-CORE Project
-
-See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https://eclipse-score.github.io/score).
-
-## Repositories in the Github organization
-
----
-
-### Infrastructure - "Table Style"
+# "Table Style"
 *formal looking tables, but very long*
 
-#### Toolchains
-
-### Integrations
+#### Integrations
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [reference_integration](https://github.com/eclipse-score/reference_integration) | Score project integration repository | ✅ active |
 
-### Incubation
+#### Incubation
 
 | Repository | Description | Status |
 |------------|-------------|--------|
@@ -39,7 +25,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities | ✅ active |
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature | ✅ active |
 
-### Infrastructure / Toolchains
+#### Toolchains
 
 | Repository | Description | Status |
 |------------|-------------|--------|
@@ -49,7 +35,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | Bazel toolchains for QNX | ✅ active |
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains | ✅ active |
 
-### Infrastructure / Tooling
+#### Tooling
 
 | Repository | Description | Status |
 |------------|-------------|--------|
@@ -57,7 +43,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE | ✅ active |
 | [tooling](https://github.com/eclipse-score/tooling) | Tooling for Eclipse S-CORE | ✅ active |
 
-### Infrastructure / Other
+#### Other
 
 | Repository | Description | Status |
 |------------|-------------|--------|
@@ -69,35 +55,80 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 ---
 
-### Infrastructure - "Short Table Style"
+# "Short Table Style"
 *still formal looking, but much shorter*
 
 
 | Category | Repository | Description | Status |
 |----------|------------|-------------|--------|
-| **Docs-As-Code** | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE | ✅ active |
+| **Integrations** | [reference_integration](https://github.com/eclipse-score/reference_integration) | Score project integration repository | ✅ active |
 | | | | |
-| **SBOM & License Scanning** | [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | GitHub Action to scan licenses | 🕓 stale |
-| | [sbom-tool](https://github.com/eclipse-score/sbom-tool) | Tool to generate Software Bill of Materials (SBOM) | 🕓 stale |
+| **Incubation** | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker | 🕓 stale |
+| | [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker | ✅ active |
+| | [inc_config_management](https://github.com/eclipse-score/inc_config_management) | Incubation repository for config management | 💤 obsolete |
+| | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module | ✅ active |
+| | [inc_feo](https://github.com/eclipse-score/inc_feo) | Incubation repository for the fixed execution order framework | 💤 obsolete |
+| | [inc_json](https://github.com/eclipse-score/inc_json) | Incubation repository for JSON module | 💤 obsolete |
+| | [inc_mw_com](https://github.com/eclipse-score/inc_mw_com) | Incubation repository for interprocess communication framework | 🕓 stale |
+| | [inc_mw_log](https://github.com/eclipse-score/inc_mw_log) | Incubation repository for logging framework | 💤 obsolete |
+| | [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | Nlohmann JSON Library | ✅ active |
+| | [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) | Incubation repository for AutoSD Development Platform | ✅ active |
+| | [inc_process_test_management](https://github.com/eclipse-score/inc_process_test_management) | Incubation repository for Process - Sphinx-Test management | 💤 obsolete |
+| | [inc_process_variant_management](https://github.com/eclipse-score/inc_process_variant_management) | Incubation repository for Process - Sphinx-Variant management | 💤 obsolete |
+| | [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities | ✅ active |
+| | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature | ✅ active |
 | | | | |
-| **GitHub Workflows** | [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | Reusable GitHub Actions workflows for CI/CD automation | ✅ active |
-| | [apt-install](https://github.com/eclipse-score/apt-install) | GitHub Action to execute apt-install in a clever way | 🕓 stale |
-| | [more-disk-space](https://github.com/eclipse-score/more-disk-space) | GitHub Action to increase available disk space | 🕓 stale |
+| **Toolchains** | [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | Bazel platform definitions used by S-CORE modules | ✅ active |
+| | [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | Bazel toolchains for GNU GCC | 🕓 stale |
+| | [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | Bazel toolchains for GNU GCC | 🕓 stale |
+| | [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | Bazel toolchains for QNX | ✅ active |
+| | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains | ✅ active |
 | | | | |
-| **Bazel Registry** | [bazel_registry](https://github.com/eclipse-score/bazel_registry) | Score project bazel modules registry | ✅ active |
-| | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score | 🕓 stale |
+| **Tooling** | [devcontainer](https://github.com/eclipse-score/devcontainer) | Common Devcontainer for Eclipse S-CORE | ✅ active |
+| | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE | ✅ active |
+| | [tooling](https://github.com/eclipse-score/tooling) | Tooling for Eclipse S-CORE | ✅ active |
+| | | | |
+| **Other** | [apt-install](https://github.com/eclipse-score/apt-install) | GitHub Action to execute apt-install in a clever way | 💤 obsolete |
+| | [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | Reusable GitHub Actions workflows for CI/CD automation | ✅ active |
+| | [bazel_registry](https://github.com/eclipse-score/bazel_registry) | Score project bazel modules registry | ✅ active |
+| | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score | ✅ active |
+| | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. | ✅ active |
 
-### Infrastructure - "List Style"
+---
+
+# Infrastructure - "List Style"
 *not formal looking, but it does contain all the information and is very compact (note: status will be deleted anyway)*
 
-* **Docs-As-Code**
-  * [docs-as-code](https://github.com/eclipse-score/docs-as-code): Docs-as-code tooling for Eclipse S-CORE
-* **SBOM & License Scanning**
-  * [dash-license-scan](https://github.com/eclipse-score/dash-license-scan): GitHub Action to scan licenses
-  * [sbom-tool](https://github.com/eclipse-score/sbom-tool): Tool to generate Software Bill of Materials (SBOM)
-* **GitHub Workflows**
-  * [apt-install](https://github.com/eclipse-score/apt-install): GitHub Action to execute apt-install in a clever way
-  * [more-disk-space](https://github.com/eclipse-score/more-disk-space): GitHub Action to increase available disk space
-* **Bazel Registry**
-  * [bazel_registry](https://github.com/eclipse-score/bazel_registry): Score project bazel modules registry
-  * [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui): House the ui for bazel_registry in Score
+* **Integrations**
+  * [reference_integration](https://github.com/eclipse-score/reference_integration): Score project integration repository — ✅ active
+* **Incubation**
+  * [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python): Repository for python static code checker — 🕓 stale
+  * [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc): Repository for clang-tidy based static code checker — ✅ active
+  * [inc_config_management](https://github.com/eclipse-score/inc_config_management): Incubation repository for config management — 💤 obsolete
+  * [inc_daal](https://github.com/eclipse-score/inc_daal): Incubation repository for DAAL module — ✅ active
+  * [inc_feo](https://github.com/eclipse-score/inc_feo): Incubation repository for the fixed execution order framework — 💤 obsolete
+  * [inc_json](https://github.com/eclipse-score/inc_json): Incubation repository for JSON module — 💤 obsolete
+  * [inc_mw_com](https://github.com/eclipse-score/inc_mw_com): Incubation repository for interprocess communication framework — 🕓 stale
+  * [inc_mw_log](https://github.com/eclipse-score/inc_mw_log): Incubation repository for logging framework — 💤 obsolete
+  * [nlohmann_json](https://github.com/eclipse-score/nlohmann_json): Nlohmann JSON Library — ✅ active
+  * [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd): Incubation repository for AutoSD Development Platform — ✅ active
+  * [inc_process_test_management](https://github.com/eclipse-score/inc_process_test_management): Incubation repository for Process - Sphinx-Test management — 💤 obsolete
+  * [inc_process_variant_management](https://github.com/eclipse-score/inc_process_variant_management): Incubation repository for Process - Sphinx-Variant management — 💤 obsolete
+  * [testing_tools](https://github.com/eclipse-score/testing_tools): Repository for testing utilities — ✅ active
+  * [lifecycle](https://github.com/eclipse-score/lifecycle): Repository for the lifecycle feature — ✅ active
+* **Toolchains**
+  * [bazel_platforms](https://github.com/eclipse-score/bazel_platforms): Bazel platform definitions used by S-CORE modules — ✅ active
+  * [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc): Bazel toolchains for GNU GCC — 🕓 stale
+  * [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages): Bazel toolchains for GNU GCC — 🕓 stale
+  * [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx): Bazel toolchains for QNX — ✅ active
+  * [toolchains_rust](https://github.com/eclipse-score/toolchains_rust): Rust toolchains — ✅ active
+* **Tooling**
+  * [devcontainer](https://github.com/eclipse-score/devcontainer): Common Devcontainer for Eclipse S-CORE — ✅ active
+  * [docs-as-code](https://github.com/eclipse-score/docs-as-code): Docs-as-code tooling for Eclipse S-CORE — ✅ active
+  * [tooling](https://github.com/eclipse-score/tooling): Tooling for Eclipse S-CORE — ✅ active
+* **Other**
+  * [apt-install](https://github.com/eclipse-score/apt-install): GitHub Action to execute apt-install in a clever way — 💤 obsolete
+  * [cicd-workflows](https://github.com/eclipse-score/cicd-workflows): Reusable GitHub Actions workflows for CI/CD automation — ✅ active
+  * [bazel_registry](https://github.com/eclipse-score/bazel_registry): Score project bazel modules registry — ✅ active
+  * [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui): House the ui for bazel_registry in Score — ✅ active
+  * [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn): Repository to host configurations related to the Eclipse Foundation. — ✅ active
