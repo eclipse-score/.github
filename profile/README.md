@@ -8,37 +8,12 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 ## Repositories in the Github organization
 
-*Note: descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet) and may not be up to date. Change them there, not here!*
+---
 
-### General
+### Infrastructure - "Table Style"
+*formal looking tables, but very long*
 
-| Repository | Description | Status |
-|------------|-------------|--------|
-| [score](https://github.com/eclipse-score/score) | Score project main repository | ✅ active |
-| [.github](https://github.com/eclipse-score/.github) | Houses the organisation README | ✅ active |
-| [process_description](https://github.com/eclipse-score/process_description) | Score project process description | ✅ active |
-
-### Website
-
-| Repository | Description | Status |
-|------------|-------------|--------|
-| [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | The landing page website for the Score project | 💤 obsolete |
-| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | (no description) | ✅ active |
-| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | (no description) | ✅ active |
-| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | (no description) | 💤 obsolete |
-
-### Modules
-
-| Repository | Description | Status |
-|------------|-------------|--------|
-| [module_template](https://github.com/eclipse-score/module_template) | C++ & Rust Bazel Template Repository | ✅ active |
-| [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality | ✅ active |
-| [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa | ✅ active |
-| [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework | ✅ active |
-| [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository | ✅ active |
-| [operating_system](https://github.com/eclipse-score/operating_system) | Repository for the module operating system | 💤 obsolete |
-| [orchestrator](https://github.com/eclipse-score/orchestrator) | Orchestration framework & Safe async runtime for Rust | ✅ active |
-| [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework | ✅ active |
+#### Toolchains
 
 ### Integrations
 | Repository | Description | Status |
@@ -92,8 +67,37 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score | ✅ active |
 | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. | ✅ active |
 
-### Examples & Templates
+---
 
-| Repository | Description | Status |
-|------------|-------------|--------|
-| [examples](https://github.com/eclipse-score/examples) | Hosts templates and examples for score tools and workflows | 💤 obsolete |
+### Infrastructure - "Short Table Style"
+*still formal looking, but much shorter*
+
+
+| Category | Repository | Description | Status |
+|----------|------------|-------------|--------|
+| **Docs-As-Code** | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE | ✅ active |
+| | | | |
+| **SBOM & License Scanning** | [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | GitHub Action to scan licenses | 🕓 stale |
+| | [sbom-tool](https://github.com/eclipse-score/sbom-tool) | Tool to generate Software Bill of Materials (SBOM) | 🕓 stale |
+| | | | |
+| **GitHub Workflows** | [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | Reusable GitHub Actions workflows for CI/CD automation | ✅ active |
+| | [apt-install](https://github.com/eclipse-score/apt-install) | GitHub Action to execute apt-install in a clever way | 🕓 stale |
+| | [more-disk-space](https://github.com/eclipse-score/more-disk-space) | GitHub Action to increase available disk space | 🕓 stale |
+| | | | |
+| **Bazel Registry** | [bazel_registry](https://github.com/eclipse-score/bazel_registry) | Score project bazel modules registry | ✅ active |
+| | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score | 🕓 stale |
+
+### Infrastructure - "List Style"
+*not formal looking, but it does contain all the information and is very compact (note: status will be deleted anyway)*
+
+* **Docs-As-Code**
+  * [docs-as-code](https://github.com/eclipse-score/docs-as-code): Docs-as-code tooling for Eclipse S-CORE
+* **SBOM & License Scanning**
+  * [dash-license-scan](https://github.com/eclipse-score/dash-license-scan): GitHub Action to scan licenses
+  * [sbom-tool](https://github.com/eclipse-score/sbom-tool): Tool to generate Software Bill of Materials (SBOM)
+* **GitHub Workflows**
+  * [apt-install](https://github.com/eclipse-score/apt-install): GitHub Action to execute apt-install in a clever way
+  * [more-disk-space](https://github.com/eclipse-score/more-disk-space): GitHub Action to increase available disk space
+* **Bazel Registry**
+  * [bazel_registry](https://github.com/eclipse-score/bazel_registry): Score project bazel modules registry
+  * [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui): House the ui for bazel_registry in Score
