@@ -1,4 +1,4 @@
-# "Table Style"
+# :one: "Table Style"
 *formal looking tables, but very long*
 
 #### Integrations
@@ -55,7 +55,7 @@
 
 ---
 
-# "Short Table Style"
+# :two: "Short Table Style"
 *still formal looking, but much shorter*
 
 
@@ -96,7 +96,7 @@
 
 ---
 
-# Infrastructure - "List Style"
+# :three: "List Style"
 *not formal looking, but it does contain all the information and is very compact (note: status will be deleted anyway)*
 
 * **Integrations**
