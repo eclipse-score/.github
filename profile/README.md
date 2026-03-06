@@ -69,6 +69,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 ### Infrastructure
 
 #### Integration
+
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [reference_integration](https://github.com/eclipse-score/reference_integration) | Score project integration repository | ✅ active |
