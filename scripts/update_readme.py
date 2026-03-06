@@ -16,18 +16,115 @@
 Update the Descriptions and Status column (✅ / 🕓 / 💤) in profile/README.md.
 """
 
+import json
 import os
 import pathlib
 import re
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from github import Github
-
 ORG = "eclipse-score"
-gh = Github(os.getenv("GITHUB_TOKEN"))
 NOW = datetime.now(timezone.utc)
+
+OTTERDOG_CONFIG_URL = (
+    "https://raw.githubusercontent.com/eclipse-score/.eclipsefdn/main/otterdog/eclipse-score.jsonnet"
+)
+
+
+def _parse_otterdog_alias_map(jsonnet_text: str) -> dict[str, str]:
+    """Extract alias -> canonical repo name mappings from the Otterdog jsonnet.
+
+    The config contains repo declarations like:
+      newScoreRepo("nlohmann_json", true) { aliases: ["inc_nlohmann_json"], ... }
+
+    This function uses a lightweight brace-depth scan (not a full Jsonnet parser)
+    so we don't need additional dependencies.
+    """
+
+    repo_start = re.compile(
+        r"(?:orgs\.newRepo|newScoreRepo|newModuleRepo|newInfrastructureTeamRepo)\(\s*(['\"])"
+        r"(?P<name>[^'\"]+)\1"
+    )
+    aliases_field = re.compile(r"\baliases\+?\s*:\s*\[(?P<body>.*?)\]", re.DOTALL)
+    quoted_string = re.compile(r"['\"]([^'\"]+)['\"]")
+
+    alias_map: dict[str, str] = {}
+
+    current_repo: str | None = None
+    brace_depth = 0
+    started = False
+    block_lines: list[str] = []
+
+    for line in jsonnet_text.splitlines():
+        if current_repo is None:
+            m = repo_start.search(line)
+            if not m:
+                continue
+            current_repo = m.group("name")
+            block_lines = [line]
+            brace_depth = line.count("{") - line.count("}")
+            started = "{" in line
+            if started and brace_depth == 0:
+                block_text = "\n".join(block_lines)
+                am = aliases_field.search(block_text)
+                if am:
+                    for alias in quoted_string.findall(am.group("body")):
+                        alias_map[alias] = current_repo
+                current_repo = None
+                block_lines = []
+                started = False
+            continue
+
+        block_lines.append(line)
+        if "{" in line or "}" in line:
+            started = started or ("{" in line)
+            brace_depth += line.count("{") - line.count("}")
+
+        if started and brace_depth == 0:
+            block_text = "\n".join(block_lines)
+            am = aliases_field.search(block_text)
+            if am:
+                for alias in quoted_string.findall(am.group("body")):
+                    alias_map[alias] = current_repo
+            current_repo = None
+            block_lines = []
+            started = False
+
+    return alias_map
+
+
+def load_otterdog_alias_map(url: str = OTTERDOG_CONFIG_URL) -> dict[str, str]:
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "Accept": "text/plain, */*",
+                "User-Agent": "eclipse-score-readme-updater",
+            },
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            status_code = getattr(resp, "status", 200)
+            body = resp.read().decode("utf-8")
+    except Exception as exc:
+        print(f"⚠️ Could not fetch Otterdog config for aliases: {exc}")
+        return {}
+
+    if status_code != 200:
+        print(
+            "⚠️ Could not fetch Otterdog config for aliases: "
+            f"HTTP {status_code}"
+        )
+        return {}
+
+    try:
+        return _parse_otterdog_alias_map(body)
+    except Exception as exc:
+        print(f"⚠️ Could not parse Otterdog config for aliases: {exc}")
+        return {}
 
 
 def calc_state(pushed_at: datetime) -> str:
@@ -47,9 +144,10 @@ def calc_state(pushed_at: datetime) -> str:
 
 
 def get_last_commit(repo):
-    import requests
-
     token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return None
+
     headers = {"Authorization": f"Bearer {token}"}
 
     query = """
@@ -80,16 +178,35 @@ def get_last_commit(repo):
         "branchCount": 100
     }
 
-    response = requests.post(
-        "https://api.github.com/graphql",
-        json={"query": query, "variables": variables},
-        headers=headers,
+    url = "https://api.github.com/graphql"
+    payload = {"query": query, "variables": variables}
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            **headers,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
     )
-    if response.status_code != 200:
-        print(f"⚠️ GraphQL request failed for {repo.name}: {response.status_code} {response.text}")
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            status_code = getattr(resp, "status", 200)
+            body = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        status_code = exc.code
+        body = exc.read().decode("utf-8", errors="replace")
+    except Exception as exc:
+        print(f"⚠️ GraphQL request failed for {repo.name}: {exc}")
         return None
 
-    data = response.json()
+    if status_code != 200:
+        print(f"⚠️ GraphQL request failed for {repo.name}: {status_code} {body}")
+        return None
+
+    data = json.loads(body)
     if "errors" in data:
         print(f"⚠️ GraphQL error for {repo.name}: {data['errors']}")
         return None
@@ -121,7 +238,7 @@ class RepoData:
     status: str
 
 
-def query_github_org_for_repo_data(gh: Github, org: str):
+def query_github_org_for_repo_data(gh, org: str):
     # TODO: pagination once we hit 100 repos
     repos = gh.get_organization(org).get_repos()
     data = {}
@@ -144,36 +261,97 @@ def query_github_org_for_repo_data(gh: Github, org: str):
 
 
 
-def update_line(line: str, repo_data: dict[str, RepoData]) -> str:
+def update_line(
+    line: str,
+    repo_data: dict[str, RepoData],
+    alias_map: dict[str, str],
+    missing_repos_in_api: set[str],
+    renamed_repos: list[tuple[str, str]],
+) -> str:
     # Change lines starting with "| [repo]"
-    m = re.match(r"^\| \[(.*)\]", line)
+    m = re.match(r"^\| \[([^\]]+)\]", line)
     if not m:
         return line
 
-    repo: str = m.group(1)
-    data = repo_data.pop(repo)
+    repo: str = m.group(1).strip()
 
-    return f"| [{repo}](https://github.com/eclipse-score/{repo}) | {data.description} | {data.status} |"
+    # Fast path: exact match.
+    data = repo_data.pop(repo, None)
+    resolved_repo = repo
+
+    # Handle renames/aliases (old name in README -> canonical name in API),
+    # sourced from the Otterdog configuration.
+    if data is None and repo in alias_map:
+        canonical = alias_map[repo]
+        data = repo_data.pop(canonical, None)
+        if data is not None:
+            resolved_repo = canonical
+            renamed_repos.append((repo, canonical))
+    if data is None:
+        # Keep the original line unchanged if the repo isn't visible via the API
+        # (e.g., private repo or insufficient token permissions).
+        missing_repos_in_api.add(repo)
+        return line
+
+    # If we resolved via rename, update the displayed repo name/link to the
+    # current name (the one we matched in repo_data).
+    return f"| [{resolved_repo}](https://github.com/eclipse-score/{resolved_repo}) | {data.description} | {data.status} |"
 
 
-def update_readme(original: str, repo_data: dict[str, RepoData]) -> str:
-    # Apply update_line to each line
-    return "\n".join(
-        map(lambda line: update_line(line, repo_data), original.splitlines())
-    )
+def update_readme(
+    original: str,
+    repo_data: dict[str, RepoData],
+    alias_map: dict[str, str],
+) -> str:
+    missing_repos_in_api: set[str] = set()
+    renamed_repos: list[tuple[str, str]] = []
+    updated_lines: list[str] = []
+
+    for line in original.splitlines():
+        updated_lines.append(
+            update_line(line, repo_data, alias_map, missing_repos_in_api, renamed_repos)
+        )
+
+    if renamed_repos:
+        rename_list = ", ".join(
+            f"{old}→{new}" for old, new in sorted(renamed_repos, key=lambda x: x[0].lower())
+        )
+        print(f"ℹ️ Applied repo renames: {rename_list}")
+
+    if missing_repos_in_api:
+        missing_list = ", ".join(sorted(missing_repos_in_api, key=str.lower))
+        print(
+            "⚠️ Repos referenced in profile/README.md but not returned by the GitHub API "
+            f"({len(missing_repos_in_api)}): {missing_list}"
+        )
+
+    return "\n".join(updated_lines)
 
 
 if __name__ == "__main__":
+    alias_map = load_otterdog_alias_map()
+    if alias_map:
+        print(f"ℹ️ Loaded {len(alias_map)} repo aliases from Otterdog")
+
+    try:
+        from github import Github
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "Missing dependency 'PyGithub'. Install requirements.txt before running this script."
+        ) from exc
+
+    gh = Github(os.getenv("GITHUB_TOKEN"))
+
     repo_data = query_github_org_for_repo_data(gh, ORG)
 
     MD_FILE = pathlib.Path("profile/README.md")
 
     original = MD_FILE.read_text()
-    updated = update_readme(original, repo_data)
+    updated = update_readme(original, repo_data, alias_map)
 
     for repo in repo_data:
         print(
-            f"Missing repo: {repo} - {repo_data[repo].description} ({repo_data[repo].status})"
+            f"Extra repo (not listed in profile/README.md): {repo} - {repo_data[repo].description} ({repo_data[repo].status})"
         )
 
     if updated != original:
