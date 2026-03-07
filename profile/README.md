@@ -36,7 +36,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa | ✅ active |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework | ✅ active |
 | [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository | ✅ active |
-| [operating_system](https://github.com/eclipse-score/operating_system) | Repository for the module operating system | 💤 obsolete |
+| [operating_system](https://github.com/eclipse-score/operating_system) | Repository for the module operating system | ✅ active |
 | [orchestrator](https://github.com/eclipse-score/orchestrator) | Orchestration framework & Safe async runtime for Rust | ✅ active |
 | [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework | ✅ active |
 
@@ -50,7 +50,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker | 🕓 stale |
-| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker | ✅ active |
+| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker | 🕓 stale |
 | [inc_config_management](https://github.com/eclipse-score/inc_config_management) | Incubation repository for config management | 💤 obsolete |
 | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module | ✅ active |
 | [inc_feo](https://github.com/eclipse-score/inc_feo) | Incubation repository for the fixed execution order framework | 💤 obsolete |
@@ -69,8 +69,8 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | Repository | Description | Status |
 |------------|-------------|--------|
 | [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | Bazel platform definitions used by S-CORE modules | ✅ active |
-| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | Bazel toolchains for GNU GCC | 🕓 stale |
-| [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | Bazel toolchains for GNU GCC | 🕓 stale |
+| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | Bazel toolchains for GNU GCC | 💤 obsolete |
+| [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | Bazel toolchains for GNU GCC | ✅ active |
 | [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | Bazel toolchains for QNX | ✅ active |
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains | ✅ active |
 
@@ -88,7 +88,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 |------------|-------------|--------|
 | [apt-install](https://github.com/eclipse-score/apt-install) | GitHub Action to execute apt-install in a clever way | 💤 obsolete |
 | [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | Reusable GitHub Actions workflows for CI/CD automation | ✅ active |
-| [bazel_registry](https://github.com/eclipse-score/bazel_registry) | Score project bazel modules registry | ✅ active |
+| [bazel_registry](https://github.com/eclipse-score/bazel_registry) | Score project bazel modules registry | 🕓 stale |
 | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score | ✅ active |
 | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. | ✅ active |
 
