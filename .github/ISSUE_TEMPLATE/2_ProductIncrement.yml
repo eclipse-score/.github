@@ -14,7 +14,6 @@
 name: Product Increment
 description: Issue to track a Product Increment
 title: "Your Product Increment title"
-labels: ["codeowner_review"]
 type: 'Product Increment'
 body:
   - type: markdown

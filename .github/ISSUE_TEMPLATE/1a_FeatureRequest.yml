@@ -1,5 +1,5 @@
 # *******************************************************************************
-# Copyright (c) 2025 Contributors to the Eclipse Foundation
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
 #
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -12,9 +12,8 @@
 # *******************************************************************************
 
 name: Feature Request
-description: Issue to track a Feature Request
-title: "Your Feature Request title"
-labels: ["codeowner_review"]
+description: Issue to track a Feature Request / Modification
+title: "Your Feature Request / Modification title"
 type: 'Feature Request'
 body:
   - type: markdown
@@ -22,10 +21,30 @@ body:
       value: "## <ins>Feature Request Ticket creation</ins>"
   - type: textarea
     attributes:
-      label: Feature Request Description
+      label: Feature Request / Modification Description
       description: |
         - Use following template within a PR and link it to this issue
           [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_feature_template.html) needs to be used
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Expected Changes ot work products
+      options:
+        - label: Requirements
+        - label: Architecture
+        - label: Safety Analysis
+        - label: Security Analysis
+        - label: Detailed Design
+        - label: Implementation and Testing
+        - label: all  
+          required: true
+  - type: textarea
+    attributes:
+      label: Impact analysis
+      description: |
+        - Summary of the impacted analysis 
+        [Change Management Impact Analysis Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_impact_analysis_template.html) needs to be used
     validations:
       required: true
   - type: checkboxes
@@ -39,7 +58,7 @@ body:
       required: true
   - type: dropdown
     attributes:
-      label: ASIL classification
+      label: Expected required ASIL classification
       options:
         - QM
         - ASIL_B
@@ -52,6 +71,7 @@ body:
       label: Expected Implementation Version (Release)
       options:
         - '1.0'
+        - '1.5'
         - '2.0'
         - '3.0'
       default: 0

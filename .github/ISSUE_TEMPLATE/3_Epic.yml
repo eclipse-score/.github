@@ -1,5 +1,5 @@
 # *******************************************************************************
-# Copyright (c) 2025 Contributors to the Eclipse Foundation
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
 #
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -14,7 +14,6 @@
 name: Epic
 description: Issue to track an Epic
 title: "Your Epic title"
-labels: ["codeowner_review"]
 type: 'Epic'
 body:
   - type: markdown
@@ -32,18 +31,3 @@ body:
       description: Details on when the Task is considered "done"
     validations:
       required: true
-  - type: checkboxes
-    attributes:
-      label: Affects work products
-      options:
-        - label: Requirements
-        - label: Architecture
-        - label: Safety Analysis
-        - label: Security Analysis 
-        - label: Detailed Design
-        - label: Implementation 
-        - label: Test Cases
-        - label: Process
-        - label: Infrastructure
-        - label: Others
-          required: true

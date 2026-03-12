@@ -1,5 +1,5 @@
 # *******************************************************************************
-# Copyright (c) 2025 Contributors to the Eclipse Foundation
+# Copyright (c) 2026 Contributors to the Eclipse Foundation
 #
 # See the NOTICE file(s) distributed with this work for additional
 # information regarding copyright ownership.
@@ -14,7 +14,6 @@
 name: Bug
 description: Issue to track a Bug
 title: "Your Bug title"
-labels: ["codeowner_review"]
 type: 'Bug'
 body:
   - type: markdown
@@ -88,13 +87,12 @@ body:
         - 1.0
       default: 0
     validations:
-      required: true
+      required: false
   - type: dropdown
     attributes:
       label: Last Affected Release 
       options:
         - not released (main)        
-        - pre-0.5
         - 0.5
         - 0.6
         - 0.7
@@ -103,7 +101,7 @@ body:
         - 1.0
       default: 0
     validations:
-      required: true
+      required: false
   - type: dropdown
     attributes:
       label: Expected Fixed Release
@@ -124,13 +122,3 @@ body:
       options:
         - label: Safety Relevant
         - label: Security Relevant
-  - type: dropdown
-    attributes:
-      label: ASIL classification
-      options:
-        - QM
-        - ASIL_B
-        - ASIL_D
-      default: 0
-    validations:
-      required: false
