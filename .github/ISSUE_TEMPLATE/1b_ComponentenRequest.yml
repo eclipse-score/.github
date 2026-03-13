@@ -62,7 +62,6 @@ body:
       options:
         - QM
         - ASIL_B
-        - ASIL_D
       default: 0
     validations:
       required: true
