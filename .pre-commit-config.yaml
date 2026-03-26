@@ -1,0 +1,43 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=50"]
+        exclude: ^uv\.lock$
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff (uv)
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+
+      - id: ruff-format
+        name: ruff format (uv)
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+
+      - id: pytest
+        name: pytest (uv)
+        entry: uv run pytest
+        language: system
+        types_or: [python, pyi]
+
+      - id: basedpyright
+        name: basedpyright (uv)
+        entry: uv run basedpyright
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false

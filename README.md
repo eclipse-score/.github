@@ -5,14 +5,23 @@ This repository hosts the start page when you visit the eclipse-score GitHub org
 
 ## Development
 
-You can use e.g. `uv` to create a virtual environment:
+Use `uv` to create a virtual environment and install the project dependencies:
 
 ```
-uv venv && uv pip install -r requirements.txt
+uv sync --all-groups
 ```
 
-And to run the script:
+To generate the organization profile README:
 
 ```
-uv run scripts/update_readme.py
+uv run generate-profile-readme
+```
+
+The generator reads repository custom properties from GitHub and expects `GITHUB_TOKEN` to be set.
+If `GITHUB_TOKEN` is not set, it falls back to `gh auth token`.
+
+To run the local checks:
+
+```sh
+uv run pre-commit run --all-files
 ```
