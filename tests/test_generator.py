@@ -7,6 +7,8 @@ import profile_readme_generator.generator as generator
 from profile_readme_generator.generator import (
     RepoEntry,
     build_repo_entry,
+    fetch_repositories,
+    fetch_repository_descriptions,
     get_gh_auth_token,
     group_repositories,
     normalize_group_name,
@@ -56,6 +58,40 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
         category="Infrastructure",
         subcategory="General",
     )
+
+
+def test_fetch_repository_descriptions_skips_archived_repositories() -> None:
+    organization = SimpleNamespace(
+        get_repos=lambda: [
+            SimpleNamespace(name="active-repo", description="Active", archived=False),
+            SimpleNamespace(name="archived-repo", description="Archived", archived=True),
+        ]
+    )
+
+    assert fetch_repository_descriptions(organization) == {"active-repo": "Active"}
+
+
+def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None:
+    organization = SimpleNamespace(
+        get_repos=lambda: [
+            SimpleNamespace(name="active-repo", description="Active", archived=False),
+            SimpleNamespace(name="archived-repo", description="Archived", archived=True),
+        ],
+        list_custom_property_values=lambda: [
+            SimpleNamespace(
+                repository_name="active-repo",
+                properties={"category": "Infrastructure", "subcategory": "General"},
+            ),
+            SimpleNamespace(
+                repository_name="archived-repo",
+                properties={"category": "Infrastructure", "subcategory": "General"},
+            ),
+        ],
+    )
+
+    assert fetch_repositories(organization) == [
+        RepoEntry("active-repo", "Active", "Infrastructure", "General")
+    ]
 
 
 def test_render_readme_uses_simple_markdown_sections() -> None:

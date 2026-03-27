@@ -116,9 +116,12 @@ def fetch_repositories(organization: Organization) -> list[RepoEntry]:
     print_status("Loading repository descriptions")
     descriptions_by_name = fetch_repository_descriptions(organization)
     print_status("Loading repository custom properties in bulk")
+    active_repository_names = set(descriptions_by_name)
 
     repos_by_name: dict[str, RepoEntry] = {}
     for repository_properties in organization.list_custom_property_values():
+        if repository_properties.repository_name not in active_repository_names:
+            continue
         repo_entry = build_repo_entry(
             repository_name=repository_properties.repository_name,
             description=descriptions_by_name.get(repository_properties.repository_name),
@@ -145,6 +148,8 @@ def fetch_repositories(organization: Organization) -> list[RepoEntry]:
 def fetch_repository_descriptions(organization: Organization) -> dict[str, str | None]:
     descriptions_by_name: dict[str, str | None] = {}
     for repository in organization.get_repos():
+        if repository.archived:
+            continue
         descriptions_by_name[repository.name] = repository.description
     return descriptions_by_name
 
