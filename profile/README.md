@@ -8,7 +8,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 ## Repositories in the Github organization
 
-This page is generated from GitHub repository metadata. Repositories are grouped by the custom properties `category` and `subcategory`.
+*Note: categories and descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet). If you need changes, you must change them there, not here!*
 
 ### infrastructure
 
@@ -26,7 +26,6 @@ This page is generated from GitHub repository metadata. Repositories are grouped
 | Repository | Description |
 |------------|-------------|
 | [.github](https://github.com/eclipse-score/.github) | Houses the organisation README |
-| [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE |
 | [infrastructure](https://github.com/eclipse-score/infrastructure) | All general information related to the development and integration infrastructure |
 | [module_template](https://github.com/eclipse-score/module_template) | C++ & Rust Bazel Template Repository |
 | [sbom-tool](https://github.com/eclipse-score/sbom-tool) | Home of the SBOM generation tool |
@@ -39,11 +38,15 @@ This page is generated from GitHub repository metadata. Repositories are grouped
 |------------|-------------|
 | [os_images](https://github.com/eclipse-score/os_images) | OS Images for testing and deliveries |
 | [reference_integration](https://github.com/eclipse-score/reference_integration) | Score project integration repository |
+| [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | Repository for Image FileSystem Bazel rules and toolchains definitions |
+| [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities |
 
 #### toolchains
 
 | Repository | Description |
 |------------|-------------|
+| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker |
+| [bazel_cpp_toolchains](https://github.com/eclipse-score/bazel_cpp_toolchains) | Bazel C/C++ toolchain configuration repository |
 | [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | Bazel platform definitions used by S-CORE modules |
 | [ferrocene_toolchain_builder](https://github.com/eclipse-score/ferrocene_toolchain_builder) | Builder for Ferrocene artifacts |
 | [rules_rust](https://github.com/eclipse-score/rules_rust) | S-CORE fork of bazelbuild/rules_rust |
@@ -62,6 +65,7 @@ This page is generated from GitHub repository metadata. Repositories are grouped
 | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score |
 | [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | pipx/uvx wrapper for the dash-licenses tool |
 | [devcontainer](https://github.com/eclipse-score/devcontainer) | Common DevContainer for Eclipse S-CORE |
+| [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE |
 
 ### modules
 
@@ -98,17 +102,13 @@ This page is generated from GitHub repository metadata. Repositories are grouped
 | Repository | Description |
 |------------|-------------|
 | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. |
-| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | Repository for clang-tidy based static code checker |
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker |
-| [bazel_cpp_toolchains](https://github.com/eclipse-score/bazel_cpp_toolchains) | Bazel C/C++ toolchain configuration repository |
 | [dev_playground](https://github.com/eclipse-score/dev_playground) | Repository for developer tools and playground |
 | [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository |
 | [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | Nlohmann JSON Library |
 | [process_description](https://github.com/eclipse-score/process_description) | Score project process description |
-| [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | Repository for Image FileSystem Bazel rules and toolchains definitions |
 | [score](https://github.com/eclipse-score/score) | Score project main repository |
 | [score-crates](https://github.com/eclipse-score/score-crates) | Repository to provide a defined list of rust crates to be used as bzl_mods |
-| [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities |
 
 ### website
 

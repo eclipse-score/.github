@@ -8,6 +8,6 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 ## Repositories in the Github organization
 
-This page is generated from GitHub repository metadata. Repositories are grouped by the custom properties `category` and `subcategory`.
+*Note: categories and descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet). If you need changes, you must change them there, not here!*
 
 {{ repo_sections }}
