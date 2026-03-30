@@ -10,7 +10,7 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 *Note: categories and descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet). If you need changes, you must change them there, not here!*
 
-### modules
+### Modules
 
 Core S-CORE modules, libraries, and APIs.
 
@@ -30,7 +30,7 @@ Core S-CORE modules, libraries, and APIs.
 | [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework |
 | [scrample](https://github.com/eclipse-score/scrample) | Repository for example component |
 
-#### incubation
+#### Incubation
 
 Repositories for experimental or early-stage features.
 
@@ -42,11 +42,13 @@ Repositories for experimental or early-stage features.
 | [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | Incubation repository for SOME/IP gateway feature |
 | [inc_time](https://github.com/eclipse-score/inc_time) | incubation repo for time sync module |
 
-### infrastructure
+---
+
+### Infrastructure
 
 Shared tooling, build automation, and integration infrastructure.
 
-#### automation
+#### Automation
 
 Continuous integration workflows, automation, and supporting services.
 
@@ -70,7 +72,7 @@ Infrastructure repositories that do not need a more specific subgroup.
 | [tooling](https://github.com/eclipse-score/tooling) | Tooling for Eclipse S-CORE |
 | [tools](https://github.com/eclipse-score/tools) | Home of score-tools, the new pypi based tools approach |
 
-#### integration
+#### Integration
 
 Integration repositories for various systems and components.
 
@@ -81,7 +83,7 @@ Integration repositories for various systems and components.
 | [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | Repository for Image FileSystem Bazel rules and toolchains definitions |
 | [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities |
 
-#### toolchains
+#### Toolchains
 
 Toolchain repositories for compilers, linters, and other development tools.
 
@@ -99,7 +101,7 @@ Toolchain repositories for compilers, linters, and other development tools.
 | [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | Bazel toolchains for QNX |
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains |
 
-#### tooling
+#### Tooling
 
 Developer tools, scripts, and shared engineering utilities.
 
@@ -111,7 +113,9 @@ Developer tools, scripts, and shared engineering utilities.
 | [devcontainer](https://github.com/eclipse-score/devcontainer) | Common DevContainer for Eclipse S-CORE |
 | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE |
 
-### website
+---
+
+### Website
 
 Project websites, published documentation, and related web assets.
 
@@ -121,6 +125,8 @@ Project websites, published documentation, and related web assets.
 | [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | (no description) |
 | [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | (no description) |
 | [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | The landing page website for the Score project |
+
+---
 
 ### Uncategorized
 

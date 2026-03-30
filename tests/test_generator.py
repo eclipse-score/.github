@@ -161,6 +161,7 @@ def test_render_readme_uses_simple_markdown_sections() -> None:
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | Tooling repo |" in markdown
     )
+    assert "\n---\n\n### Modules\n" in markdown
     assert markdown.endswith("\n")
 
 

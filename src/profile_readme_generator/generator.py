@@ -443,7 +443,9 @@ def render_readme(
     config_index = ConfigIndex.from_config(config)
     lines: list[str] = []
 
-    for category, subcategories in grouped.items():
+    for index, (category, subcategories) in enumerate(grouped.items()):
+        if index > 0:
+            lines.extend(("---", ""))
         lines.extend(
             render_category_section(
                 category=category,
