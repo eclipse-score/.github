@@ -47,6 +47,72 @@ class ReadmeConfig:
     categories: tuple[CategoryConfig, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigIndex:
+    category_positions: dict[str, int]
+    category_names: dict[str, str]
+    category_descriptions: dict[str, str]
+    subcategory_names: dict[str, dict[str, str]]
+    subcategory_descriptions: dict[str, dict[str, str]]
+
+    @classmethod
+    def from_config(cls, config: ReadmeConfig | None) -> ConfigIndex:
+        if config is None:
+            return cls(
+                category_positions={},
+                category_names={},
+                category_descriptions={},
+                subcategory_names={},
+                subcategory_descriptions={},
+            )
+
+        category_positions: dict[str, int] = {}
+        category_names: dict[str, str] = {}
+        category_descriptions: dict[str, str] = {}
+        subcategory_names: dict[str, dict[str, str]] = {}
+        subcategory_descriptions: dict[str, dict[str, str]] = {}
+
+        for index, category in enumerate(config.categories):
+            category_key = category.name.casefold()
+            category_positions[category_key] = index
+            category_names[category_key] = category.name
+            category_descriptions[category_key] = category.description
+            subcategory_names[category_key] = {
+                subcategory.name.casefold(): subcategory.name
+                for subcategory in category.subcategories
+            }
+            subcategory_descriptions[category_key] = {
+                subcategory.name.casefold(): subcategory.description
+                for subcategory in category.subcategories
+            }
+
+        return cls(
+            category_positions=category_positions,
+            category_names=category_names,
+            category_descriptions=category_descriptions,
+            subcategory_names=subcategory_names,
+            subcategory_descriptions=subcategory_descriptions,
+        )
+
+    def canonical_category_name(self, category: str) -> str:
+        return self.category_names.get(category.casefold(), category)
+
+    def category_description(self, category: str) -> str:
+        return self.category_descriptions.get(category.casefold(), "")
+
+    def canonical_subcategory_name(self, category: str, subcategory: str) -> str:
+        return self.subcategory_names.get(category.casefold(), {}).get(
+            subcategory.casefold(),
+            subcategory,
+        )
+
+    def subcategory_description(self, category: str, subcategory: str) -> str:
+        return self.subcategory_descriptions.get(category.casefold(), {}).get(
+            subcategory.casefold(),
+            "",
+        )
+
+
 GroupedRepos = dict[str, dict[str, list[RepoEntry]]]
 CustomPropertyValue = str | list[str] | None
 
@@ -230,79 +296,100 @@ def load_config(config_path: Path | None) -> ReadmeConfig:
     config_source = (
         str(config_path) if config_path is not None else "package default config"
     )
-    raw_config = tomllib.loads(config_content)
-    raw_categories = raw_config.get("categories", [])
+    raw_categories = tomllib.loads(config_content).get("categories", [])
     if not isinstance(raw_categories, list):
         message = (
             f"Invalid config in {config_source}: 'categories' must be a list of tables."
         )
         raise ValueError(message)
 
-    categories: list[CategoryConfig] = []
-    for raw_category in raw_categories:
-        if not isinstance(raw_category, dict):
-            message = (
-                f"Invalid config in {config_source}: each category entry must be a table."
-            )
-            raise ValueError(message)
+    categories = tuple(
+        parse_category_config(raw_category, config_source)
+        for raw_category in raw_categories
+    )
+    return ReadmeConfig(categories=categories)
 
-        name = raw_category.get("name")
-        description = raw_category.get("description", "")
-        if not isinstance(name, str) or not name.strip():
-            message = (
-                f"Invalid config in {config_source}: each category needs a non-empty name."
-            )
-            raise ValueError(message)
-        if not isinstance(description, str):
-            message = (
-                f"Invalid config in {config_source}: category descriptions must be strings."
-            )
-            raise ValueError(message)
 
-        raw_subcategories = raw_category.get("subcategories", [])
-        if not isinstance(raw_subcategories, list):
-            message = (
-                f"Invalid config in {config_source}: category subcategories must be a list of tables."
-            )
-            raise ValueError(message)
-
-        subcategories: list[SubcategoryConfig] = []
-        for raw_subcategory in raw_subcategories:
-            if not isinstance(raw_subcategory, dict):
-                message = (
-                    f"Invalid config in {config_source}: each subcategory entry must be a table."
-                )
-                raise ValueError(message)
-
-            subcategory_name = raw_subcategory.get("name")
-            subcategory_description = raw_subcategory.get("description", "")
-            if not isinstance(subcategory_name, str) or not subcategory_name.strip():
-                message = (
-                    f"Invalid config in {config_source}: each subcategory needs a non-empty name."
-                )
-                raise ValueError(message)
-            if not isinstance(subcategory_description, str):
-                message = (
-                    f"Invalid config in {config_source}: subcategory descriptions must be strings."
-                )
-                raise ValueError(message)
-
-            subcategories.append(
-                SubcategoryConfig(
-                    name=subcategory_name.strip(),
-                    description=subcategory_description.strip(),
-                )
-            )
-
-        categories.append(
-            CategoryConfig(
-                name=name.strip(),
-                description=description.strip(),
-                subcategories=tuple(subcategories),
-            )
+def parse_category_config(raw_category: object, config_source: str) -> CategoryConfig:
+    if not isinstance(raw_category, dict):
+        message = (
+            f"Invalid config in {config_source}: each category entry must be a table."
         )
+        raise ValueError(message)
 
-    return ReadmeConfig(categories=tuple(categories))
+    name = require_non_empty_string(
+        raw_category.get("name"),
+        config_source=config_source,
+        field_name="each category needs a non-empty name",
+    )
+    description = require_string(
+        raw_category.get("description", ""),
+        config_source=config_source,
+        field_name="category descriptions must be strings",
+    ).strip()
+
+    raw_subcategories = raw_category.get("subcategories", [])
+    if not isinstance(raw_subcategories, list):
+        message = (
+            f"Invalid config in {config_source}: category subcategories must be a list of tables."
+        )
+        raise ValueError(message)
+
+    subcategories = tuple(
+        parse_subcategory_config(raw_subcategory, config_source)
+        for raw_subcategory in raw_subcategories
+    )
+    return CategoryConfig(
+        name=name,
+        description=description,
+        subcategories=subcategories,
+    )
+
+
+def parse_subcategory_config(
+    raw_subcategory: object,
+    config_source: str,
+) -> SubcategoryConfig:
+    if not isinstance(raw_subcategory, dict):
+        message = (
+            f"Invalid config in {config_source}: each subcategory entry must be a table."
+        )
+        raise ValueError(message)
+
+    return SubcategoryConfig(
+        name=require_non_empty_string(
+            raw_subcategory.get("name"),
+            config_source=config_source,
+            field_name="each subcategory needs a non-empty name",
+        ),
+        description=require_string(
+            raw_subcategory.get("description", ""),
+            config_source=config_source,
+            field_name="subcategory descriptions must be strings",
+        ).strip(),
+    )
+
+
+def require_non_empty_string(
+    value: object,
+    *,
+    config_source: str,
+    field_name: str,
+) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Invalid config in {config_source}: {field_name}.")
+    return value.strip()
+
+
+def require_string(
+    value: object,
+    *,
+    config_source: str,
+    field_name: str,
+) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid config in {config_source}: {field_name}.")
+    return value
 
 
 def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
@@ -323,10 +410,7 @@ def group_repositories(
     for repo in repos:
         grouped[repo.category][repo.subcategory].append(repo)
 
-    category_positions = {
-        category.name.casefold(): index
-        for index, category in enumerate(config.categories if config is not None else ())
-    }
+    config_index = ConfigIndex.from_config(config)
 
     return {
         category: {
@@ -339,7 +423,10 @@ def group_repositories(
         for category, subcategories in sorted(
             grouped.items(),
             key=lambda item: (
-                category_positions.get(item[0].casefold(), len(category_positions)),
+                config_index.category_positions.get(
+                    item[0].casefold(),
+                    len(config_index.category_positions),
+                ),
                 item[0].casefold(),
             ),
         )
@@ -353,82 +440,108 @@ def render_readme(
     org_name: str = DEFAULT_ORG,
 ) -> str:
     grouped = group_repositories(repos, config=config)
+    config_index = ConfigIndex.from_config(config)
     lines: list[str] = []
-    category_names = {
-        category.name.casefold(): category.name
-        for category in (config.categories if config is not None else ())
-    }
-    category_descriptions = {
-        category.name.casefold(): category.description
-        for category in (config.categories if config is not None else ())
-    }
-    subcategory_names = {
-        category.name.casefold(): {
-            subcategory.name.casefold(): subcategory.name
-            for subcategory in category.subcategories
-        }
-        for category in (config.categories if config is not None else ())
-    }
-    subcategory_descriptions = {
-        category.name.casefold(): {
-            subcategory.name.casefold(): subcategory.description
-            for subcategory in category.subcategories
-        }
-        for category in (config.categories if config is not None else ())
-    }
 
     for category, subcategories in grouped.items():
-        canonical_category = category_names.get(category.casefold(), category)
-        lines.extend((f"### {canonical_category}", ""))
-        category_description = category_descriptions.get(canonical_category.casefold(), "")
-        if category_description:
-            lines.extend((category_description, ""))
-        if len(subcategories) == 1 and DEFAULT_SUBCATEGORY in subcategories:
-            subcategory_description = subcategory_descriptions.get(
-                canonical_category.casefold(), {}
-            ).get(DEFAULT_SUBCATEGORY.casefold(), "")
-            if subcategory_description:
-                lines.extend((subcategory_description, ""))
-            lines.extend(
-                (
-                    "| Repository | Description |",
-                    "|------------|-------------|",
-                )
+        lines.extend(
+            render_category_section(
+                category=category,
+                subcategories=subcategories,
+                config_index=config_index,
+                org_name=org_name,
             )
-            lines.extend(
-                render_repo_row(entry, org_name=org_name)
-                for entry in subcategories[DEFAULT_SUBCATEGORY]
-            )
-            lines.extend(("",))
-            continue
-
-        for subcategory, entries in subcategories.items():
-            canonical_subcategory = subcategory_names.get(
-                canonical_category.casefold(), {}
-            ).get(subcategory.casefold(), subcategory)
-            lines.extend(
-                (
-                    f"#### {canonical_subcategory}",
-                )
-            )
-            subcategory_description = subcategory_descriptions.get(
-                canonical_category.casefold(), {}
-            ).get(canonical_subcategory.casefold(), "")
-            if subcategory_description:
-                lines.extend(("", subcategory_description))
-            lines.extend(
-                (
-                    "",
-                    "| Repository | Description |",
-                    "|------------|-------------|",
-                )
-            )
-            lines.extend(render_repo_row(entry, org_name=org_name) for entry in entries)
-            lines.extend(("",))
+        )
 
     repo_sections = "\n".join(lines).rstrip()
     markdown = template.replace("{{ repo_sections }}", repo_sections)
     return markdown.rstrip() + "\n"
+
+
+def render_category_section(
+    *,
+    category: str,
+    subcategories: dict[str, list[RepoEntry]],
+    config_index: ConfigIndex,
+    org_name: str,
+) -> list[str]:
+    canonical_category = config_index.canonical_category_name(category)
+    lines = [f"### {canonical_category}", ""]
+
+    category_description = config_index.category_description(canonical_category)
+    if category_description:
+        lines.extend((category_description, ""))
+
+    if len(subcategories) == 1 and DEFAULT_SUBCATEGORY in subcategories:
+        lines.extend(
+            render_general_subcategory_table(
+                category=canonical_category,
+                entries=subcategories[DEFAULT_SUBCATEGORY],
+                config_index=config_index,
+                org_name=org_name,
+            )
+        )
+        return lines
+
+    for subcategory, entries in subcategories.items():
+        lines.extend(
+            render_subcategory_section(
+                category=canonical_category,
+                subcategory=subcategory,
+                entries=entries,
+                config_index=config_index,
+                org_name=org_name,
+            )
+        )
+
+    return lines
+
+
+def render_general_subcategory_table(
+    *,
+    category: str,
+    entries: list[RepoEntry],
+    config_index: ConfigIndex,
+    org_name: str,
+) -> list[str]:
+    lines: list[str] = []
+    description = config_index.subcategory_description(category, DEFAULT_SUBCATEGORY)
+    if description:
+        lines.extend((description, ""))
+    lines.extend(render_repo_table(entries, org_name=org_name))
+    return lines
+
+
+def render_subcategory_section(
+    *,
+    category: str,
+    subcategory: str,
+    entries: list[RepoEntry],
+    config_index: ConfigIndex,
+    org_name: str,
+) -> list[str]:
+    canonical_subcategory = config_index.canonical_subcategory_name(
+        category,
+        subcategory,
+    )
+    lines = [f"#### {canonical_subcategory}"]
+
+    description = config_index.subcategory_description(category, canonical_subcategory)
+    if description:
+        lines.extend(("", description))
+
+    lines.extend(("", *render_repo_table(entries, org_name=org_name)))
+    return lines
+
+
+def render_repo_table(entries: list[RepoEntry], org_name: str) -> list[str]:
+    lines = [
+        "| Repository | Description |",
+        "|------------|-------------|",
+    ]
+    lines.extend(render_repo_row(entry, org_name=org_name) for entry in entries)
+    lines.append("")
+    return lines
 
 
 def render_repo_row(entry: RepoEntry, org_name: str = DEFAULT_ORG) -> str:
