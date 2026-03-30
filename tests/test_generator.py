@@ -117,6 +117,23 @@ def test_render_readme_uses_simple_markdown_sections() -> None:
     assert markdown.endswith("\n")
 
 
+def test_render_readme_omits_general_subheading_for_single_subcategory() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+
+    markdown = render_readme(
+        [RepoEntry("infra", "Infra repo", "Infrastructure", "General")],
+        template=template,
+    )
+
+    assert "### Infrastructure" in markdown
+    assert "#### General" not in markdown
+    assert "| Repository | Description |" in markdown
+    assert "| [infra](https://github.com/eclipse-score/infra) | Infra repo |" in markdown
+
+
 def test_resolve_github_token_prefers_environment(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setenv("TEST_GITHUB_TOKEN", "env-token")
     monkeypatch.setattr(generator, "get_gh_auth_token", lambda: "gh-token")

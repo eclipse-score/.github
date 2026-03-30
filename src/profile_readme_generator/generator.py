@@ -220,6 +220,20 @@ def render_readme(
 
     for category, subcategories in grouped.items():
         lines.extend((f"### {category}", ""))
+        if len(subcategories) == 1 and DEFAULT_SUBCATEGORY in subcategories:
+            lines.extend(
+                (
+                    "| Repository | Description |",
+                    "|------------|-------------|",
+                )
+            )
+            lines.extend(
+                render_repo_row(entry, org_name=org_name)
+                for entry in subcategories[DEFAULT_SUBCATEGORY]
+            )
+            lines.extend(("",))
+            continue
+
         for subcategory, entries in subcategories.items():
             lines.extend(
                 (

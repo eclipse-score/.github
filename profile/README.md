@@ -97,8 +97,6 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 ### Uncategorized
 
-#### General
-
 | Repository | Description |
 |------------|-------------|
 | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. |
@@ -111,8 +109,6 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [score-crates](https://github.com/eclipse-score/score-crates) | Repository to provide a defined list of rust crates to be used as bzl_mods |
 
 ### website
-
-#### General
 
 | Repository | Description |
 |------------|-------------|
