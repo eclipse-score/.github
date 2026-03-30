@@ -354,8 +354,19 @@ def render_readme(
 ) -> str:
     grouped = group_repositories(repos, config=config)
     lines: list[str] = []
+    category_names = {
+        category.name.casefold(): category.name
+        for category in (config.categories if config is not None else ())
+    }
     category_descriptions = {
         category.name.casefold(): category.description
+        for category in (config.categories if config is not None else ())
+    }
+    subcategory_names = {
+        category.name.casefold(): {
+            subcategory.name.casefold(): subcategory.name
+            for subcategory in category.subcategories
+        }
         for category in (config.categories if config is not None else ())
     }
     subcategory_descriptions = {
@@ -367,13 +378,14 @@ def render_readme(
     }
 
     for category, subcategories in grouped.items():
-        lines.extend((f"### {category}", ""))
-        category_description = category_descriptions.get(category.casefold(), "")
+        canonical_category = category_names.get(category.casefold(), category)
+        lines.extend((f"### {canonical_category}", ""))
+        category_description = category_descriptions.get(canonical_category.casefold(), "")
         if category_description:
             lines.extend((category_description, ""))
         if len(subcategories) == 1 and DEFAULT_SUBCATEGORY in subcategories:
             subcategory_description = subcategory_descriptions.get(
-                category.casefold(), {}
+                canonical_category.casefold(), {}
             ).get(DEFAULT_SUBCATEGORY.casefold(), "")
             if subcategory_description:
                 lines.extend((subcategory_description, ""))
@@ -391,14 +403,17 @@ def render_readme(
             continue
 
         for subcategory, entries in subcategories.items():
+            canonical_subcategory = subcategory_names.get(
+                canonical_category.casefold(), {}
+            ).get(subcategory.casefold(), subcategory)
             lines.extend(
                 (
-                    f"#### {subcategory}",
+                    f"#### {canonical_subcategory}",
                 )
             )
             subcategory_description = subcategory_descriptions.get(
-                category.casefold(), {}
-            ).get(subcategory.casefold(), "")
+                canonical_category.casefold(), {}
+            ).get(canonical_subcategory.casefold(), "")
             if subcategory_description:
                 lines.extend(("", subcategory_description))
             lines.extend(

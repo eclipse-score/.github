@@ -288,7 +288,7 @@ def test_render_readme_matches_category_descriptions_case_insensitively() -> Non
         config=config,
     )
 
-    assert "### infrastructure" in markdown
+    assert "### Infrastructure" in markdown
     assert "Shared tooling and project infrastructure." in markdown
 
 
@@ -318,8 +318,39 @@ def test_render_readme_matches_subcategory_descriptions_case_insensitively() -> 
         config=config,
     )
 
-    assert "#### tooling" in markdown
+    assert "### Infrastructure" in markdown
+    assert "#### Tooling" in markdown
     assert "Developer tools and automation used across the project." in markdown
+
+
+def test_render_readme_uses_config_casing_for_category_and_subcategory_names() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig(
+                "MODULES",
+                "Core modules.",
+                subcategories=(
+                    SubcategoryConfig(
+                        "CORE",
+                        "Primary building blocks.",
+                    ),
+                ),
+            ),
+        )
+    )
+
+    markdown = render_readme(
+        [RepoEntry("score", "Core repo", "modules", "core")],
+        template=template,
+        config=config,
+    )
+
+    assert "### MODULES" in markdown
+    assert "#### CORE" in markdown
 
 
 def test_load_config_reads_categories_in_file_order(tmp_path: Path) -> None:
