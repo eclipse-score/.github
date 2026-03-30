@@ -1,4 +1,7 @@
 [[categories]]
+name = "General"
+
+[[categories]]
 name = "Modules"
 description = "Core S-CORE modules, libraries, and APIs."
 subcategories = [
