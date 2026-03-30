@@ -32,6 +32,8 @@ Core S-CORE modules, libraries, and APIs.
 
 #### incubation
 
+Repositories for experimental or early-stage features.
+
 | Repository | Description |
 |------------|-------------|
 | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module |
@@ -46,6 +48,8 @@ Shared tooling, build automation, and integration infrastructure.
 
 #### automation
 
+Continuous integration workflows, automation, and supporting services.
+
 | Repository | Description |
 |------------|-------------|
 | [apt-install](https://github.com/eclipse-score/apt-install) | GitHub Action to execute apt-install in a clever way |
@@ -54,6 +58,8 @@ Shared tooling, build automation, and integration infrastructure.
 | [more-disk-space](https://github.com/eclipse-score/more-disk-space) | GitHub Action to make more disk space available in Ubuntu based GitHub Actions runners |
 
 #### General
+
+Infrastructure repositories that do not need a more specific subgroup.
 
 | Repository | Description |
 |------------|-------------|
@@ -66,6 +72,8 @@ Shared tooling, build automation, and integration infrastructure.
 
 #### integration
 
+Integration repositories for various systems and components.
+
 | Repository | Description |
 |------------|-------------|
 | [os_images](https://github.com/eclipse-score/os_images) | OS Images for testing and deliveries |
@@ -74,6 +82,8 @@ Shared tooling, build automation, and integration infrastructure.
 | [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities |
 
 #### toolchains
+
+Toolchain repositories for compilers, linters, and other development tools.
 
 | Repository | Description |
 |------------|-------------|
@@ -90,6 +100,8 @@ Shared tooling, build automation, and integration infrastructure.
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains |
 
 #### tooling
+
+Developer tools, scripts, and shared engineering utilities.
 
 | Repository | Description |
 |------------|-------------|

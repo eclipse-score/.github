@@ -9,6 +9,7 @@ from profile_readme_generator.generator import (
     CategoryConfig,
     RepoEntry,
     ReadmeConfig,
+    SubcategoryConfig,
     build_repo_entry,
     fetch_repositories,
     fetch_repository_descriptions,
@@ -204,6 +205,69 @@ def test_render_readme_uses_category_descriptions_from_config() -> None:
     assert "Shared tooling and project infrastructure." in markdown
 
 
+def test_render_readme_uses_subcategory_descriptions_from_config() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig(
+                "Infrastructure",
+                "Shared tooling and project infrastructure.",
+                subcategories=(
+                    SubcategoryConfig(
+                        "Tooling",
+                        "Developer tools and automation used across the project.",
+                    ),
+                ),
+            ),
+        )
+    )
+
+    markdown = render_readme(
+        [RepoEntry("infra", "Infra repo", "Infrastructure", "Tooling")],
+        template=template,
+        config=config,
+    )
+
+    assert "#### Tooling" in markdown
+    assert "Developer tools and automation used across the project." in markdown
+
+
+def test_render_readme_uses_general_subcategory_description_without_heading() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig(
+                "Infrastructure",
+                "Shared tooling and project infrastructure.",
+                subcategories=(
+                    SubcategoryConfig(
+                        "General",
+                        "Repositories that do not need a more specific infrastructure bucket.",
+                    ),
+                ),
+            ),
+        )
+    )
+
+    markdown = render_readme(
+        [RepoEntry("infra", "Infra repo", "Infrastructure", "General")],
+        template=template,
+        config=config,
+    )
+
+    assert "#### General" not in markdown
+    assert (
+        "Repositories that do not need a more specific infrastructure bucket."
+        in markdown
+    )
+
+
 def test_render_readme_matches_category_descriptions_case_insensitively() -> None:
     template = """# Title
 
@@ -228,6 +292,36 @@ def test_render_readme_matches_category_descriptions_case_insensitively() -> Non
     assert "Shared tooling and project infrastructure." in markdown
 
 
+def test_render_readme_matches_subcategory_descriptions_case_insensitively() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig(
+                "Infrastructure",
+                "Shared tooling and project infrastructure.",
+                subcategories=(
+                    SubcategoryConfig(
+                        "Tooling",
+                        "Developer tools and automation used across the project.",
+                    ),
+                ),
+            ),
+        )
+    )
+
+    markdown = render_readme(
+        [RepoEntry("infra", "Infra repo", "infrastructure", "tooling")],
+        template=template,
+        config=config,
+    )
+
+    assert "#### tooling" in markdown
+    assert "Developer tools and automation used across the project." in markdown
+
+
 def test_load_config_reads_categories_in_file_order(tmp_path: Path) -> None:
     config_path = tmp_path / "profile_readme_config.toml"
     config_path.write_text(
@@ -235,10 +329,14 @@ def test_load_config_reads_categories_in_file_order(tmp_path: Path) -> None:
 [[categories]]
 name = "Modules"
 description = "Core S-CORE modules."
+subcategories = []
 
 [[categories]]
 name = "Infrastructure"
 description = "Tooling and integration infrastructure."
+subcategories = [
+  { name = "Tooling", description = "Developer tools and automation." },
+]
 """.strip(),
         encoding="utf-8",
     )
@@ -248,7 +346,16 @@ description = "Tooling and integration infrastructure."
     assert config == ReadmeConfig(
         categories=(
             CategoryConfig("Modules", "Core S-CORE modules."),
-            CategoryConfig("Infrastructure", "Tooling and integration infrastructure."),
+            CategoryConfig(
+                "Infrastructure",
+                "Tooling and integration infrastructure.",
+                subcategories=(
+                    SubcategoryConfig(
+                        "Tooling",
+                        "Developer tools and automation.",
+                    ),
+                ),
+            ),
         )
     )
 

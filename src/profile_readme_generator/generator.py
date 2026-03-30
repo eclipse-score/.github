@@ -30,9 +30,16 @@ class RepoEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class SubcategoryConfig:
+    name: str
+    description: str
+
+
+@dataclass(frozen=True, slots=True)
 class CategoryConfig:
     name: str
     description: str
+    subcategories: tuple[SubcategoryConfig, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -252,8 +259,47 @@ def load_config(config_path: Path | None) -> ReadmeConfig:
             )
             raise ValueError(message)
 
+        raw_subcategories = raw_category.get("subcategories", [])
+        if not isinstance(raw_subcategories, list):
+            message = (
+                f"Invalid config in {config_source}: category subcategories must be a list of tables."
+            )
+            raise ValueError(message)
+
+        subcategories: list[SubcategoryConfig] = []
+        for raw_subcategory in raw_subcategories:
+            if not isinstance(raw_subcategory, dict):
+                message = (
+                    f"Invalid config in {config_source}: each subcategory entry must be a table."
+                )
+                raise ValueError(message)
+
+            subcategory_name = raw_subcategory.get("name")
+            subcategory_description = raw_subcategory.get("description", "")
+            if not isinstance(subcategory_name, str) or not subcategory_name.strip():
+                message = (
+                    f"Invalid config in {config_source}: each subcategory needs a non-empty name."
+                )
+                raise ValueError(message)
+            if not isinstance(subcategory_description, str):
+                message = (
+                    f"Invalid config in {config_source}: subcategory descriptions must be strings."
+                )
+                raise ValueError(message)
+
+            subcategories.append(
+                SubcategoryConfig(
+                    name=subcategory_name.strip(),
+                    description=subcategory_description.strip(),
+                )
+            )
+
         categories.append(
-            CategoryConfig(name=name.strip(), description=description.strip())
+            CategoryConfig(
+                name=name.strip(),
+                description=description.strip(),
+                subcategories=tuple(subcategories),
+            )
         )
 
     return ReadmeConfig(categories=tuple(categories))
@@ -312,6 +358,13 @@ def render_readme(
         category.name.casefold(): category.description
         for category in (config.categories if config is not None else ())
     }
+    subcategory_descriptions = {
+        category.name.casefold(): {
+            subcategory.name.casefold(): subcategory.description
+            for subcategory in category.subcategories
+        }
+        for category in (config.categories if config is not None else ())
+    }
 
     for category, subcategories in grouped.items():
         lines.extend((f"### {category}", ""))
@@ -319,6 +372,11 @@ def render_readme(
         if category_description:
             lines.extend((category_description, ""))
         if len(subcategories) == 1 and DEFAULT_SUBCATEGORY in subcategories:
+            subcategory_description = subcategory_descriptions.get(
+                category.casefold(), {}
+            ).get(DEFAULT_SUBCATEGORY.casefold(), "")
+            if subcategory_description:
+                lines.extend((subcategory_description, ""))
             lines.extend(
                 (
                     "| Repository | Description |",
@@ -336,6 +394,15 @@ def render_readme(
             lines.extend(
                 (
                     f"#### {subcategory}",
+                )
+            )
+            subcategory_description = subcategory_descriptions.get(
+                category.casefold(), {}
+            ).get(subcategory.casefold(), "")
+            if subcategory_description:
+                lines.extend(("", subcategory_description))
+            lines.extend(
+                (
                     "",
                     "| Repository | Description |",
                     "|------------|-------------|",
