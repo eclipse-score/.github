@@ -4,15 +4,15 @@ import argparse
 import os
 import subprocess
 import sys
+import tomllib
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from github import Auth, Github
-
 if TYPE_CHECKING:
+    from github import Auth, Github
     from github.Organization import Organization
 
 DEFAULT_ORG = "eclipse-score"
@@ -27,6 +27,17 @@ class RepoEntry:
     description: str
     category: str
     subcategory: str
+
+
+@dataclass(frozen=True, slots=True)
+class CategoryConfig:
+    name: str
+    description: str
+
+
+@dataclass(frozen=True, slots=True)
+class ReadmeConfig:
+    categories: tuple[CategoryConfig, ...]
 
 
 GroupedRepos = dict[str, dict[str, list[RepoEntry]]]
@@ -48,6 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional markdown template file with a {{ repo_sections }} placeholder",
     )
     parser.add_argument(
+        "--config",
+        type=Path,
+        help="Optional category config file that defines order and descriptions",
+    )
+    parser.add_argument(
         "--token-env",
         default="GITHUB_TOKEN",
         help="Environment variable that contains the GitHub token",
@@ -62,6 +78,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
+    try:
+        from github import Auth, Github
+    except ModuleNotFoundError as exc:
+        raise SystemExit(
+            "Missing PyGithub. Install project dependencies before running the generator."
+        ) from exc
+
     print_status("Resolving GitHub token")
     token = resolve_github_token(args.token_env)
     if not token:
@@ -74,10 +97,17 @@ def main() -> int:
     print_status("Fetching repositories and custom properties")
     repos = fetch_repositories(organization)
     print_status(f"Loaded {len(repos)} repositories")
+    print_status(f"Loading README config from {args.config}")
+    config = load_config(args.config)
     print_status("Loading README template")
     template = load_template(args.template)
     print_status("Rendering README")
-    markdown = render_readme(repos, template=template, org_name=args.org)
+    markdown = render_readme(
+        repos,
+        template=template,
+        config=config,
+        org_name=args.org,
+    )
 
     if args.dry_run:
         print_status("Dry run complete")
@@ -182,6 +212,53 @@ def load_template(template_path: Path | None) -> str:
     )
 
 
+def load_config(config_path: Path | None) -> ReadmeConfig:
+    config_content = (
+        config_path.read_text(encoding="utf-8")
+        if config_path is not None
+        else files("profile_readme_generator")
+        .joinpath("profile_readme_config.toml")
+        .read_text(encoding="utf-8")
+    )
+    config_source = (
+        str(config_path) if config_path is not None else "package default config"
+    )
+    raw_config = tomllib.loads(config_content)
+    raw_categories = raw_config.get("categories", [])
+    if not isinstance(raw_categories, list):
+        message = (
+            f"Invalid config in {config_source}: 'categories' must be a list of tables."
+        )
+        raise ValueError(message)
+
+    categories: list[CategoryConfig] = []
+    for raw_category in raw_categories:
+        if not isinstance(raw_category, dict):
+            message = (
+                f"Invalid config in {config_source}: each category entry must be a table."
+            )
+            raise ValueError(message)
+
+        name = raw_category.get("name")
+        description = raw_category.get("description", "")
+        if not isinstance(name, str) or not name.strip():
+            message = (
+                f"Invalid config in {config_source}: each category needs a non-empty name."
+            )
+            raise ValueError(message)
+        if not isinstance(description, str):
+            message = (
+                f"Invalid config in {config_source}: category descriptions must be strings."
+            )
+            raise ValueError(message)
+
+        categories.append(
+            CategoryConfig(name=name.strip(), description=description.strip())
+        )
+
+    return ReadmeConfig(categories=tuple(categories))
+
+
 def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
     if value is None:
         return fallback
@@ -192,10 +269,19 @@ def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
     return cleaned or fallback
 
 
-def group_repositories(repos: list[RepoEntry]) -> GroupedRepos:
+def group_repositories(
+    repos: list[RepoEntry],
+    config: ReadmeConfig | None = None,
+) -> GroupedRepos:
     grouped: GroupedRepos = defaultdict(lambda: defaultdict(list))
     for repo in repos:
         grouped[repo.category][repo.subcategory].append(repo)
+
+    category_positions = {
+        category.name.casefold(): index
+        for index, category in enumerate(config.categories if config is not None else ())
+    }
+
     return {
         category: {
             subcategory: sorted(entries, key=lambda entry: entry.name.casefold())
@@ -205,7 +291,11 @@ def group_repositories(repos: list[RepoEntry]) -> GroupedRepos:
             )
         }
         for category, subcategories in sorted(
-            grouped.items(), key=lambda item: item[0].casefold()
+            grouped.items(),
+            key=lambda item: (
+                category_positions.get(item[0].casefold(), len(category_positions)),
+                item[0].casefold(),
+            ),
         )
     }
 
@@ -213,13 +303,21 @@ def group_repositories(repos: list[RepoEntry]) -> GroupedRepos:
 def render_readme(
     repos: list[RepoEntry],
     template: str,
+    config: ReadmeConfig | None = None,
     org_name: str = DEFAULT_ORG,
 ) -> str:
-    grouped = group_repositories(repos)
+    grouped = group_repositories(repos, config=config)
     lines: list[str] = []
+    category_descriptions = {
+        category.name.casefold(): category.description
+        for category in (config.categories if config is not None else ())
+    }
 
     for category, subcategories in grouped.items():
         lines.extend((f"### {category}", ""))
+        category_description = category_descriptions.get(category.casefold(), "")
+        if category_description:
+            lines.extend((category_description, ""))
         if len(subcategories) == 1 and DEFAULT_SUBCATEGORY in subcategories:
             lines.extend(
                 (

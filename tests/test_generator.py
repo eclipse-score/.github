@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -5,12 +6,15 @@ from _pytest.monkeypatch import MonkeyPatch
 
 import profile_readme_generator.generator as generator
 from profile_readme_generator.generator import (
+    CategoryConfig,
     RepoEntry,
+    ReadmeConfig,
     build_repo_entry,
     fetch_repositories,
     fetch_repository_descriptions,
     get_gh_auth_token,
     group_repositories,
+    load_config,
     normalize_group_name,
     print_status,
     render_readme,
@@ -43,6 +47,48 @@ def test_group_repositories_sorts_everything_case_insensitively() -> None:
     assert list(grouped) == ["Apps", "apps", "infra"]
     assert list(grouped["apps"]) == ["Alpha"]
     assert [entry.name for entry in grouped["apps"]["Alpha"]] == ["beta"]
+
+
+def test_group_repositories_prefers_configured_category_order() -> None:
+    repos = [
+        RepoEntry("website", "desc", "Website", "General"),
+        RepoEntry("tools", "desc", "Infrastructure", "General"),
+        RepoEntry("score", "desc", "Modules", "General"),
+        RepoEntry("misc", "desc", "Uncategorized", "General"),
+    ]
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig("Modules", "Module repos"),
+            CategoryConfig("Infrastructure", "Infrastructure repos"),
+            CategoryConfig("Website", "Website repos"),
+            CategoryConfig("Uncategorized", "Other repos"),
+        )
+    )
+
+    grouped = group_repositories(repos, config=config)
+
+    assert list(grouped) == ["Modules", "Infrastructure", "Website", "Uncategorized"]
+
+
+def test_group_repositories_matches_configured_category_order_case_insensitively() -> None:
+    repos = [
+        RepoEntry("website", "desc", "website", "General"),
+        RepoEntry("tools", "desc", "infrastructure", "General"),
+        RepoEntry("score", "desc", "modules", "General"),
+        RepoEntry("misc", "desc", "Uncategorized", "General"),
+    ]
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig("Modules", "Module repos"),
+            CategoryConfig("Infrastructure", "Infrastructure repos"),
+            CategoryConfig("Website", "Website repos"),
+            CategoryConfig("Uncategorized", "Other repos"),
+        )
+    )
+
+    grouped = group_repositories(repos, config=config)
+
+    assert list(grouped) == ["modules", "infrastructure", "website", "Uncategorized"]
 
 
 def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> None:
@@ -132,6 +178,79 @@ def test_render_readme_omits_general_subheading_for_single_subcategory() -> None
     assert "#### General" not in markdown
     assert "| Repository | Description |" in markdown
     assert "| [infra](https://github.com/eclipse-score/infra) | Infra repo |" in markdown
+
+
+def test_render_readme_uses_category_descriptions_from_config() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig(
+                "Infrastructure",
+                "Shared tooling and project infrastructure.",
+            ),
+        )
+    )
+
+    markdown = render_readme(
+        [RepoEntry("infra", "Infra repo", "Infrastructure", "General")],
+        template=template,
+        config=config,
+    )
+
+    assert "### Infrastructure" in markdown
+    assert "Shared tooling and project infrastructure." in markdown
+
+
+def test_render_readme_matches_category_descriptions_case_insensitively() -> None:
+    template = """# Title
+
+{{ repo_sections }}
+"""
+    config = ReadmeConfig(
+        categories=(
+            CategoryConfig(
+                "Infrastructure",
+                "Shared tooling and project infrastructure.",
+            ),
+        )
+    )
+
+    markdown = render_readme(
+        [RepoEntry("infra", "Infra repo", "infrastructure", "General")],
+        template=template,
+        config=config,
+    )
+
+    assert "### infrastructure" in markdown
+    assert "Shared tooling and project infrastructure." in markdown
+
+
+def test_load_config_reads_categories_in_file_order(tmp_path: Path) -> None:
+    config_path = tmp_path / "profile_readme_config.toml"
+    config_path.write_text(
+        """
+[[categories]]
+name = "Modules"
+description = "Core S-CORE modules."
+
+[[categories]]
+name = "Infrastructure"
+description = "Tooling and integration infrastructure."
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config == ReadmeConfig(
+        categories=(
+            CategoryConfig("Modules", "Core S-CORE modules."),
+            CategoryConfig("Infrastructure", "Tooling and integration infrastructure."),
+        )
+    )
 
 
 def test_resolve_github_token_prefers_environment(monkeypatch: MonkeyPatch) -> None:

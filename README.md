@@ -17,6 +17,10 @@ To generate the organization profile README:
 uv run generate-profile-readme
 ```
 
+Category order and category descriptions are configured in
+`src/profile_readme_generator/profile_readme_config.toml`. Pass
+`--config /path/to/file.toml` to use a different config file.
+
 The generator reads repository custom properties from GitHub and expects `GITHUB_TOKEN` to be set.
 If `GITHUB_TOKEN` is not set, it falls back to `gh auth token`.
 

@@ -1,0 +1,15 @@
+[[categories]]
+name = "Modules"
+description = "Core S-CORE modules, libraries, and APIs."
+
+[[categories]]
+name = "Infrastructure"
+description = "Shared tooling, build automation, and integration infrastructure."
+
+[[categories]]
+name = "Website"
+description = "Project websites, published documentation, and related web assets."
+
+[[categories]]
+name = "Uncategorized"
+description = "Repositories that are not yet assigned to a dedicated category."

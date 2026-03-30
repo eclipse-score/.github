@@ -10,7 +10,39 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 *Note: categories and descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet). If you need changes, you must change them there, not here!*
 
+### modules
+
+Core S-CORE modules, libraries, and APIs.
+
+#### General
+
+| Repository | Description |
+|------------|-------------|
+| [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
+| [baselibs_rust](https://github.com/eclipse-score/baselibs_rust) | Repository for the Rust baselibs |
+| [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
+| [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
+| [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
+| [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
+| [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
+| [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
+| [orchestrator](https://github.com/eclipse-score/orchestrator) | Orchestration framework & Safe async runtime for Rust |
+| [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework |
+| [scrample](https://github.com/eclipse-score/scrample) | Repository for example component |
+
+#### incubation
+
+| Repository | Description |
+|------------|-------------|
+| [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module |
+| [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) | Incubation repository for diagnostics feature |
+| [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) | Incubation repository for AutoSD Development Platform |
+| [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | Incubation repository for SOME/IP gateway feature |
+| [inc_time](https://github.com/eclipse-score/inc_time) | incubation repo for time sync module |
+
 ### infrastructure
+
+Shared tooling, build automation, and integration infrastructure.
 
 #### automation
 
@@ -67,35 +99,20 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [devcontainer](https://github.com/eclipse-score/devcontainer) | Common DevContainer for Eclipse S-CORE |
 | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE |
 
-### modules
+### website
 
-#### General
-
-| Repository | Description |
-|------------|-------------|
-| [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
-| [baselibs_rust](https://github.com/eclipse-score/baselibs_rust) | Repository for the Rust baselibs |
-| [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
-| [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
-| [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
-| [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
-| [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
-| [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
-| [orchestrator](https://github.com/eclipse-score/orchestrator) | Orchestration framework & Safe async runtime for Rust |
-| [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework |
-| [scrample](https://github.com/eclipse-score/scrample) | Repository for example component |
-
-#### incubation
+Project websites, published documentation, and related web assets.
 
 | Repository | Description |
 |------------|-------------|
-| [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module |
-| [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) | Incubation repository for diagnostics feature |
-| [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) | Incubation repository for AutoSD Development Platform |
-| [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | Incubation repository for SOME/IP gateway feature |
-| [inc_time](https://github.com/eclipse-score/inc_time) | incubation repo for time sync module |
+| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | (no description) |
+| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | (no description) |
+| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | (no description) |
+| [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | The landing page website for the Score project |
 
 ### Uncategorized
+
+Repositories that are not yet assigned to a dedicated category.
 
 | Repository | Description |
 |------------|-------------|
@@ -107,12 +124,3 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 | [process_description](https://github.com/eclipse-score/process_description) | Score project process description |
 | [score](https://github.com/eclipse-score/score) | Score project main repository |
 | [score-crates](https://github.com/eclipse-score/score-crates) | Repository to provide a defined list of rust crates to be used as bzl_mods |
-
-### website
-
-| Repository | Description |
-|------------|-------------|
-| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | (no description) |
-| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | (no description) |
-| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | (no description) |
-| [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | The landing page website for the Score project |
