@@ -10,6 +10,15 @@ See [S-CORE-website](https://eclipse-score.github.io/) and [documentation](https
 
 *Note: categories and descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet). If you need changes, you must change them there, not here!*
 
+### General
+
+| Repository | Description |
+|------------|-------------|
+| [process_description](https://github.com/eclipse-score/process_description) | Score project process description |
+| [score](https://github.com/eclipse-score/score) | Score project main repository |
+
+---
+
 ### Modules
 
 Core S-CORE modules, libraries, and APIs.
@@ -78,6 +87,7 @@ Integration repositories for various systems and components.
 
 | Repository | Description |
 |------------|-------------|
+| [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository |
 | [os_images](https://github.com/eclipse-score/os_images) | OS Images for testing and deliveries |
 | [reference_integration](https://github.com/eclipse-score/reference_integration) | Score project integration repository |
 | [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | Repository for Image FileSystem Bazel rules and toolchains definitions |
@@ -137,8 +147,5 @@ Repositories that are not yet assigned to a dedicated category.
 | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. |
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker |
 | [dev_playground](https://github.com/eclipse-score/dev_playground) | Repository for developer tools and playground |
-| [itf](https://github.com/eclipse-score/itf) | Integration Testing Framework repository |
 | [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | Nlohmann JSON Library |
-| [process_description](https://github.com/eclipse-score/process_description) | Score project process description |
-| [score](https://github.com/eclipse-score/score) | Score project main repository |
 | [score-crates](https://github.com/eclipse-score/score-crates) | Repository to provide a defined list of rust crates to be used as bzl_mods |

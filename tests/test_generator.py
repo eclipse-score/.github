@@ -2,7 +2,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from _pytest.monkeypatch import MonkeyPatch
 
 import profile_readme_generator.generator as generator
 from profile_readme_generator.generator import (
@@ -163,6 +162,17 @@ def test_render_readme_uses_simple_markdown_sections() -> None:
     )
     assert "\n---\n\n### Modules\n" in markdown
     assert markdown.endswith("\n")
+
+
+def test_render_repo_row_escapes_markdown_table_metacharacters() -> None:
+    row = generator.render_repo_row(
+        RepoEntry("tools", "Line 1 | Line 2\nLine 3", "Infrastructure", "General")
+    )
+
+    assert row == (
+        "| [tools](https://github.com/eclipse-score/tools) | "
+        r"Line 1 \| Line 2 Line 3 |"
+    )
 
 
 def test_render_readme_omits_general_subheading_for_single_subcategory() -> None:
@@ -392,14 +402,21 @@ subcategories = [
     )
 
 
-def test_resolve_github_token_prefers_environment(monkeypatch: MonkeyPatch) -> None:
+def test_describe_config_source_uses_package_default_label() -> None:
+    assert generator.describe_config_source(None) == "package default config"
+    assert generator.describe_config_source(Path("config.toml")) == "config.toml"
+
+
+def test_resolve_github_token_prefers_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TEST_GITHUB_TOKEN", "env-token")
     monkeypatch.setattr(generator, "get_gh_auth_token", lambda: "gh-token")
 
     assert resolve_github_token("TEST_GITHUB_TOKEN") == "env-token"
 
 
-def test_get_gh_auth_token_returns_trimmed_stdout(monkeypatch: MonkeyPatch) -> None:
+def test_get_gh_auth_token_returns_trimmed_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         generator.subprocess,
         "run",
@@ -410,7 +427,7 @@ def test_get_gh_auth_token_returns_trimmed_stdout(monkeypatch: MonkeyPatch) -> N
 
 
 def test_get_gh_auth_token_returns_none_on_failure(
-    monkeypatch: MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def raise_called_process_error(*args: object, **kwargs: object) -> None:
         raise generator.subprocess.CalledProcessError(1, ["gh", "auth", "token"])

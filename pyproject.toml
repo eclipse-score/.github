@@ -37,7 +37,6 @@ src = ["src", "tests", "scripts"]
 target-version = "py312"
 exclude = [
   "scripts/collect_metrics.py",
-  "scripts/update_readme.py",
 ]
 
 [tool.ruff.lint]
@@ -104,7 +103,6 @@ exclude = [
   "build",
   "dist",
   "scripts/collect_metrics.py",
-  "scripts/update_readme.py",
 ]
 venvPath = "."
 venv = ".venv"

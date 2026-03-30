@@ -170,7 +170,7 @@ def main() -> int:
     print_status("Fetching repositories and custom properties")
     repos = fetch_repositories(organization)
     print_status(f"Loaded {len(repos)} repositories")
-    print_status(f"Loading README config from {args.config}")
+    print_status(f"Loading README config from {describe_config_source(args.config)}")
     config = load_config(args.config)
     print_status("Loading README template")
     template = load_template(args.template)
@@ -293,9 +293,7 @@ def load_config(config_path: Path | None) -> ReadmeConfig:
         .joinpath("profile_readme_config.toml")
         .read_text(encoding="utf-8")
     )
-    config_source = (
-        str(config_path) if config_path is not None else "package default config"
-    )
+    config_source = describe_config_source(config_path)
     raw_categories = tomllib.loads(config_content).get("categories", [])
     if not isinstance(raw_categories, list):
         message = (
@@ -390,6 +388,10 @@ def require_string(
     if not isinstance(value, str):
         raise ValueError(f"Invalid config in {config_source}: {field_name}.")
     return value
+
+
+def describe_config_source(config_path: Path | None) -> str:
+    return str(config_path) if config_path is not None else "package default config"
 
 
 def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
@@ -548,7 +550,13 @@ def render_repo_table(entries: list[RepoEntry], org_name: str) -> list[str]:
 
 def render_repo_row(entry: RepoEntry, org_name: str = DEFAULT_ORG) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
-    return f"| [{entry.name}]({url}) | {entry.description} |"
+    safe_description = escape_markdown_table_cell(entry.description)
+    return f"| [{entry.name}]({url}) | {safe_description} |"
+
+
+def escape_markdown_table_cell(text: str) -> str:
+    normalized = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    return normalized.replace("|", r"\|")
 
 
 def print_status(message: str) -> None:
