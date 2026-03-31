@@ -38,7 +38,8 @@ body:
         - label: Detailed Design
         - label: Implementation and Testing
         - label: all  
-          required: true
+    validations:
+      required: true
   - type: textarea
     attributes:
       label: Impact analysis
