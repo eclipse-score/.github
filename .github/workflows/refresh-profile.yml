@@ -1,4 +1,4 @@
-name: Update Repository States
+name: Update Profile README
 
 on:
   schedule:
@@ -18,33 +18,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: requirements.txt
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
-      - run: pip install -r requirements.txt
+      - run: uv sync --all-groups --frozen
 
       - name: Update README
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/update_readme.py
+        run: uv run generate-profile-readme
 
       - name: Collect metrics
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/collect_metrics.py
+        run: uv run python scripts/collect_metrics.py
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          title: Update status and metrics
+          title: Update profile README and metrics
           author: eclipse-score-bot <187756813+eclipse-score-bot@users.noreply.github.com>
           committer: eclipse-score-bot <187756813+eclipse-score-bot@users.noreply.github.com>
           body: |
             This PR updates:
-            - The repository descriptions and status in `profile/README.md`
+            - The repository descriptions and grouping in `profile/README.md`
             - The cross-repo metrics report in `profile/metrics.md`
             Please review and merge if everything looks good.
-          commit-message: "chore: auto-refresh status column"
+          commit-message: "chore: auto-refresh profile readme and metrics"
           base: main
           branch: bot/status-update
         env:

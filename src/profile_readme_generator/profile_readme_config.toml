@@ -1,0 +1,28 @@
+[[categories]]
+name = "General"
+
+[[categories]]
+name = "Modules"
+description = "Core S-CORE modules, libraries, and APIs."
+subcategories = [
+  { name = "Incubation", description = "Repositories for experimental or early-stage features." },
+]
+
+[[categories]]
+name = "Infrastructure"
+description = "Shared tooling, build automation, and integration infrastructure."
+subcategories = [
+  { name = "Automation", description = "Continuous integration workflows, automation, and supporting services." },
+  { name = "Integration", description = "Integration repositories for various systems and components." },
+  { name = "Toolchains", description = "Toolchain repositories for compilers, linters, and other development tools." },
+  { name = "Tooling", description = "Developer tools, scripts, and shared engineering utilities." },
+  { name = "General", description = "Infrastructure repositories that do not need a more specific subgroup." },
+]
+
+[[categories]]
+name = "Website"
+description = "Project websites, published documentation, and related web assets."
+
+[[categories]]
+name = "Uncategorized"
+description = "Repositories that are not yet assigned to a dedicated category."
