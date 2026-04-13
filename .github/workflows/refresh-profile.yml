@@ -1,16 +1,20 @@
-name: Update Profile README
+name: Update Profile and Deploy Pages
 
 on:
   schedule:
     - cron: '0 5 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -23,29 +27,49 @@ jobs:
 
       - run: uv sync --all-groups --frozen
 
-      - name: Update README
-        env:
-          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
-        run: uv run generate-profile-readme
+      - name: Restore snapshot cache
+        uses: actions/cache@v4
+        with:
+          path: profile/cache/repo_overview.json
+          key: snapshot-${{ github.run_id }}
+          restore-keys: snapshot-
 
       - name: Collect metrics
         env:
           GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
-        run: uv run python scripts/collect_metrics.py
+        run: uv run generate-repo-overview collect
+
+      - name: Render overview (MD)
+        run: uv run generate-repo-overview render-overview
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          title: Update profile README and metrics
+          title: Update profile README
           author: eclipse-score-bot <187756813+eclipse-score-bot@users.noreply.github.com>
           committer: eclipse-score-bot <187756813+eclipse-score-bot@users.noreply.github.com>
           body: |
-            This PR updates:
-            - The repository descriptions and grouping in `profile/README.md`
-            - The cross-repo metrics report in `profile/metrics.md`
+            This PR updates the repository descriptions and grouping in `profile/README.md`.
             Please review and merge if everything looks good.
-          commit-message: "chore: auto-refresh profile readme and metrics"
+          commit-message: "chore: auto-refresh profile readme"
           base: main
           branch: bot/status-update
         env:
           GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
+
+      - name: Render details (HTML)
+        run: uv run generate-repo-overview render-details
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: refresh
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

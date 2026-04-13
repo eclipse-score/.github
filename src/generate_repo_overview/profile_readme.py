@@ -1,50 +1,25 @@
 from __future__ import annotations
 
-import argparse
-import os
-import subprocess
-import sys
 import tomllib
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.resources import files
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from .constants import DEFAULT_ORG
+from .models import (
+    DEFAULT_SUBCATEGORY,
+    CategoryConfig,
+    ReadmeConfig,
+    RepoEntry,
+    SubcategoryConfig,
+)
+
 if TYPE_CHECKING:
-    from github import Auth, Github
-    from github.Organization import Organization
+    from collections.abc import Mapping
+    from pathlib import Path
 
-DEFAULT_ORG = "eclipse-score"
-DEFAULT_OUTPUT = Path("profile/README.md")
-DEFAULT_CATEGORY = "Uncategorized"
-DEFAULT_SUBCATEGORY = "General"
-
-
-@dataclass(frozen=True, slots=True)
-class RepoEntry:
-    name: str
-    description: str
-    category: str
-    subcategory: str
-
-
-@dataclass(frozen=True, slots=True)
-class SubcategoryConfig:
-    name: str
-    description: str
-
-
-@dataclass(frozen=True, slots=True)
-class CategoryConfig:
-    name: str
-    description: str
-    subcategories: tuple[SubcategoryConfig, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class ReadmeConfig:
-    categories: tuple[CategoryConfig, ...]
+GroupedRepos = dict[str, dict[str, list[RepoEntry]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,173 +88,11 @@ class ConfigIndex:
         )
 
 
-GroupedRepos = dict[str, dict[str, list[RepoEntry]]]
-CustomPropertyValue = str | list[str] | None
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--org", default=DEFAULT_ORG, help="GitHub organization name")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=DEFAULT_OUTPUT,
-        help="Markdown file to write",
-    )
-    parser.add_argument(
-        "--template",
-        type=Path,
-        help="Optional markdown template file with a {{ repo_sections }} placeholder",
-    )
-    parser.add_argument(
-        "--config",
-        type=Path,
-        help="Optional category config file that defines order and descriptions",
-    )
-    parser.add_argument(
-        "--token-env",
-        default="GITHUB_TOKEN",
-        help="Environment variable that contains the GitHub token",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print the generated markdown instead of writing the file",
-    )
-    return parser
-
-
-def main() -> int:
-    args = build_parser().parse_args()
-    try:
-        from github import Auth, Github
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "Missing PyGithub. Install project dependencies before running the generator."
-        ) from exc
-
-    print_status("Resolving GitHub token")
-    token = resolve_github_token(args.token_env)
-    if not token:
-        message = f"Missing GitHub token. Set {args.token_env} or authenticate with `gh auth login`."
-        raise SystemExit(message)
-
-    print_status(f"Connecting to GitHub organization {args.org}")
-    github = Github(auth=Auth.Token(token), lazy=True)
-    organization = github.get_organization(args.org)
-    print_status("Fetching repositories and custom properties")
-    repos = fetch_repositories(organization)
-    print_status(f"Loaded {len(repos)} repositories")
-    print_status(f"Loading README config from {describe_config_source(args.config)}")
-    config = load_config(args.config)
-    print_status("Loading README template")
-    template = load_template(args.template)
-    print_status("Rendering README")
-    markdown = render_readme(
-        repos,
-        template=template,
-        config=config,
-        org_name=args.org,
-    )
-
-    if args.dry_run:
-        print_status("Dry run complete")
-        print(markdown)
-        return 0
-
-    print_status(f"Writing {args.output}")
-    args.output.write_text(markdown, encoding="utf-8")
-    print_status("README generation complete")
-    return 0
-
-
-def resolve_github_token(token_env: str) -> str | None:
-    token = os.getenv(token_env)
-    if token:
-        return token
-    return get_gh_auth_token()
-
-
-def get_gh_auth_token() -> str | None:
-    try:
-        result = subprocess.run(
-            ["gh", "auth", "token"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return None
-
-    token = result.stdout.strip()
-    return token or None
-
-
-def fetch_repositories(organization: Organization) -> list[RepoEntry]:
-    print_status("Loading repository descriptions")
-    descriptions_by_name = fetch_repository_descriptions(organization)
-    print_status("Loading repository custom properties in bulk")
-    active_repository_names = set(descriptions_by_name)
-
-    repos_by_name: dict[str, RepoEntry] = {}
-    for repository_properties in organization.list_custom_property_values():
-        if repository_properties.repository_name not in active_repository_names:
-            continue
-        repo_entry = build_repo_entry(
-            repository_name=repository_properties.repository_name,
-            description=descriptions_by_name.get(repository_properties.repository_name),
-            custom_properties=cast(
-                "dict[str, CustomPropertyValue]",
-                repository_properties.properties,
-            ),
-        )
-        repos_by_name[repo_entry.name] = repo_entry
-
-    for repository_name, description in descriptions_by_name.items():
-        repos_by_name.setdefault(
-            repository_name,
-            build_repo_entry(
-                repository_name=repository_name,
-                description=description,
-                custom_properties={},
-            ),
-        )
-
-    return sorted(repos_by_name.values(), key=lambda repo: repo.name.casefold())
-
-
-def fetch_repository_descriptions(organization: Organization) -> dict[str, str | None]:
-    descriptions_by_name: dict[str, str | None] = {}
-    for repository in organization.get_repos():
-        if repository.archived:
-            continue
-        descriptions_by_name[repository.name] = repository.description
-    return descriptions_by_name
-
-
-def build_repo_entry(
-    repository_name: str,
-    description: str | None,
-    custom_properties: dict[str, CustomPropertyValue],
-) -> RepoEntry:
-    category = normalize_group_name(custom_properties.get("category"), DEFAULT_CATEGORY)
-    subcategory = normalize_group_name(
-        custom_properties.get("subcategory"),
-        DEFAULT_SUBCATEGORY,
-    )
-    return RepoEntry(
-        name=repository_name,
-        description=description or "(no description)",
-        category=category,
-        subcategory=subcategory,
-    )
-
-
 def load_template(template_path: Path | None) -> str:
     if template_path is not None:
         return template_path.read_text(encoding="utf-8")
     return (
-        files("profile_readme_generator")
+        files("generate_repo_overview")
         .joinpath("templates/profile_readme.md")
         .read_text(encoding="utf-8")
     )
@@ -289,21 +102,23 @@ def load_config(config_path: Path | None) -> ReadmeConfig:
     config_content = (
         config_path.read_text(encoding="utf-8")
         if config_path is not None
-        else files("profile_readme_generator")
+        else files("generate_repo_overview")
         .joinpath("profile_readme_config.toml")
         .read_text(encoding="utf-8")
     )
     config_source = describe_config_source(config_path)
-    raw_categories = tomllib.loads(config_content).get("categories", [])
+    raw_config = cast("dict[str, object]", tomllib.loads(config_content))
+    raw_categories = raw_config.get("categories", [])
     if not isinstance(raw_categories, list):
         message = (
             f"Invalid config in {config_source}: 'categories' must be a list of tables."
         )
         raise ValueError(message)
 
+    raw_category_entries = cast("list[object]", raw_categories)
     categories = tuple(
         parse_category_config(raw_category, config_source)
-        for raw_category in raw_categories
+        for raw_category in raw_category_entries
     )
     return ReadmeConfig(categories=categories)
 
@@ -315,27 +130,30 @@ def parse_category_config(raw_category: object, config_source: str) -> CategoryC
         )
         raise ValueError(message)
 
+    category = cast("Mapping[str, object]", raw_category)
+
     name = require_non_empty_string(
-        raw_category.get("name"),
+        category.get("name"),
         config_source=config_source,
         field_name="each category needs a non-empty name",
     )
     description = require_string(
-        raw_category.get("description", ""),
+        category.get("description", ""),
         config_source=config_source,
         field_name="category descriptions must be strings",
     ).strip()
 
-    raw_subcategories = raw_category.get("subcategories", [])
+    raw_subcategories = category.get("subcategories", [])
     if not isinstance(raw_subcategories, list):
         message = (
             f"Invalid config in {config_source}: category subcategories must be a list of tables."
         )
         raise ValueError(message)
 
+    raw_subcategory_entries = cast("list[object]", raw_subcategories)
     subcategories = tuple(
         parse_subcategory_config(raw_subcategory, config_source)
-        for raw_subcategory in raw_subcategories
+        for raw_subcategory in raw_subcategory_entries
     )
     return CategoryConfig(
         name=name,
@@ -354,14 +172,16 @@ def parse_subcategory_config(
         )
         raise ValueError(message)
 
+    subcategory = cast("Mapping[str, object]", raw_subcategory)
+
     return SubcategoryConfig(
         name=require_non_empty_string(
-            raw_subcategory.get("name"),
+            subcategory.get("name"),
             config_source=config_source,
             field_name="each subcategory needs a non-empty name",
         ),
         description=require_string(
-            raw_subcategory.get("description", ""),
+            subcategory.get("description", ""),
             config_source=config_source,
             field_name="subcategory descriptions must be strings",
         ).strip(),
@@ -392,16 +212,6 @@ def require_string(
 
 def describe_config_source(config_path: Path | None) -> str:
     return str(config_path) if config_path is not None else "package default config"
-
-
-def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
-    if value is None:
-        return fallback
-    if isinstance(value, list):
-        cleaned = [item.strip() for item in value if item.strip()]
-        return ", ".join(cleaned) if cleaned else fallback
-    cleaned = value.strip()
-    return cleaned or fallback
 
 
 def group_repositories(
@@ -557,7 +367,3 @@ def render_repo_row(entry: RepoEntry, org_name: str = DEFAULT_ORG) -> str:
 def escape_markdown_table_cell(text: str) -> str:
     normalized = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
     return normalized.replace("|", r"\|")
-
-
-def print_status(message: str) -> None:
-    print(f"[generate-profile-readme] {message}", file=sys.stderr)

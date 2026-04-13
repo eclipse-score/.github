@@ -2,3 +2,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+/.codex
+/profile/cache/bazel_registry_checkout/
+/profile/cache/reference_integration_checkout/
+/profile/cache/repo_overview.json
+/_site/
