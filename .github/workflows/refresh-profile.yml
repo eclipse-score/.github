@@ -26,12 +26,12 @@ jobs:
 
       - name: Update README
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
         run: uv run generate-profile-readme
 
       - name: Collect metrics
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
         run: uv run python scripts/collect_metrics.py
 
       - name: Create Pull Request
