@@ -3,22 +3,28 @@ from types import SimpleNamespace
 
 import pytest
 
-import profile_readme_generator.generator as generator
-from profile_readme_generator.generator import (
-    CategoryConfig,
-    RepoEntry,
-    ReadmeConfig,
-    SubcategoryConfig,
+import generate_repo_overview.collector as collector
+import generate_repo_overview.profile_readme as profile_readme
+from generate_repo_overview.collector import (
     build_repo_entry,
     fetch_repositories,
     fetch_repository_descriptions,
     get_gh_auth_token,
+    normalize_group_name,
+    resolve_github_token,
+)
+from generate_repo_overview.console import print_status
+from generate_repo_overview.models import (
+    CategoryConfig,
+    ReadmeConfig,
+    RepoEntry,
+    SubcategoryConfig,
+)
+from generate_repo_overview.profile_readme import (
+    describe_config_source,
     group_repositories,
     load_config,
-    normalize_group_name,
-    print_status,
     render_readme,
-    resolve_github_token,
 )
 
 
@@ -165,7 +171,7 @@ def test_render_readme_uses_simple_markdown_sections() -> None:
 
 
 def test_render_repo_row_escapes_markdown_table_metacharacters() -> None:
-    row = generator.render_repo_row(
+    row = profile_readme.render_repo_row(
         RepoEntry("tools", "Line 1 | Line 2\nLine 3", "Infrastructure", "General")
     )
 
@@ -403,13 +409,13 @@ subcategories = [
 
 
 def test_describe_config_source_uses_package_default_label() -> None:
-    assert generator.describe_config_source(None) == "package default config"
-    assert generator.describe_config_source(Path("config.toml")) == "config.toml"
+    assert describe_config_source(None) == "package default config"
+    assert describe_config_source(Path("config.toml")) == "config.toml"
 
 
 def test_resolve_github_token_prefers_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TEST_GITHUB_TOKEN", "env-token")
-    monkeypatch.setattr(generator, "get_gh_auth_token", lambda: "gh-token")
+    monkeypatch.setattr(collector, "get_gh_auth_token", lambda: "gh-token")
 
     assert resolve_github_token("TEST_GITHUB_TOKEN") == "env-token"
 
@@ -418,7 +424,7 @@ def test_get_gh_auth_token_returns_trimmed_stdout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        generator.subprocess,
+        collector.subprocess,
         "run",
         lambda *args, **kwargs: SimpleNamespace(stdout="gh-token\n"),
     )
@@ -430,9 +436,9 @@ def test_get_gh_auth_token_returns_none_on_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def raise_called_process_error(*args: object, **kwargs: object) -> None:
-        raise generator.subprocess.CalledProcessError(1, ["gh", "auth", "token"])
+        raise collector.subprocess.CalledProcessError(1, ["gh", "auth", "token"])
 
-    monkeypatch.setattr(generator.subprocess, "run", raise_called_process_error)
+    monkeypatch.setattr(collector.subprocess, "run", raise_called_process_error)
 
     assert get_gh_auth_token() is None
 
@@ -443,4 +449,4 @@ def test_print_status_writes_to_stderr(capsys: pytest.CaptureFixture[str]) -> No
     captured = capsys.readouterr()
 
     assert captured.out == ""
-    assert captured.err == "[generate-profile-readme] Loading repos\n"
+    assert captured.err == "[repo-overview] Loading repos\n"

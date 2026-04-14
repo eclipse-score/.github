@@ -2,6 +2,7 @@
 
 This repository hosts the start page when you visit the eclipse-score GitHub organization. It contains links to the Eclipse Score website, documentation, and other resources related to the Eclipse Score project.
 
+The Python tool in this repo now acts as a small repo-overview generator: it collects a cached snapshot of organization metadata once, then renders multiple Markdown views from that shared snapshot.
 
 ## Development
 
@@ -11,18 +12,37 @@ Use `uv` to create a virtual environment and install the project dependencies:
 uv sync --all-groups
 ```
 
-To generate the organization profile README:
+The CLI now has a built-in overview:
 
+```sh
+uv run generate-repo-overview
 ```
-uv run generate-profile-readme
+
+For a cache-only re-render of both built-in reports:
+
+```sh
+uv run generate-repo-overview render
+```
+
+For a fresh GitHub pull before rendering, run:
+
+```sh
+uv run generate-repo-overview collect
+```
+
+If you only want the profile README:
+
+```sh
+uv run generate-repo-overview generate-profile-readme
 ```
 
 Category order and category descriptions are configured in
-`src/profile_readme_generator/profile_readme_config.toml`. Pass
+`src/generate_repo_overview/profile_readme_config.toml`. Pass
 `--config /path/to/file.toml` to use a different config file.
 
-The generator reads repository custom properties from GitHub and expects `GITHUB_TOKEN` to be set.
-If `GITHUB_TOKEN` is not set, it falls back to `gh auth token`.
+The generator reads repository custom properties from GitHub and expects `GITHUB_TOKEN` to be set. If `GITHUB_TOKEN` is not set, it falls back to `gh auth token`.
+
+Architecture notes for the package live in [src/generate_repo_overview/README.md](src/generate_repo_overview/README.md). The broader design notes are in [docs/repo-overview-tool-design.md](docs/repo-overview-tool-design.md).
 
 To run the local checks:
 

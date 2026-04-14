@@ -93,6 +93,12 @@ Integration repositories for various systems and components.
 | [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | Repository for Image FileSystem Bazel rules and toolchains definitions |
 | [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities |
 
+#### testing
+
+| Repository | Description |
+|------------|-------------|
+| [qnx_unit_tests](https://github.com/eclipse-score/qnx_unit_tests) | Infrastructure for running unit tests in QNX VMs |
+
 #### Toolchains
 
 Toolchain repositories for compilers, linters, and other development tools.
