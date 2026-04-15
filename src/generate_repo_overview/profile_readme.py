@@ -4,7 +4,7 @@ import tomllib
 from collections import defaultdict
 from dataclasses import dataclass
 from importlib.resources import files
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from .constants import DEFAULT_ORG
 from .models import (
@@ -16,6 +16,7 @@ from .models import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
 GroupedRepos = dict[str, dict[str, list[RepoEntry]]]
@@ -106,16 +107,18 @@ def load_config(config_path: Path | None) -> ReadmeConfig:
         .read_text(encoding="utf-8")
     )
     config_source = describe_config_source(config_path)
-    raw_categories = tomllib.loads(config_content).get("categories", [])
+    raw_config = cast("dict[str, object]", tomllib.loads(config_content))
+    raw_categories = raw_config.get("categories", [])
     if not isinstance(raw_categories, list):
         message = (
             f"Invalid config in {config_source}: 'categories' must be a list of tables."
         )
         raise ValueError(message)
 
+    raw_category_entries = cast("list[object]", raw_categories)
     categories = tuple(
         parse_category_config(raw_category, config_source)
-        for raw_category in raw_categories
+        for raw_category in raw_category_entries
     )
     return ReadmeConfig(categories=categories)
 
@@ -127,27 +130,30 @@ def parse_category_config(raw_category: object, config_source: str) -> CategoryC
         )
         raise ValueError(message)
 
+    category = cast("Mapping[str, object]", raw_category)
+
     name = require_non_empty_string(
-        raw_category.get("name"),
+        category.get("name"),
         config_source=config_source,
         field_name="each category needs a non-empty name",
     )
     description = require_string(
-        raw_category.get("description", ""),
+        category.get("description", ""),
         config_source=config_source,
         field_name="category descriptions must be strings",
     ).strip()
 
-    raw_subcategories = raw_category.get("subcategories", [])
+    raw_subcategories = category.get("subcategories", [])
     if not isinstance(raw_subcategories, list):
         message = (
             f"Invalid config in {config_source}: category subcategories must be a list of tables."
         )
         raise ValueError(message)
 
+    raw_subcategory_entries = cast("list[object]", raw_subcategories)
     subcategories = tuple(
         parse_subcategory_config(raw_subcategory, config_source)
-        for raw_subcategory in raw_subcategories
+        for raw_subcategory in raw_subcategory_entries
     )
     return CategoryConfig(
         name=name,
@@ -166,14 +172,16 @@ def parse_subcategory_config(
         )
         raise ValueError(message)
 
+    subcategory = cast("Mapping[str, object]", raw_subcategory)
+
     return SubcategoryConfig(
         name=require_non_empty_string(
-            raw_subcategory.get("name"),
+            subcategory.get("name"),
             config_source=config_source,
             field_name="each subcategory needs a non-empty name",
         ),
         description=require_string(
-            raw_subcategory.get("description", ""),
+            subcategory.get("description", ""),
             config_source=config_source,
             field_name="subcategory descriptions must be strings",
         ).strip(),

@@ -4,7 +4,7 @@ import generate_repo_overview.cli as cli
 
 
 def test_main_without_command_prints_help_and_succeeds(
-    capsys,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     exit_code = cli.main([])
 
@@ -18,7 +18,9 @@ def test_main_without_command_prints_help_and_succeeds(
     assert captured.err == ""
 
 
-def test_collect_help_does_not_expose_refresh_flag(capsys) -> None:
+def test_collect_help_does_not_expose_refresh_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     with pytest.raises(SystemExit) as exc_info:
         cli.main(["collect", "--help"])
 
@@ -28,7 +30,9 @@ def test_collect_help_does_not_expose_refresh_flag(capsys) -> None:
     assert "--refresh" not in captured.out
 
 
-def test_render_help_does_not_expose_refresh_flag(capsys) -> None:
+def test_render_help_does_not_expose_refresh_flag(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     with pytest.raises(SystemExit) as exc_info:
         cli.main(["render", "--help"])
 

@@ -5,9 +5,9 @@ import json
 import os
 import re
 import subprocess
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, cast
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
 from .console import print_status
 from .constants import DEFAULT_CACHE, DEFAULT_ORG, DEFAULT_TOKEN_ENV
@@ -23,9 +23,49 @@ from .models import (
 )
 
 if TYPE_CHECKING:
+    import collections.abc
     from pathlib import Path
 
-    from github.Organization import Organization
+
+class PullRequestCounts(TypedDict):
+    ready: int
+    draft: int
+    total: int
+
+
+class LatestReleaseDetails(TypedDict):
+    version: str | None
+    date: str | None
+    commits_since_release: int | None
+
+
+class ContentSignals(TypedDict):
+    is_bazel_repo: bool
+    bazel_version: str | None
+    codeowners: tuple[str, ...]
+    docs_as_code_version: str | None
+    has_gitlint_config: bool
+    has_pyproject_toml: bool
+    has_pre_commit_config: bool
+    has_lint_config: bool
+    has_ci: bool
+    uses_cicd_daily_workflow: bool
+    has_coverage_config: bool
+
+
+class BazelRegistryMetadata(TypedDict):
+    maintainers_in_bazel_registry: tuple[str, ...]
+    latest_bazel_registry_version: str | None
+
+
+class OrganizationLike(Protocol):
+    def get_repos(self) -> collections.abc.Iterable[object]: ...
+
+    def list_custom_property_values(self) -> collections.abc.Iterable[object]: ...
+
+
+class GitHubClientLike(Protocol):
+    def get_rate_limit(self) -> object: ...
 
 GITLINT_PATHS = (".gitlint",)
 PYPROJECT_PATHS = ("pyproject.toml",)
@@ -184,7 +224,7 @@ def collect_snapshot(
 
 
 def print_rest_api_rate_limit(
-    github_client: Any,
+    github_client: GitHubClientLike,
     *,
     when: str,
     status_prefix: str,
@@ -221,7 +261,7 @@ def print_rest_api_rate_limit(
 
 
 def fetch_repositories(
-    organization: Organization,
+    organization: OrganizationLike,
     existing_snapshot: RepoSnapshot | None = None,
     *,
     status_prefix: str = "repo-overview",
@@ -275,7 +315,7 @@ def fetch_repositories(
     repos_by_index: dict[int, RepoEntry] = {}
     completion_count = 0
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {}
+        futures: dict[Future[RepoEntry], tuple[int, str]] = {}
         for index, (repository_name, repository) in enumerate(
             sorted_repositories,
             start=1,
@@ -326,8 +366,8 @@ def resolve_max_collection_workers() -> int:
     return DEFAULT_MAX_COLLECTION_WORKERS
 
 
-def fetch_active_repositories(organization: Organization) -> dict[str, Any]:
-    active_repositories: dict[str, Any] = {}
+def fetch_active_repositories(organization: OrganizationLike) -> dict[str, object]:
+    active_repositories: dict[str, object] = {}
     for repository in organization.get_repos():
         if getattr(repository, "archived", False):
             continue
@@ -338,7 +378,9 @@ def fetch_active_repositories(organization: Organization) -> dict[str, Any]:
     return active_repositories
 
 
-def fetch_repository_descriptions(organization: Organization) -> dict[str, str | None]:
+def fetch_repository_descriptions(
+    organization: OrganizationLike,
+) -> dict[str, str | None]:
     return {
         name: cast("str | None", getattr(repository, "description", None))
         for name, repository in fetch_active_repositories(organization).items()
@@ -346,7 +388,7 @@ def fetch_repository_descriptions(organization: Organization) -> dict[str, str |
 
 
 def fetch_repository_custom_properties(
-    organization: Organization,
+    organization: OrganizationLike,
     *,
     active_repository_names: set[str],
 ) -> dict[str, dict[str, CustomPropertyValue]]:
@@ -374,9 +416,9 @@ def fetch_repository_custom_properties(
 
 def fetch_bazel_registry_metadata_by_repo(
     *,
-    bazel_registry_repository: Any | None,
+    bazel_registry_repository: object | None,
     active_repository_names: set[str],
-) -> dict[str, dict[str, tuple[str, ...] | str | None]]:
+) -> dict[str, BazelRegistryMetadata]:
     if bazel_registry_repository is None:
         return {}
 
@@ -399,7 +441,7 @@ def fetch_bazel_registry_metadata_by_repo(
         and path.endswith(BAZEL_REGISTRY_METADATA_PATH_SUFFIX)
     )
 
-    metadata_by_repo_name: dict[str, dict[str, tuple[str, ...] | str | None]] = {}
+    metadata_by_repo_name: dict[str, BazelRegistryMetadata] = {}
     for metadata_path in metadata_paths:
         content = fetch_text_file(
             bazel_registry_repository,
@@ -421,25 +463,27 @@ def parse_bazel_registry_metadata(
     text: str | None,
     *,
     active_repository_names: set[str],
-) -> dict[str, dict[str, tuple[str, ...] | str | None]]:
+) -> dict[str, BazelRegistryMetadata]:
     if not text:
         return {}
     try:
-        raw_metadata = json.loads(text)
+        raw_metadata_object: object = json.loads(text)
     except json.JSONDecodeError:
         return {}
-    if not isinstance(raw_metadata, dict):
+    if not isinstance(raw_metadata_object, dict):
         return {}
+    raw_metadata = cast("dict[str, object]", raw_metadata_object)
 
     maintainers = parse_bazel_registry_maintainers(raw_metadata.get("maintainers"))
     latest_version = parse_latest_bazel_registry_version(raw_metadata.get("versions"))
 
-    metadata_by_repo_name: dict[str, dict[str, tuple[str, ...] | str | None]] = {}
+    metadata_by_repo_name: dict[str, BazelRegistryMetadata] = {}
     raw_repositories = raw_metadata.get("repository")
     if not isinstance(raw_repositories, list):
         return metadata_by_repo_name
 
-    for raw_repository in raw_repositories:
+    repository_entries = cast("list[object]", raw_repositories)
+    for raw_repository in repository_entries:
         repository_name = parse_github_repository_name(raw_repository)
         if repository_name is None or repository_name not in active_repository_names:
             continue
@@ -456,13 +500,15 @@ def parse_bazel_registry_maintainers(raw_maintainers: object) -> tuple[str, ...]
         return ()
 
     maintainers: list[str] = []
-    for raw_maintainer in raw_maintainers:
+    maintainer_entries = cast("list[object]", raw_maintainers)
+    for raw_maintainer in maintainer_entries:
         if not isinstance(raw_maintainer, dict):
             continue
+        maintainer = cast("dict[str, object]", raw_maintainer)
 
-        name = raw_maintainer.get("name")
-        github_handle = raw_maintainer.get("github")
-        email = raw_maintainer.get("email")
+        name = maintainer.get("name")
+        github_handle = maintainer.get("github")
+        email = maintainer.get("email")
 
         display_parts: list[str] = []
         if isinstance(name, str) and name.strip():
@@ -480,7 +526,8 @@ def parse_bazel_registry_maintainers(raw_maintainers: object) -> tuple[str, ...]
 def parse_latest_bazel_registry_version(raw_versions: object) -> str | None:
     if not isinstance(raw_versions, list):
         return None
-    for raw_version in raw_versions:
+    version_entries = cast("list[object]", raw_versions)
+    for raw_version in version_entries:
         if isinstance(raw_version, str) and raw_version.strip():
             return raw_version.strip()
     return None
@@ -504,7 +551,7 @@ def collect_repository_entry(
     repository_name: str,
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
-    bazel_registry_metadata: dict[str, tuple[str, ...] | str | None] | None,
+    bazel_registry_metadata: BazelRegistryMetadata | None,
     cached_entry: RepoEntry | None,
 ) -> RepoEntry:
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
@@ -601,7 +648,7 @@ def cached_signals_for_repository(
     *,
     default_branch: str | None,
     default_branch_sha: str | None,
-) -> dict[str, str | bool | tuple[str, ...] | None] | None:
+) -> ContentSignals | None:
     if cached_entry is None:
         return None
 
@@ -710,7 +757,7 @@ def inspect_repository_content(
     repository: Any,
     *,
     ref: str | None,
-) -> dict[str, str | bool | tuple[str, ...] | None]:
+) -> ContentSignals:
     tree_paths = fetch_repository_tree_paths(repository, ref=ref)
     if not tree_paths:
         return default_content_signals()
@@ -757,7 +804,7 @@ def inspect_repository_content(
     }
 
 
-def default_content_signals() -> dict[str, str | bool | tuple[str, ...] | None]:
+def default_content_signals() -> ContentSignals:
     return {
         "is_bazel_repo": False,
         "bazel_version": None,
@@ -960,21 +1007,19 @@ def fetch_text_file(repository: Any, path: str, *, ref: str | None) -> str | Non
 
 
 def merge_bazel_registry_metadata(
-    existing: dict[str, tuple[str, ...] | str | None] | None,
-    incoming: dict[str, tuple[str, ...] | str | None],
-) -> dict[str, tuple[str, ...] | str | None]:
+    existing: BazelRegistryMetadata | None,
+    incoming: BazelRegistryMetadata,
+) -> BazelRegistryMetadata:
     if existing is None:
         return incoming
 
     return {
         "maintainers_in_bazel_registry": dedupe_preserving_order(
-            list(existing.get("maintainers_in_bazel_registry", ()))
-            + list(incoming.get("maintainers_in_bazel_registry", ()))
+            list(existing["maintainers_in_bazel_registry"])
+            + list(incoming["maintainers_in_bazel_registry"])
         ),
-        "latest_bazel_registry_version": existing.get(
-            "latest_bazel_registry_version"
-        )
-        or incoming.get("latest_bazel_registry_version"),
+        "latest_bazel_registry_version": existing["latest_bazel_registry_version"]
+        or incoming["latest_bazel_registry_version"],
     }
 
 
@@ -1023,7 +1068,7 @@ def get_open_issue_count(repository: Any, *, open_pull_request_total: int) -> in
     return max(count - open_pull_request_total, 0)
 
 
-def get_open_pull_request_counts(repository: Any) -> dict[str, int]:
+def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
     if not hasattr(repository, "get_pulls"):
         return default_open_pull_request_counts()
     try:
@@ -1052,11 +1097,12 @@ def get_open_pull_request_counts(repository: Any) -> dict[str, int]:
     }
 
 
-def default_open_pull_request_counts() -> dict[str, int]:
+def default_open_pull_request_counts() -> PullRequestCounts:
     return {"ready": 0, "draft": 0, "total": 0}
 
 
 def is_draft_pull_request(pull_request: Any) -> bool:
+    draft: object
     try:
         draft = getattr(pull_request, "draft", None)
     except Exception:
@@ -1069,7 +1115,7 @@ def is_draft_pull_request(pull_request: Any) -> bool:
     except Exception:
         raw_data = None
     if isinstance(raw_data, dict):
-        draft = raw_data.get("draft")
+        draft = cast("object", raw_data.get("draft"))
         if isinstance(draft, bool):
             return draft
     return False
@@ -1080,7 +1126,7 @@ def get_latest_release_details(
     *,
     default_branch: str | None,
     default_branch_sha: str | None,
-) -> dict[str, str | int | None]:
+) -> LatestReleaseDetails:
     if not hasattr(repository, "get_latest_release"):
         return default_latest_release_details()
     try:
@@ -1100,7 +1146,7 @@ def get_latest_release_details(
     }
 
 
-def default_latest_release_details() -> dict[str, str | int | None]:
+def default_latest_release_details() -> LatestReleaseDetails:
     return {
         "version": None,
         "date": None,
@@ -1108,12 +1154,13 @@ def default_latest_release_details() -> dict[str, str | int | None]:
     }
 
 
-def get_latest_release_version(release: Any) -> str | None:
+def get_latest_release_version(release: object) -> str | None:
     try:
         raw_data = getattr(release, "raw_data", None)
     except Exception:
         raw_data = None
     if isinstance(raw_data, dict):
+        raw_data = cast("dict[str, object]", raw_data)
         for key in ("tag_name", "name"):
             value = raw_data.get(key)
             if isinstance(value, str):
@@ -1133,7 +1180,7 @@ def get_latest_release_version(release: Any) -> str | None:
     return None
 
 
-def get_release_date(release: Any) -> str | None:
+def get_release_date(release: object) -> str | None:
     try:
         return iso_date(getattr(release, "published_at", None))
     except Exception:
@@ -1172,6 +1219,8 @@ def get_commits_since_release(
 
 
 def iso_date(value: object) -> str | None:
-    if value is None or not hasattr(value, "date"):
-        return None
-    return value.date().isoformat()
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return None

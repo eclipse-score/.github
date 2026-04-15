@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -120,7 +121,9 @@ def test_fetch_repository_descriptions_skips_archived_repositories() -> None:
         ]
     )
 
-    assert fetch_repository_descriptions(organization) == {"active-repo": "Active"}
+    assert fetch_repository_descriptions(cast("Any", organization)) == {
+        "active-repo": "Active"
+    }
 
 
 def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None:
@@ -141,7 +144,7 @@ def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None
         ],
     )
 
-    assert fetch_repositories(organization) == [
+    assert fetch_repositories(cast("Any", organization)) == [
         RepoEntry("active-repo", "Active", "Infrastructure", "General")
     ]
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, fields
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -80,8 +80,9 @@ def normalize_sequence_fields(kwargs: dict[str, Any]) -> None:
     ):
         value = kwargs.get(sequence_field)
         if isinstance(value, list):
+            sequence_items = cast("list[object]", value)
             kwargs[sequence_field] = tuple(
-                item for item in value if isinstance(item, str)
+                item for item in sequence_items if isinstance(item, str)
             )
 
 
@@ -113,14 +114,13 @@ def snapshot_from_dict(data: Mapping[str, Any]) -> RepoSnapshot:
     if not isinstance(generated_at, str) or not generated_at:
         raise ValueError("Snapshot payload must contain a non-empty 'generated_at'.")
 
+    typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
+
     return RepoSnapshot(
         schema_version=schema_version,
         org_name=org_name,
         generated_at=generated_at,
-        repos=tuple(
-            repo_entry_from_dict(repo)
-            for repo in repos_data
-        ),
+        repos=tuple(repo_entry_from_dict(repo) for repo in typed_repos_data),
     )
 
 

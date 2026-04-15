@@ -3,6 +3,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -141,7 +142,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
     )
 
     repos = collector.fetch_repositories(
-        organization,
+        cast("Any", organization),
         existing_snapshot=cached_snapshot,
     )
 
@@ -403,8 +404,9 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
         def get_organization(self, org_name: str) -> SimpleNamespace:
             return SimpleNamespace(name=org_name)
 
-    fake_github_module.Auth = FakeAuth
-    fake_github_module.Github = FakeGithub
+    fake_github_module_any = cast("Any", fake_github_module)
+    fake_github_module_any.Auth = FakeAuth
+    fake_github_module_any.Github = FakeGithub
 
     monkeypatch.setitem(sys.modules, "github", fake_github_module)
     monkeypatch.setattr(collector, "resolve_github_token", lambda token_env: "token")
@@ -453,7 +455,7 @@ def test_fetch_repositories_reports_per_repository_progress(
 
     original_collect_repository_entry = collector.collect_repository_entry
 
-    def fake_collect_repository_entry(**kwargs):
+    def fake_collect_repository_entry(**kwargs: Any) -> RepoEntry:
         return RepoEntry(
             name=kwargs["repository_name"],
             description="placeholder",
@@ -464,7 +466,7 @@ def test_fetch_repositories_reports_per_repository_progress(
     try:
         collector.collect_repository_entry = fake_collect_repository_entry
         collector.fetch_repositories(
-            organization,
+            cast("Any", organization),
             existing_snapshot=cached_snapshot,
         )
     finally:
@@ -490,7 +492,7 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
 
     original_collect_repository_entry = collector.collect_repository_entry
     try:
-        def fake_collect_repository_entry(**kwargs):
+        def fake_collect_repository_entry(**kwargs: Any) -> RepoEntry:
             if kwargs["repository_name"] == "alpha":
                 time.sleep(0.03)
             return RepoEntry(
@@ -501,7 +503,7 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
             )
 
         collector.collect_repository_entry = fake_collect_repository_entry
-        repos = collector.fetch_repositories(organization)
+        repos = collector.fetch_repositories(cast("Any", organization))
     finally:
         collector.collect_repository_entry = original_collect_repository_entry
 
