@@ -70,12 +70,18 @@ For each repository, the snapshot currently stores:
   - `last_push_date`
   - `open_issues`
   - `open_prs`
+  - `open_ready_prs`
+  - `open_draft_prs`
+  - `codeowners`
+  - `maintainers_in_bazel_registry`
+  - `latest_bazel_registry_version`
   - `latest_release_version`
   - `latest_release_date`
   - `commits_since_latest_release`
   - `stars`
   - `forks`
 - content-derived signals
+  - `is_bazel_repo`
   - `bazel_version`
   - `has_lint_config`
   - `has_ci`

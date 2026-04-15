@@ -8,8 +8,8 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 3
-SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = frozenset({2, 3})
+SNAPSHOT_SCHEMA_VERSION = 8
+SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = frozenset({2, 3, 4, 5, 6, 7, 8})
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,7 +23,13 @@ class RepoEntry:
     last_push_date: str | None = None
     open_issues: int = 0
     open_prs: int = 0
+    open_ready_prs: int = 0
+    open_draft_prs: int = 0
+    is_bazel_repo: bool = False
     bazel_version: str | None = None
+    codeowners: tuple[str, ...] = ()
+    maintainers_in_bazel_registry: tuple[str, ...] = ()
+    latest_bazel_registry_version: str | None = None
     docs_as_code_version: str | None = None
     has_lint_config: bool = False
     has_ci: bool = False
@@ -65,9 +71,48 @@ class RepoSnapshot:
 CustomPropertyValue = str | list[str] | None
 
 
-def repo_entry_from_dict(data: Mapping[str, Any]) -> RepoEntry:
+def repo_entry_from_dict(
+    data: Mapping[str, Any],
+    *,
+    snapshot_schema_version: int,
+) -> RepoEntry:
     field_names = {field.name for field in fields(RepoEntry)}
     kwargs = {name: data[name] for name in field_names if name in data}
+    for sequence_field in (
+        "codeowners",
+        "maintainers_in_bazel_registry",
+    ):
+        value = kwargs.get(sequence_field)
+        if isinstance(value, list):
+            kwargs[sequence_field] = tuple(
+                item for item in value if isinstance(item, str)
+            )
+    if "latest_bazel_registry_version" not in kwargs:
+        raw_versions = data.get("bazel_registry_versions")
+        if isinstance(raw_versions, list):
+            for raw_version in raw_versions:
+                if isinstance(raw_version, str) and raw_version.strip():
+                    kwargs["latest_bazel_registry_version"] = raw_version.strip()
+                    break
+    if snapshot_schema_version < 7:
+        total_open_prs = kwargs.get("open_prs")
+        if isinstance(total_open_prs, int):
+            kwargs.setdefault("open_ready_prs", total_open_prs)
+            kwargs.setdefault("open_draft_prs", 0)
+            raw_open_issues = kwargs.get("open_issues")
+            if isinstance(raw_open_issues, int):
+                kwargs["open_issues"] = max(raw_open_issues - total_open_prs, 0)
+    if snapshot_schema_version < 8 and "is_bazel_repo" not in kwargs:
+        kwargs["is_bazel_repo"] = any(
+            [
+                isinstance(kwargs.get("bazel_version"), str)
+                and bool(kwargs["bazel_version"].strip()),
+                isinstance(kwargs.get("docs_as_code_version"), str)
+                and bool(kwargs["docs_as_code_version"].strip()),
+                isinstance(kwargs.get("latest_bazel_registry_version"), str)
+                and bool(kwargs["latest_bazel_registry_version"].strip()),
+            ]
+        )
     return RepoEntry(**kwargs)
 
 
@@ -95,7 +140,13 @@ def snapshot_from_dict(data: Mapping[str, Any]) -> RepoSnapshot:
         schema_version=schema_version,
         org_name=org_name,
         generated_at=generated_at,
-        repos=tuple(repo_entry_from_dict(repo) for repo in repos_data),
+        repos=tuple(
+            repo_entry_from_dict(
+                repo,
+                snapshot_schema_version=schema_version,
+            )
+            for repo in repos_data
+        ),
     )
 
 

@@ -10,7 +10,7 @@ def test_render_writes_both_reports_from_cached_snapshot(tmp_path: Path) -> None
     readme_output = tmp_path / "README.md"
     metrics_output = tmp_path / "metrics.md"
     snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -22,6 +22,9 @@ def test_render_writes_both_reports_from_cached_snapshot(tmp_path: Path) -> None
                 last_push_date="2026-04-12",
                 open_issues=2,
                 open_prs=1,
+                open_ready_prs=1,
+                open_draft_prs=0,
+                is_bazel_repo=True,
                 bazel_version="8.4.2",
                 has_lint_config=True,
                 has_ci=True,

@@ -13,7 +13,7 @@ from generate_repo_overview.models import RepoEntry, RepoSnapshot
 
 def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -27,7 +27,13 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
                 last_push_date="2026-04-12",
                 open_issues=2,
                 open_prs=1,
+                open_ready_prs=1,
+                open_draft_prs=0,
+                is_bazel_repo=True,
                 bazel_version="8.4.2",
+                codeowners=("@infra-team",),
+                maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+                latest_bazel_registry_version="0.2.5",
                 has_lint_config=True,
                 has_ci=True,
                 uses_cicd_daily_workflow=True,
@@ -49,7 +55,7 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
 
 def test_ensure_snapshot_prefers_existing_cache(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(RepoEntry("tools", "Tooling", "Infrastructure", "Tooling"),),
@@ -75,7 +81,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
         def __init__(self) -> None:
             self.tree_calls = 0
             self.pushed_at = pushed_at
-            self.open_issues_count = 2
+            self.open_issues_count = 3
             self.stargazers_count = 3
             self.forks_count = 4
 
@@ -87,9 +93,9 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
             self.tree_calls += 1
             return SimpleNamespace(tree=[])
 
-        def get_pulls(self, state: str = "open") -> SimpleNamespace:
+        def get_pulls(self, state: str = "open") -> list[SimpleNamespace]:
             assert state == "open"
-            return SimpleNamespace(totalCount=1)
+            return [SimpleNamespace(draft=False)]
 
         def get_latest_release(self) -> SimpleNamespace:
             return SimpleNamespace(
@@ -109,7 +115,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
         list_custom_property_values=list,
     )
     cached_snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -120,7 +126,9 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
                 subcategory="Tooling",
                 default_branch="main",
                 default_branch_sha="abc123",
+                is_bazel_repo=True,
                 bazel_version="8.4.2",
+                codeowners=("@infra-team",),
                 has_lint_config=True,
                 has_ci=True,
                 uses_cicd_daily_workflow=True,
@@ -146,7 +154,11 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
             last_push_date="2026-04-13",
             open_issues=2,
             open_prs=1,
+            open_ready_prs=1,
+            open_draft_prs=0,
+            is_bazel_repo=True,
             bazel_version="8.4.2",
+            codeowners=("@infra-team",),
             has_lint_config=True,
             has_ci=True,
             uses_cicd_daily_workflow=True,
@@ -158,6 +170,26 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
             forks=4,
         )
     ]
+
+
+def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
+    repository = SimpleNamespace(
+        get_pulls=lambda state="open": [
+            SimpleNamespace(draft=False),
+            SimpleNamespace(raw_data={"draft": True}),
+            SimpleNamespace(draft=False),
+        ]
+    )
+
+    assert collector.get_open_pull_request_counts(repository) == {
+        "ready": 2,
+        "draft": 1,
+        "total": 3,
+    }
+    assert collector.get_open_issue_count(
+        SimpleNamespace(open_issues_count=5),
+        open_pull_request_total=3,
+    ) == 2
 
 
 def test_get_latest_release_details_returns_none_when_release_lookup_is_lazy() -> None:
@@ -224,6 +256,75 @@ def test_get_bazel_dep_version_ignores_other_dependencies() -> None:
         )
         is None
     )
+
+
+def test_get_codeowners_for_path_prefers_specific_codeowners_rule() -> None:
+    assert collector.get_codeowners_for_path(
+        """
+* @infra-team
+.github/CODEOWNERS @docs-team @platform-team
+""".strip(),
+        target_path=".github/CODEOWNERS",
+    ) == ("@docs-team", "@platform-team")
+
+
+def test_get_codeowners_for_path_normalizes_comma_separated_owners() -> None:
+    assert collector.get_codeowners_for_path(
+        """
+* @armin-acn, @johannes-esr, @masc2023
+""".strip(),
+        target_path=".github/CODEOWNERS",
+    ) == ("@armin-acn", "@johannes-esr", "@masc2023")
+
+
+def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version() -> None:
+    metadata = collector.parse_bazel_registry_metadata(
+        """
+{
+  "maintainers": [
+    {
+      "name": "Andrey Babanin",
+      "github": "4og"
+    }
+  ],
+  "repository": [
+    "github:eclipse-score/baselibs",
+    "github:someone-else/ignored"
+  ],
+  "versions": ["0.2.5", "0.2.4"]
+}
+""".strip(),
+        active_repository_names={"baselibs"},
+    )
+
+    assert metadata == {
+        "baselibs": {
+            "maintainers_in_bazel_registry": ("Andrey Babanin (@4og)",),
+            "latest_bazel_registry_version": "0.2.5",
+        }
+    }
+
+
+def test_merge_bazel_registry_metadata_combines_owners_and_keeps_latest_version() -> None:
+    assert collector.merge_bazel_registry_metadata(
+        {
+            "maintainers_in_bazel_registry": ("Andrey Babanin (@4og)",),
+            "latest_bazel_registry_version": "0.2.5",
+        },
+        {
+            "maintainers_in_bazel_registry": (
+                "Andrey Babanin (@4og)",
+                "Nikola Radakovic (@nradakovic)",
+            ),
+            "latest_bazel_registry_version": "0.2.4",
+        },
+    ) == {
+        "maintainers_in_bazel_registry": (
+            "Andrey Babanin (@4og)",
+            "Nikola Radakovic (@nradakovic)",
+        ),
+        "latest_bazel_registry_version": "0.2.5",
+    }
 
 
 def test_uses_cicd_daily_workflow_detects_shared_daily_workflow_reference() -> None:
@@ -331,10 +432,10 @@ def test_fetch_repositories_reports_per_repository_progress(
     alpha_repo = SimpleNamespace(archived=False, name="alpha")
     organization = SimpleNamespace(
         get_repos=lambda: [tools_repo, alpha_repo],
-        list_custom_property_values=lambda: [],
+        list_custom_property_values=list,
     )
     cached_snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -381,7 +482,7 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
     tools_repo = SimpleNamespace(archived=False, name="tools")
     organization = SimpleNamespace(
         get_repos=lambda: [tools_repo, alpha_repo],
-        list_custom_property_values=lambda: [],
+        list_custom_property_values=list,
     )
 
     original_collect_repository_entry = collector.collect_repository_entry
@@ -425,7 +526,7 @@ def test_resolve_max_collection_workers_ignores_invalid_env_override(
 
 def test_metrics_report_renders_summary_and_table() -> None:
     snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -436,8 +537,14 @@ def test_metrics_report_renders_summary_and_table() -> None:
                 subcategory="Tooling",
                 last_push_date="2026-04-12",
                 open_issues=2,
-                open_prs=1,
+                open_prs=2,
+                open_ready_prs=1,
+                open_draft_prs=1,
+                is_bazel_repo=True,
                 bazel_version="8.4.2",
+                codeowners=("@docs-team", "@platform-team"),
+                maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+                latest_bazel_registry_version="0.2.5",
                 has_lint_config=True,
                 has_ci=True,
                 uses_cicd_daily_workflow=True,
@@ -457,26 +564,39 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "- Repositories: 1" in markdown
     assert "- With GitHub Actions: 1" in markdown
     assert "- Using daily workflow: 1" in markdown
-    assert "## Signal Definitions" in markdown
+    assert "## Table Of Contents" in markdown
+    assert "- [Repository Overview](#repository-overview)" in markdown
     assert "`Docs-As-Code Version`" in markdown
     assert "`GitHub Actions`: `yes` if `.github/workflows` exists." in markdown
     assert "## Repository Overview" in markdown
+    assert "## Ownership" in markdown
+    assert "## Ownership With Versions" in markdown
     assert "## Delivery And Automation" in markdown
+    assert "### Infrastructure" in markdown
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | Infrastructure | "
-        "2026-04-12 | 2 | 1 | 8.4.2 | 3 | 4 |"
+        "| [tools](https://github.com/eclipse-score/tools) | 2026-04-12 | 2 | 1 | 1 | yes | 3 | 4 |"
         in markdown
     )
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | yes | yes | yes | no | "
-        "v1.2.3 | 2026-04-01 | 7 |"
+        "| [tools](https://github.com/eclipse-score/tools) | "
+        "Andrey Babanin (@4og) | @docs-team, @platform-team |"
+        in markdown
+    )
+    assert (
+        "| [tools](https://github.com/eclipse-score/tools) | "
+        "Andrey Babanin (@4og) | @docs-team, @platform-team | "
+        "0.2.5 | 8.4.2 | - | v1.2.3 | 2026-04-01 | 7 |"
+        in markdown
+    )
+    assert (
+        "| [tools](https://github.com/eclipse-score/tools) | yes | yes | yes | no |"
         in markdown
     )
 
 
-def test_metrics_report_uses_dash_for_missing_bazel_version() -> None:
+def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
     snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -492,14 +612,14 @@ def test_metrics_report_uses_dash_for_missing_bazel_version() -> None:
     markdown = render_metrics_report(snapshot)
 
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | Infrastructure | - | 0 | 0 | - | 0 | 0 |"
+        "| [tools](https://github.com/eclipse-score/tools) | - | 0 | 0 | 0 | no | 0 | 0 |"
         in markdown
     )
 
 
 def test_metrics_report_renders_docs_as_code_topic_view() -> None:
     snapshot = RepoSnapshot(
-        schema_version=3,
+        schema_version=8,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -511,6 +631,9 @@ def test_metrics_report_renders_docs_as_code_topic_view() -> None:
                 last_push_date="2026-04-12",
                 open_issues=35,
                 open_prs=8,
+                open_ready_prs=6,
+                open_draft_prs=2,
+                is_bazel_repo=True,
                 bazel_version="8.4.2",
                 docs_as_code_version="4.0.0",
                 has_ci=True,
@@ -524,7 +647,7 @@ def test_metrics_report_renders_docs_as_code_topic_view() -> None:
     assert "### Docs-As-Code" in markdown
     assert (
         "| [process_description](https://github.com/eclipse-score/process_description) | "
-        "Infrastructure | 4.0.0 | 8.4.2 | yes | yes | 2026-04-12 | 35 | 8 |"
+        "4.0.0 | 8.4.2 | yes | yes | 2026-04-12 | 35 | 6 | 2 |"
         in markdown
     )
 
@@ -548,9 +671,9 @@ def test_fetch_repositories_does_not_reuse_content_signals_from_older_schema() -
             assert branch_name == "main"
             return SimpleNamespace(commit=SimpleNamespace(sha="abc123"))
 
-        def get_pulls(self, state: str = "open") -> SimpleNamespace:
+        def get_pulls(self, state: str = "open") -> list[SimpleNamespace]:
             assert state == "open"
-            return SimpleNamespace(totalCount=0)
+            return []
 
     fake_repo = FakeRepo()
     organization = SimpleNamespace(
@@ -578,7 +701,9 @@ def test_fetch_repositories_does_not_reuse_content_signals_from_older_schema() -
     original_get_latest_release_details = collector.get_latest_release_details
     try:
         collector.inspect_repository_content = lambda repository, ref: {
+            "is_bazel_repo": True,
             "bazel_version": "8.3.0",
+            "codeowners": ("@infra-team",),
             "docs_as_code_version": "3.0.0",
             "has_lint_config": False,
             "has_ci": True,
@@ -600,3 +725,4 @@ def test_fetch_repositories_does_not_reuse_content_signals_from_older_schema() -
         collector.get_latest_release_details = original_get_latest_release_details
 
     assert repos[0].docs_as_code_version == "3.0.0"
+    assert repos[0].codeowners == ("@infra-team",)

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import fnmatch
 import json
 import os
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -31,9 +32,16 @@ CI_PATHS = (".github/workflows",)
 COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
 BAZEL_VERSION_PATHS = (".bazelversion",)
 MODULE_PATHS = ("MODULE.bazel",)
+BAZEL_REPO_MARKER_PATHS = BAZEL_VERSION_PATHS + MODULE_PATHS + (
+    "WORKSPACE",
+    "WORKSPACE.bazel",
+)
+CODEOWNERS_PATH = ".github/CODEOWNERS"
 WORKFLOW_PATH_PREFIX = ".github/workflows/"
 WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
 DAILY_WORKFLOW_REFERENCE = "cicd-workflows/.github/workflows/daily.yml@"
+BAZEL_REGISTRY_METADATA_PATH_SUFFIX = "/metadata.json"
+BAZEL_REGISTRY_MODULES_PREFIX = "modules/"
 BAZEL_DEP_PATTERN_TEMPLATE = (
     r'\bbazel_dep\s*\(\s*name\s*=\s*"{module_name}"(?P<body>.*?)\)'
 )
@@ -230,6 +238,16 @@ def fetch_repositories(
         f"Loaded custom properties for {len(custom_properties_by_name)} repositories",
         prefix=status_prefix,
     )
+    print_status("Loading maintainers in bazel_registry", prefix=status_prefix)
+    bazel_registry_metadata_by_repo = fetch_bazel_registry_metadata_by_repo(
+        bazel_registry_repository=active_repositories.get("bazel_registry"),
+        active_repository_names=set(active_repositories),
+    )
+    print_status(
+        "Loaded bazel_registry metadata for "
+        f"{len(bazel_registry_metadata_by_repo)} active repositories",
+        prefix=status_prefix,
+    )
 
     cached_by_name = (
         {repo.name: repo for repo in existing_snapshot.repos}
@@ -274,6 +292,9 @@ def fetch_repositories(
                 repository_name=repository_name,
                 repository=repository,
                 custom_properties=custom_properties_by_name.get(repository_name, {}),
+                bazel_registry_metadata=bazel_registry_metadata_by_repo.get(
+                    repository_name
+                ),
                 cached_entry=cached_entry,
                 cached_schema_version=existing_snapshot.schema_version
                 if existing_snapshot is not None
@@ -351,11 +372,139 @@ def fetch_repository_custom_properties(
     return properties_by_name
 
 
+def fetch_bazel_registry_metadata_by_repo(
+    *,
+    bazel_registry_repository: Any | None,
+    active_repository_names: set[str],
+) -> dict[str, dict[str, tuple[str, ...] | str | None]]:
+    if bazel_registry_repository is None:
+        return {}
+
+    default_branch = cast(
+        "str | None",
+        getattr(bazel_registry_repository, "default_branch", None),
+    )
+    default_branch_sha = get_default_branch_sha(
+        bazel_registry_repository,
+        default_branch,
+    )
+    tree_paths = fetch_repository_tree_paths(
+        bazel_registry_repository,
+        ref=default_branch_sha,
+    )
+    metadata_paths = sorted(
+        path
+        for path in tree_paths
+        if path.startswith(BAZEL_REGISTRY_MODULES_PREFIX)
+        and path.endswith(BAZEL_REGISTRY_METADATA_PATH_SUFFIX)
+    )
+
+    metadata_by_repo_name: dict[str, dict[str, tuple[str, ...] | str | None]] = {}
+    for metadata_path in metadata_paths:
+        content = fetch_text_file(
+            bazel_registry_repository,
+            metadata_path,
+            ref=default_branch_sha,
+        )
+        for repository_name, metadata in parse_bazel_registry_metadata(
+            content,
+            active_repository_names=active_repository_names,
+        ).items():
+            metadata_by_repo_name[repository_name] = merge_bazel_registry_metadata(
+                metadata_by_repo_name.get(repository_name),
+                metadata,
+            )
+    return metadata_by_repo_name
+
+
+def parse_bazel_registry_metadata(
+    text: str | None,
+    *,
+    active_repository_names: set[str],
+) -> dict[str, dict[str, tuple[str, ...] | str | None]]:
+    if not text:
+        return {}
+    try:
+        raw_metadata = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(raw_metadata, dict):
+        return {}
+
+    maintainers = parse_bazel_registry_maintainers(raw_metadata.get("maintainers"))
+    latest_version = parse_latest_bazel_registry_version(raw_metadata.get("versions"))
+
+    metadata_by_repo_name: dict[str, dict[str, tuple[str, ...] | str | None]] = {}
+    raw_repositories = raw_metadata.get("repository")
+    if not isinstance(raw_repositories, list):
+        return metadata_by_repo_name
+
+    for raw_repository in raw_repositories:
+        repository_name = parse_github_repository_name(raw_repository)
+        if repository_name is None or repository_name not in active_repository_names:
+            continue
+        metadata_by_repo_name[repository_name] = {
+            "maintainers_in_bazel_registry": maintainers,
+            "latest_bazel_registry_version": latest_version,
+        }
+
+    return metadata_by_repo_name
+
+
+def parse_bazel_registry_maintainers(raw_maintainers: object) -> tuple[str, ...]:
+    if not isinstance(raw_maintainers, list):
+        return ()
+
+    maintainers: list[str] = []
+    for raw_maintainer in raw_maintainers:
+        if not isinstance(raw_maintainer, dict):
+            continue
+
+        name = raw_maintainer.get("name")
+        github_handle = raw_maintainer.get("github")
+        email = raw_maintainer.get("email")
+
+        display_parts: list[str] = []
+        if isinstance(name, str) and name.strip():
+            display_parts.append(name.strip())
+        if isinstance(github_handle, str) and github_handle.strip():
+            display_parts.append(f"(@{github_handle.strip()})")
+        if not display_parts and isinstance(email, str) and email.strip():
+            display_parts.append(email.strip())
+        if display_parts:
+            maintainers.append(" ".join(display_parts))
+
+    return dedupe_preserving_order(maintainers)
+
+
+def parse_latest_bazel_registry_version(raw_versions: object) -> str | None:
+    if not isinstance(raw_versions, list):
+        return None
+    for raw_version in raw_versions:
+        if isinstance(raw_version, str) and raw_version.strip():
+            return raw_version.strip()
+    return None
+
+
+def parse_github_repository_name(value: object) -> str | None:
+    if not isinstance(value, str) or not value.startswith("github:"):
+        return None
+
+    owner_and_repo = value.removeprefix("github:")
+    if "/" not in owner_and_repo:
+        return None
+
+    _, repository_name = owner_and_repo.split("/", maxsplit=1)
+    repository_name = repository_name.strip()
+    return repository_name or None
+
+
 def collect_repository_entry(
     *,
     repository_name: str,
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
+    bazel_registry_metadata: dict[str, tuple[str, ...] | str | None] | None,
     cached_entry: RepoEntry | None,
     cached_schema_version: int | None = None,
 ) -> RepoEntry:
@@ -375,6 +524,7 @@ def collect_repository_entry(
         )
     else:
         content_signals = cached_content_signals
+    open_pull_request_counts = get_open_pull_request_counts(repository)
     latest_release = get_latest_release_details(
         repository,
         default_branch=default_branch,
@@ -388,9 +538,26 @@ def collect_repository_entry(
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         last_push_date=iso_date(getattr(repository, "pushed_at", None)),
-        open_issues=get_open_issue_count(repository),
-        open_prs=get_open_pull_request_count(repository),
+        open_issues=get_open_issue_count(
+            repository,
+            open_pull_request_total=open_pull_request_counts["total"],
+        ),
+        open_prs=open_pull_request_counts["total"],
+        open_ready_prs=open_pull_request_counts["ready"],
+        open_draft_prs=open_pull_request_counts["draft"],
+        is_bazel_repo=content_signals["is_bazel_repo"],
         bazel_version=content_signals["bazel_version"],
+        codeowners=content_signals["codeowners"],
+        maintainers_in_bazel_registry=(
+            bazel_registry_metadata.get("maintainers_in_bazel_registry", ())
+            if bazel_registry_metadata is not None
+            else ()
+        ),
+        latest_bazel_registry_version=(
+            bazel_registry_metadata.get("latest_bazel_registry_version")
+            if bazel_registry_metadata is not None
+            else None
+        ),
         docs_as_code_version=content_signals["docs_as_code_version"],
         has_lint_config=content_signals["has_lint_config"],
         has_ci=content_signals["has_ci"],
@@ -410,7 +577,7 @@ def cached_signals_for_repository(
     cached_schema_version: int | None,
     default_branch: str | None,
     default_branch_sha: str | None,
-) -> dict[str, str | bool | None] | None:
+) -> dict[str, str | bool | tuple[str, ...] | None] | None:
     if cached_entry is None:
         return None
     if cached_schema_version != SNAPSHOT_SCHEMA_VERSION:
@@ -424,7 +591,9 @@ def cached_signals_for_repository(
         return None
 
     return {
+        "is_bazel_repo": cached_entry.is_bazel_repo,
         "bazel_version": cached_entry.bazel_version,
+        "codeowners": cached_entry.codeowners,
         "docs_as_code_version": cached_entry.docs_as_code_version,
         "has_lint_config": cached_entry.has_lint_config,
         "has_ci": cached_entry.has_ci,
@@ -443,7 +612,13 @@ def build_repo_entry(
     last_push_date: str | None = None,
     open_issues: int = 0,
     open_prs: int = 0,
+    open_ready_prs: int = 0,
+    open_draft_prs: int = 0,
+    is_bazel_repo: bool = False,
     bazel_version: str | None = None,
+    codeowners: tuple[str, ...] = (),
+    maintainers_in_bazel_registry: tuple[str, ...] = (),
+    latest_bazel_registry_version: str | None = None,
     docs_as_code_version: str | None = None,
     has_lint_config: bool = False,
     has_ci: bool = False,
@@ -470,7 +645,13 @@ def build_repo_entry(
         last_push_date=last_push_date,
         open_issues=open_issues,
         open_prs=open_prs,
+        open_ready_prs=open_ready_prs,
+        open_draft_prs=open_draft_prs,
+        is_bazel_repo=is_bazel_repo,
         bazel_version=bazel_version,
+        codeowners=codeowners,
+        maintainers_in_bazel_registry=maintainers_in_bazel_registry,
+        latest_bazel_registry_version=latest_bazel_registry_version,
         docs_as_code_version=docs_as_code_version,
         has_lint_config=has_lint_config,
         has_ci=has_ci,
@@ -498,13 +679,19 @@ def inspect_repository_content(
     repository: Any,
     *,
     ref: str | None,
-) -> dict[str, str | bool | None]:
+) -> dict[str, str | bool | tuple[str, ...] | None]:
     tree_paths = fetch_repository_tree_paths(repository, ref=ref)
     if not tree_paths:
         return default_content_signals()
 
     return {
+        "is_bazel_repo": detect_is_bazel_repo(tree_paths),
         "bazel_version": detect_bazel_version(
+            repository,
+            tree_paths=tree_paths,
+            ref=ref,
+        ),
+        "codeowners": detect_codeowners(
             repository,
             tree_paths=tree_paths,
             ref=ref,
@@ -530,9 +717,11 @@ def inspect_repository_content(
     }
 
 
-def default_content_signals() -> dict[str, str | bool | None]:
+def default_content_signals() -> dict[str, str | bool | tuple[str, ...] | None]:
     return {
+        "is_bazel_repo": False,
         "bazel_version": None,
+        "codeowners": (),
         "docs_as_code_version": None,
         "has_lint_config": False,
         "has_ci": False,
@@ -581,6 +770,13 @@ def detect_bazel_version(
     return None
 
 
+def detect_is_bazel_repo(tree_paths: set[str]) -> bool:
+    return any(
+        tree_contains_path(tree_paths, candidate)
+        for candidate in BAZEL_REPO_MARKER_PATHS
+    )
+
+
 def detect_dependency_version(
     repository: Any,
     *,
@@ -597,6 +793,68 @@ def detect_dependency_version(
             return version
 
     return None
+
+
+def detect_codeowners(
+    repository: Any,
+    *,
+    tree_paths: set[str],
+    ref: str | None,
+) -> tuple[str, ...]:
+    if not tree_contains_path(tree_paths, CODEOWNERS_PATH):
+        return ()
+
+    content = fetch_text_file(repository, CODEOWNERS_PATH, ref=ref)
+    return get_codeowners_for_path(content, target_path=CODEOWNERS_PATH)
+
+
+def get_codeowners_for_path(
+    text: str | None,
+    *,
+    target_path: str,
+) -> tuple[str, ...]:
+    if not text:
+        return ()
+
+    owners: tuple[str, ...] = ()
+    for raw_line in text.splitlines():
+        line = raw_line.split("#", maxsplit=1)[0].strip()
+        if not line:
+            continue
+
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+
+        pattern, *candidate_owners = parts
+        if codeowners_pattern_matches(pattern, target_path=target_path):
+            owners = normalize_codeowners(candidate_owners)
+
+    return owners
+
+
+def codeowners_pattern_matches(pattern: str, *, target_path: str) -> bool:
+    normalized_pattern = pattern.lstrip("/")
+    normalized_target_path = target_path.lstrip("/")
+
+    if pattern == "/":
+        return True
+    if normalized_pattern in {"*", "**", "/*"}:
+        return True
+
+    if normalized_pattern.endswith("/"):
+        directory_pattern = normalized_pattern.rstrip("/")
+        return normalized_target_path == directory_pattern or normalized_target_path.startswith(
+            f"{directory_pattern}/"
+        )
+
+    if "/" not in normalized_pattern:
+        return fnmatch.fnmatch(
+            normalized_target_path.rsplit("/", maxsplit=1)[-1],
+            normalized_pattern,
+        ) or fnmatch.fnmatch(normalized_target_path, normalized_pattern)
+
+    return fnmatch.fnmatch(normalized_target_path, normalized_pattern)
 
 
 def get_bazel_dep_version(text: str | None, *, module_name: str) -> str | None:
@@ -658,6 +916,41 @@ def fetch_text_file(repository: Any, path: str, *, ref: str | None) -> str | Non
     return raw_content.decode("utf-8", errors="replace")
 
 
+def merge_bazel_registry_metadata(
+    existing: dict[str, tuple[str, ...] | str | None] | None,
+    incoming: dict[str, tuple[str, ...] | str | None],
+) -> dict[str, tuple[str, ...] | str | None]:
+    if existing is None:
+        return incoming
+
+    return {
+        "maintainers_in_bazel_registry": dedupe_preserving_order(
+            list(existing.get("maintainers_in_bazel_registry", ()))
+            + list(incoming.get("maintainers_in_bazel_registry", ()))
+        ),
+        "latest_bazel_registry_version": existing.get(
+            "latest_bazel_registry_version"
+        )
+        or incoming.get("latest_bazel_registry_version"),
+    }
+
+
+def normalize_codeowners(values: list[str]) -> tuple[str, ...]:
+    return dedupe_preserving_order(" ".join(values).replace(",", " ").split())
+
+
+def dedupe_preserving_order(values: list[str]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        cleaned = value.strip()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        deduped.append(cleaned)
+    return tuple(deduped)
+
+
 def first_non_comment_line(text: str | None) -> str | None:
     if not text:
         return None
@@ -680,20 +973,63 @@ def get_default_branch_sha(repository: Any, default_branch: str | None) -> str |
     return cast("str | None", getattr(getattr(branch, "commit", None), "sha", None))
 
 
-def get_open_issue_count(repository: Any) -> int:
+def get_open_issue_count(repository: Any, *, open_pull_request_total: int) -> int:
     count = getattr(repository, "open_issues_count", 0)
-    return count if isinstance(count, int) else 0
-
-
-def get_open_pull_request_count(repository: Any) -> int:
-    if not hasattr(repository, "get_pulls"):
+    if not isinstance(count, int):
         return 0
+    return max(count - open_pull_request_total, 0)
+
+
+def get_open_pull_request_counts(repository: Any) -> dict[str, int]:
+    if not hasattr(repository, "get_pulls"):
+        return default_open_pull_request_counts()
     try:
         pulls = repository.get_pulls(state="open")
     except Exception:
-        return 0
-    total_count = getattr(pulls, "totalCount", 0)
-    return total_count if isinstance(total_count, int) else 0
+        return default_open_pull_request_counts()
+
+    try:
+        pull_requests = list(pulls)
+    except TypeError:
+        total_count = getattr(pulls, "totalCount", None)
+        if isinstance(total_count, int):
+            return {
+                "ready": total_count,
+                "draft": 0,
+                "total": total_count,
+            }
+        return default_open_pull_request_counts()
+
+    draft_count = sum(is_draft_pull_request(pull_request) for pull_request in pull_requests)
+    total_count = len(pull_requests)
+    return {
+        "ready": total_count - draft_count,
+        "draft": draft_count,
+        "total": total_count,
+    }
+
+
+def default_open_pull_request_counts() -> dict[str, int]:
+    return {"ready": 0, "draft": 0, "total": 0}
+
+
+def is_draft_pull_request(pull_request: Any) -> bool:
+    try:
+        draft = getattr(pull_request, "draft", None)
+    except Exception:
+        draft = None
+    if isinstance(draft, bool):
+        return draft
+
+    try:
+        raw_data = getattr(pull_request, "raw_data", None)
+    except Exception:
+        raw_data = None
+    if isinstance(raw_data, dict):
+        draft = raw_data.get("draft")
+        if isinstance(draft, bool):
+            return draft
+    return False
 
 
 def get_latest_release_details(
