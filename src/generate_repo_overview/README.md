@@ -56,6 +56,8 @@ That file stores a serialized `RepoSnapshot` containing:
 - generation timestamp
 - all normalized repositories
 
+The cache loader only accepts the current schema version. If the snapshot schema does not match, the cache is treated as unusable and collection falls back to a fresh GitHub fetch.
+
 For each repository, the snapshot currently stores:
 
 - repository identity and grouping
@@ -67,7 +69,7 @@ For each repository, the snapshot currently stores:
   - `default_branch`
   - `default_branch_sha`
 - live repository overview fields
-  - `last_push_date`
+  - `last_push_date` (default-branch last commit date when available; falls back to repository pushed timestamp)
   - `open_issues`
   - `open_prs`
   - `open_ready_prs`
@@ -84,6 +86,9 @@ For each repository, the snapshot currently stores:
   - `is_bazel_repo`
   - `bazel_version`
   - `has_lint_config`
+  - `has_gitlint_config`
+  - `has_pyproject_toml`
+  - `has_pre_commit_config`
   - `has_ci`
   - `uses_cicd_daily_workflow`
   - `has_coverage_config`

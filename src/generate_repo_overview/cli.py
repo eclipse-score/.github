@@ -20,6 +20,8 @@ from .profile_readme import load_config, load_template, render_readme
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from .models import RepoSnapshot
+
 
 CLI_EPILOG = dedent(
     f"""\
@@ -268,7 +270,7 @@ def run_generate_metrics(args: argparse.Namespace) -> int:
 
 
 def render_profile_readme(
-    snapshot,
+    snapshot: RepoSnapshot,
     *,
     template_path: Path | None,
     config_path: Path | None,
@@ -299,7 +301,7 @@ def write_or_print(
 
 
 def render_all_outputs(
-    snapshot,
+    snapshot: RepoSnapshot,
     *,
     readme_output: Path,
     metrics_output: Path,

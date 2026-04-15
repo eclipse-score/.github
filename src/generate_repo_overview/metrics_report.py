@@ -3,10 +3,13 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from .constants import DEFAULT_ORG
-
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .models import RepoEntry, RepoSnapshot
+
+
+HANDLE_PATTERN = re.compile(r"@[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?")
 
 
 def render_metrics_report(snapshot: RepoSnapshot) -> str:
@@ -40,23 +43,6 @@ def render_summary(repos: list[RepoEntry]) -> list[str]:
         f"- With coverage config: {sum(repo.has_coverage_config for repo in repos)}",
         f"- With releases: {sum(has_latest_release(repo) for repo in repos)}",
     ]
-
-
-def render_metrics_row(entry: RepoEntry, org_name: str = DEFAULT_ORG) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
-    latest_release = entry.latest_release_version or "-"
-    release_date = entry.latest_release_date or "-"
-    commits_since_release = render_optional_int(entry.commits_since_latest_release)
-    last_push = entry.last_push_date or "-"
-    return (
-        f"| [{entry.name}]({url}) | {entry.category} | {last_push} | "
-        f"{entry.open_issues} | {entry.open_ready_prs} | {entry.open_draft_prs} | "
-        f"{render_bool(entry.is_bazel_repo)} | "
-        f"{render_bool(entry.has_lint_config)} | {render_bool(entry.has_ci)} | "
-        f"{render_bool(entry.uses_cicd_daily_workflow)} | "
-        f"{render_bool(entry.has_coverage_config)} | {latest_release} | "
-        f"{release_date} | {commits_since_release} | {entry.stars} | {entry.forks} |"
-    )
 
 
 def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
@@ -148,7 +134,7 @@ def render_category_tables(
     org_name: str,
     header: str,
     divider: str,
-    row_renderer,
+    row_renderer: Callable[..., str],
     heading_level: int = 3,
 ) -> list[str]:
     lines: list[str] = []
@@ -220,10 +206,6 @@ def render_automation_row(entry: RepoEntry, *, org_name: str) -> str:
 
 def render_bool(value: bool) -> str:
     return "yes" if value else "no"
-
-
-def render_optional_int(value: int | None) -> str:
-    return str(value) if value is not None else "-"
 
 
 def render_plain_value(value: str | None) -> str:
@@ -299,7 +281,7 @@ def escape_markdown_table_cell(text: str) -> str:
 
 
 def extract_handles(value: str) -> list[str]:
-    return re.findall(r"@[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?", value)
+    return HANDLE_PATTERN.findall(value)
 
 
 def parse_version_key(value: str | None) -> tuple[int, ...] | None:
@@ -366,7 +348,9 @@ def render_docs_as_code_version_status(
     if cleaned == latest_cleaned:
         return f"🟢 {escape_markdown_table_cell(cleaned)}"
 
-    if major_minor(cleaned) is not None and major_minor(cleaned) == major_minor(latest_cleaned):
+    cleaned_major_minor = major_minor(cleaned)
+    latest_major_minor = major_minor(latest_cleaned)
+    if cleaned_major_minor is not None and cleaned_major_minor == latest_major_minor:
         return f"🟡 {escape_markdown_table_cell(cleaned)}"
 
     return f"🔴 {escape_markdown_table_cell(cleaned)}"

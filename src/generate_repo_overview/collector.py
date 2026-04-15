@@ -299,9 +299,6 @@ def fetch_repositories(
                     repository_name
                 ),
                 cached_entry=cached_entry,
-                cached_schema_version=existing_snapshot.schema_version
-                if existing_snapshot is not None
-                else None,
             )
             futures[future] = (index, repository_name)
 
@@ -509,13 +506,11 @@ def collect_repository_entry(
     custom_properties: dict[str, CustomPropertyValue],
     bazel_registry_metadata: dict[str, tuple[str, ...] | str | None] | None,
     cached_entry: RepoEntry | None,
-    cached_schema_version: int | None = None,
 ) -> RepoEntry:
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
     default_branch_sha = get_default_branch_sha(repository, default_branch)
     cached_content_signals = cached_signals_for_repository(
         cached_entry,
-        cached_schema_version=cached_schema_version,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
     )
@@ -604,13 +599,10 @@ def get_default_branch_last_commit_date(
 def cached_signals_for_repository(
     cached_entry: RepoEntry | None,
     *,
-    cached_schema_version: int | None,
     default_branch: str | None,
     default_branch_sha: str | None,
 ) -> dict[str, str | bool | tuple[str, ...] | None] | None:
     if cached_entry is None:
-        return None
-    if cached_schema_version != SNAPSHOT_SCHEMA_VERSION:
         return None
 
     cached_sha = cached_entry.default_branch_sha

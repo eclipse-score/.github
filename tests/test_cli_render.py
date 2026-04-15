@@ -2,7 +2,11 @@ from pathlib import Path
 
 import generate_repo_overview.cli as cli
 from generate_repo_overview.collector import write_snapshot
-from generate_repo_overview.models import RepoEntry, RepoSnapshot
+from generate_repo_overview.models import (
+    SNAPSHOT_SCHEMA_VERSION,
+    RepoEntry,
+    RepoSnapshot,
+)
 
 
 def test_render_writes_both_reports_from_cached_snapshot(tmp_path: Path) -> None:
@@ -10,7 +14,7 @@ def test_render_writes_both_reports_from_cached_snapshot(tmp_path: Path) -> None
     readme_output = tmp_path / "README.md"
     metrics_output = tmp_path / "metrics.md"
     snapshot = RepoSnapshot(
-        schema_version=8,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
