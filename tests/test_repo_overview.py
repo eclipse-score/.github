@@ -35,6 +35,9 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
                 maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
                 latest_bazel_registry_version="0.2.5",
                 has_lint_config=True,
+                has_gitlint_config=True,
+                has_pyproject_toml=True,
+                has_pre_commit_config=True,
                 has_ci=True,
                 uses_cicd_daily_workflow=True,
                 has_coverage_config=False,
@@ -115,7 +118,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
         list_custom_property_values=list,
     )
     cached_snapshot = RepoSnapshot(
-        schema_version=8,
+        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -542,8 +545,17 @@ def test_metrics_report_renders_summary_and_table() -> None:
                 open_draft_prs=1,
                 is_bazel_repo=True,
                 bazel_version="8.4.2",
-                codeowners=("@docs-team", "@platform-team"),
-                maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+                codeowners=(
+                    "@docs-team",
+                    "@platform-team",
+                    "@infra-team",
+                    "@qa-team",
+                ),
+                maintainers_in_bazel_registry=(
+                    "Andrey Babanin (@4og)",
+                    "Nikola Radakovic (@nradakovic)",
+                    "Pawel Rutka (@pawelrutkaq)",
+                ),
                 latest_bazel_registry_version="0.2.5",
                 has_lint_config=True,
                 has_ci=True,
@@ -566,30 +578,31 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "- Using daily workflow: 1" in markdown
     assert "## Table Of Contents" in markdown
     assert "- [Repository Overview](#repository-overview)" in markdown
-    assert "`Docs-As-Code Version`" in markdown
-    assert "`GitHub Actions`: `yes` if `.github/workflows` exists." in markdown
+    assert "- [Versions](#versions)" in markdown
+    assert "- [Ownership](#ownership)" not in markdown
+    assert "- [Ownership With Versions](#ownership-with-versions)" not in markdown
+    assert "`⚙ GitHub Actions`: shown when `.github/workflows` exists." in markdown
     assert "## Repository Overview" in markdown
-    assert "## Ownership" in markdown
-    assert "## Ownership With Versions" in markdown
+    assert "## Versions" in markdown
+    assert "| Repository | Ownership | Last Commit |" in markdown
+    assert "## Ownership" not in markdown
+    assert "## Ownership With Versions" not in markdown
     assert "## Delivery And Automation" in markdown
     assert "### Infrastructure" in markdown
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | 2026-04-12 | 2 | 1 | 1 | yes | 3 | 4 |"
+        "| [tools](https://github.com/eclipse-score/tools) | "
+        "<small><sub><small>Codeowners: @docs-team, @platform-team, @infra-team, @qa-team<br><br>"
+        "Maintainers In Bazel Registry: @4og, @nradakovic, @pawelrutkaq</small></sub></small> | "
+        "2026-04-12 | 2 | 1 | 1 | 🏗 | v1.2.3 | 🟡 7 | 3 | 4 |"
         in markdown
     )
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | "
-        "Andrey Babanin (@4og) | @docs-team, @platform-team |"
+        "🟢 8.4.2 | ⚪ - |"
         in markdown
     )
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | "
-        "Andrey Babanin (@4og) | @docs-team, @platform-team | "
-        "0.2.5 | 8.4.2 | - | v1.2.3 | 2026-04-01 | 7 |"
-        in markdown
-    )
-    assert (
-        "| [tools](https://github.com/eclipse-score/tools) | yes | yes | yes | no |"
+        "| [tools](https://github.com/eclipse-score/tools) | - | - | - | ⚙ | yes | no |"
         in markdown
     )
 
@@ -612,12 +625,63 @@ def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
     markdown = render_metrics_report(snapshot)
 
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | - | 0 | 0 | 0 | no | 0 | 0 |"
+        "| [tools](https://github.com/eclipse-score/tools) | - "
+        "| - | 0 | 0 | 0 | - | - | - | 0 | 0 |"
         in markdown
     )
 
 
-def test_metrics_report_renders_docs_as_code_topic_view() -> None:
+def test_metrics_report_ownership_cell_skips_maintainers_for_non_bazel_repo() -> None:
+    snapshot = RepoSnapshot(
+        schema_version=8,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="tools",
+                description="Tooling",
+                category="Infrastructure",
+                subcategory="Tooling",
+                is_bazel_repo=False,
+                codeowners=("@docs-team",),
+                maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+            ),
+        ),
+    )
+
+    markdown = render_metrics_report(snapshot)
+
+    assert (
+        "<small><sub><small>Codeowners: @docs-team</small></sub></small>"
+        in markdown
+    )
+    assert "Maintainers In Bazel Registry:" not in markdown
+
+
+def test_metrics_report_ownership_cell_marks_missing_maintainers_for_bazel_repo() -> None:
+    snapshot = RepoSnapshot(
+        schema_version=8,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="tools",
+                description="Tooling",
+                category="Infrastructure",
+                subcategory="Tooling",
+                is_bazel_repo=True,
+                codeowners=("@docs-team",),
+                maintainers_in_bazel_registry=(),
+            ),
+        ),
+    )
+
+    markdown = render_metrics_report(snapshot)
+
+    assert "Maintainers In Bazel Registry:" not in markdown
+
+
+def test_metrics_report_renders_versions_table() -> None:
     snapshot = RepoSnapshot(
         schema_version=8,
         org_name="eclipse-score",
@@ -644,12 +708,71 @@ def test_metrics_report_renders_docs_as_code_topic_view() -> None:
 
     markdown = render_metrics_report(snapshot)
 
-    assert "### Docs-As-Code" in markdown
+    assert "## Versions" in markdown
+    assert "🔴 6" in markdown
     assert (
         "| [process_description](https://github.com/eclipse-score/process_description) | "
-        "4.0.0 | 8.4.2 | yes | yes | 2026-04-12 | 35 | 6 | 2 |"
+        "🟢 8.4.2 | ⚪ 4.0.0 |"
         in markdown
     )
+
+
+def test_versions_table_docs_as_code_color_rules() -> None:
+    snapshot = RepoSnapshot(
+        schema_version=8,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="docs-as-code",
+                description="Docs",
+                category="Infrastructure",
+                subcategory="Tooling",
+                latest_release_version="v4.1.3",
+                bazel_version="8.6.0",
+            ),
+            RepoEntry(
+                name="same-release",
+                description="Same",
+                category="Infrastructure",
+                subcategory="Tooling",
+                docs_as_code_version="4.1.3",
+                bazel_version="8.5.0",
+            ),
+            RepoEntry(
+                name="same-minor",
+                description="Minor",
+                category="Infrastructure",
+                subcategory="Tooling",
+                docs_as_code_version="4.1.1",
+                bazel_version="8.4.0",
+            ),
+            RepoEntry(
+                name="older",
+                description="Older",
+                category="Infrastructure",
+                subcategory="Tooling",
+                docs_as_code_version="3.9.9",
+                bazel_version="8.3.0",
+            ),
+            RepoEntry(
+                name="none",
+                description="None",
+                category="Infrastructure",
+                subcategory="Tooling",
+                docs_as_code_version=None,
+                bazel_version=None,
+            ),
+        ),
+    )
+
+    markdown = render_metrics_report(snapshot)
+
+    assert "| [docs-as-code](https://github.com/eclipse-score/docs-as-code) | 🟢 8.6.0 | ⚪ - |" in markdown
+    assert "| [same-release](https://github.com/eclipse-score/same-release) | 🔴 8.5.0 | 🟢 4.1.3 |" in markdown
+    assert "| [same-minor](https://github.com/eclipse-score/same-minor) | 🔴 8.4.0 | 🟡 4.1.1 |" in markdown
+    assert "| [older](https://github.com/eclipse-score/older) | 🔴 8.3.0 | 🔴 3.9.9 |" in markdown
+    assert "| [none](https://github.com/eclipse-score/none) | 🔴 - | ⚪ - |" in markdown
 
 
 def test_fetch_repositories_does_not_reuse_content_signals_from_older_schema() -> None:

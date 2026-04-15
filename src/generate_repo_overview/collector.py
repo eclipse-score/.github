@@ -27,7 +27,10 @@ if TYPE_CHECKING:
 
     from github.Organization import Organization
 
-LINT_CONFIG_PATHS = (".gitlint", ".editorconfig", ".pre-commit-config.yaml")
+GITLINT_PATHS = (".gitlint",)
+PYPROJECT_PATHS = ("pyproject.toml",)
+PRE_COMMIT_PATHS = (".pre-commit-config.yaml",)
+LINT_CONFIG_PATHS = GITLINT_PATHS + PRE_COMMIT_PATHS
 CI_PATHS = (".github/workflows",)
 COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
 BAZEL_VERSION_PATHS = (".bazelversion",)
@@ -530,6 +533,10 @@ def collect_repository_entry(
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
     )
+    last_commit_date = get_default_branch_last_commit_date(
+        repository,
+        default_branch=default_branch,
+    )
 
     return build_repo_entry(
         repository_name=repository_name,
@@ -537,7 +544,7 @@ def collect_repository_entry(
         custom_properties=custom_properties,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
-        last_push_date=iso_date(getattr(repository, "pushed_at", None)),
+        last_push_date=last_commit_date or iso_date(getattr(repository, "pushed_at", None)),
         open_issues=get_open_issue_count(
             repository,
             open_pull_request_total=open_pull_request_counts["total"],
@@ -560,6 +567,9 @@ def collect_repository_entry(
         ),
         docs_as_code_version=content_signals["docs_as_code_version"],
         has_lint_config=content_signals["has_lint_config"],
+        has_gitlint_config=bool(content_signals.get("has_gitlint_config", False)),
+        has_pyproject_toml=bool(content_signals.get("has_pyproject_toml", False)),
+        has_pre_commit_config=bool(content_signals.get("has_pre_commit_config", False)),
         has_ci=content_signals["has_ci"],
         uses_cicd_daily_workflow=content_signals["uses_cicd_daily_workflow"],
         has_coverage_config=content_signals["has_coverage_config"],
@@ -569,6 +579,26 @@ def collect_repository_entry(
         stars=getattr(repository, "stargazers_count", 0) or 0,
         forks=getattr(repository, "forks_count", 0) or 0,
     )
+
+
+def get_default_branch_last_commit_date(
+    repository: Any,
+    *,
+    default_branch: str | None,
+) -> str | None:
+    if not default_branch:
+        return None
+
+    try:
+        branch = repository.get_branch(default_branch)
+    except Exception:
+        return None
+
+    commit = getattr(branch, "commit", None)
+    nested_commit = getattr(commit, "commit", None)
+    committer = getattr(nested_commit, "committer", None)
+    timestamp = getattr(committer, "date", None)
+    return iso_date(timestamp)
 
 
 def cached_signals_for_repository(
@@ -596,6 +626,9 @@ def cached_signals_for_repository(
         "codeowners": cached_entry.codeowners,
         "docs_as_code_version": cached_entry.docs_as_code_version,
         "has_lint_config": cached_entry.has_lint_config,
+        "has_gitlint_config": cached_entry.has_gitlint_config,
+        "has_pyproject_toml": cached_entry.has_pyproject_toml,
+        "has_pre_commit_config": cached_entry.has_pre_commit_config,
         "has_ci": cached_entry.has_ci,
         "uses_cicd_daily_workflow": cached_entry.uses_cicd_daily_workflow,
         "has_coverage_config": cached_entry.has_coverage_config,
@@ -621,6 +654,9 @@ def build_repo_entry(
     latest_bazel_registry_version: str | None = None,
     docs_as_code_version: str | None = None,
     has_lint_config: bool = False,
+    has_gitlint_config: bool = False,
+    has_pyproject_toml: bool = False,
+    has_pre_commit_config: bool = False,
     has_ci: bool = False,
     uses_cicd_daily_workflow: bool = False,
     has_coverage_config: bool = False,
@@ -654,6 +690,9 @@ def build_repo_entry(
         latest_bazel_registry_version=latest_bazel_registry_version,
         docs_as_code_version=docs_as_code_version,
         has_lint_config=has_lint_config,
+        has_gitlint_config=has_gitlint_config,
+        has_pyproject_toml=has_pyproject_toml,
+        has_pre_commit_config=has_pre_commit_config,
         has_ci=has_ci,
         uses_cicd_daily_workflow=uses_cicd_daily_workflow,
         has_coverage_config=has_coverage_config,
@@ -702,6 +741,15 @@ def inspect_repository_content(
             ref=ref,
             module_name="score_docs_as_code",
         ),
+        "has_gitlint_config": any(
+            tree_contains_path(tree_paths, path) for path in GITLINT_PATHS
+        ),
+        "has_pyproject_toml": any(
+            tree_contains_path(tree_paths, path) for path in PYPROJECT_PATHS
+        ),
+        "has_pre_commit_config": any(
+            tree_contains_path(tree_paths, path) for path in PRE_COMMIT_PATHS
+        ),
         "has_lint_config": any(
             tree_contains_path(tree_paths, path) for path in LINT_CONFIG_PATHS
         ),
@@ -723,6 +771,9 @@ def default_content_signals() -> dict[str, str | bool | tuple[str, ...] | None]:
         "bazel_version": None,
         "codeowners": (),
         "docs_as_code_version": None,
+        "has_gitlint_config": False,
+        "has_pyproject_toml": False,
+        "has_pre_commit_config": False,
         "has_lint_config": False,
         "has_ci": False,
         "uses_cicd_daily_workflow": False,

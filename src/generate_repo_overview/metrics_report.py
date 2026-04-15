@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from .constants import DEFAULT_ORG
@@ -10,7 +11,6 @@ if TYPE_CHECKING:
 
 def render_metrics_report(snapshot: RepoSnapshot) -> str:
     repos = sorted(snapshot.repos, key=lambda repo: repo.name.casefold())
-    has_topic_views = any(repo.docs_as_code_version for repo in repos)
     lines = [
         "# Cross-Repo Metrics Report",
         "",
@@ -21,20 +21,13 @@ def render_metrics_report(snapshot: RepoSnapshot) -> str:
         "## Table Of Contents",
         "",
         "- [Repository Overview](#repository-overview)",
-        "- [Ownership](#ownership)",
-        "- [Ownership With Versions](#ownership-with-versions)",
+        "- [Versions](#versions)",
         "- [Delivery And Automation](#delivery-and-automation)",
         "",
     ]
-    if has_topic_views:
-        lines.insert(-1, "- [Topic Views](#topic-views)")
     lines.extend(render_overview_section(repos, org_name=snapshot.org_name))
-    lines.extend(render_ownership_section(repos, org_name=snapshot.org_name))
-    lines.extend(
-        render_ownership_with_versions_section(repos, org_name=snapshot.org_name)
-    )
+    lines.extend(render_versions_section(repos, org_name=snapshot.org_name))
     lines.extend(render_automation_section(repos, org_name=snapshot.org_name))
-    lines.extend(render_topic_sections(repos, org_name=snapshot.org_name))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -71,63 +64,55 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
         "## Repository Overview",
         "",
         "- `Open Issues`: open issues only. Pull requests are excluded.",
-        "- `Open Ready PRs` and `Open Draft PRs`: open pull requests split by draft status.",
-        "- `Bazel Repo`: `yes` if the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.",
+        "- `Open Ready PRs` and `Open Draft PRs`: open pull requests split by draft status (`Open Ready PRs > 5` is marked `🔴`).",
+        "- `Bazel Repo`: `🔺` if the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.",
+        "- `Latest Release`: release tag name, falling back to the release name when needed.",
+        "- `Commits Since Release`: compare the latest release tag to current default branch head.",
+        "- Icons: `🟢` healthy, `🟡` caution, `🔴` alert.",
+        "- `Codeowners`: owners resolved for the `.github/CODEOWNERS` path from that repository's `.github/CODEOWNERS` file.",
+        "- `Maintainers In Bazel Registry`: shown only for bazel repos when handles are available.",
         "",
     ]
     lines.extend(
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Last Push | Open Issues | Open Ready PRs | Open Draft PRs | Bazel Repo | Stars | Forks |",
-            divider="|------------|-----------|-------------|----------------|----------------|------------|-------|-------|",
+            header="| Repository | Ownership | Last Commit | Open Issues | Open Ready PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |",
+            divider="|------------|-----------|-------------|-------------|----------------|----------------|------------|----------------|-----------------------|-------|-------|",
             row_renderer=render_overview_row,
         )
     )
     return lines
 
 
-def render_ownership_section(repos: list[RepoEntry], org_name: str) -> list[str]:
-    lines = [
-        "## Ownership",
-        "",
-        "- `Maintainers In Bazel Registry`: names listed in `bazel_registry/modules/*/metadata.json`. This is registry metadata, not authoritative maintainer truth.",
-        "- `Codeowners (.github/CODEOWNERS)`: owners resolved for the `.github/CODEOWNERS` path from that repository's `.github/CODEOWNERS` file. `-` means the file is missing or no owners matched.",
-        "",
-    ]
-    lines.extend(
-        render_category_tables(
-            repos,
+def render_versions_section(repos: list[RepoEntry], org_name: str) -> list[str]:
+    latest_docs_as_code_release = get_latest_docs_as_code_release(repos)
+    max_bazel_version = get_max_bazel_version(repos)
+
+    def render_row(entry: RepoEntry, *, org_name: str) -> str:
+        return render_versions_row(
+            entry,
             org_name=org_name,
-            header="| Repository | Maintainers In Bazel Registry | Codeowners (.github/CODEOWNERS) |",
-            divider="|------------|------------------------------|--------------------------------|",
-            row_renderer=render_ownership_row,
+            max_bazel_version=max_bazel_version,
+            latest_docs_as_code_release=latest_docs_as_code_release,
         )
-    )
-    return lines
 
-
-def render_ownership_with_versions_section(
-    repos: list[RepoEntry],
-    org_name: str,
-) -> list[str]:
     lines = [
-        "## Ownership With Versions",
+        "## Versions",
         "",
-        "- `Latest Bazel Registry Version`: first version listed for that module in bazel_registry metadata.",
+        "- Generic view of repository version signals.",
         '- `Docs-As-Code Version`: `version = "..."` for `bazel_dep(name = "score_docs_as_code", ...)` in the repository root `MODULE.bazel`.',
-        "- `Latest Release`: release tag name, falling back to the release name when needed.",
-        "- `Release Date`: published date of the latest release when available.",
-        "- `Commits Since Release`: compare the latest release tag to the current default branch head. `-` means no release or no comparable tag.",
+        "- `Bazel Version`: highest version in the table is `🟢`; every other value is `🔴`.",
+        "- `Docs-As-Code Version`: `⚪` if missing, `🟢` if equal to latest docs-as-code release, `🟡` if same major.minor, else `🔴`.",
         "",
     ]
     lines.extend(
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Maintainers In Bazel Registry | Codeowners (.github/CODEOWNERS) | Latest Bazel Registry Version | Bazel Version | Docs-As-Code Version | Latest Release | Release Date | Commits Since Release |",
-            divider="|------------|------------------------------|--------------------------------|-------------------------------|---------------|----------------------|----------------|--------------|-----------------------|",
-            row_renderer=render_ownership_with_versions_row,
+            header="| Repository | Bazel Version | Docs-As-Code Version |",
+            divider="|------------|---------------|----------------------|",
+            row_renderer=render_row,
         )
     )
     return lines
@@ -137,8 +122,10 @@ def render_automation_section(repos: list[RepoEntry], org_name: str) -> list[str
     lines = [
         "## Delivery And Automation",
         "",
-        "- `Lint/Style Config`: `yes` if `.gitlint`, `.editorconfig`, or `.pre-commit-config.yaml` exists.",
-        "- `GitHub Actions`: `yes` if `.github/workflows` exists.",
+        "- `🔍 Gitlint`: shown when `.gitlint` exists.",
+        "- `🐍 Pyproject`: shown when `pyproject.toml` exists.",
+        "- `🪝 Pre-commit`: shown when `.pre-commit-config.yaml` exists.",
+        "- `⚙ GitHub Actions`: shown when `.github/workflows` exists.",
         "- `Daily Workflow`: `yes` if any workflow file references `cicd-workflows/.github/workflows/daily.yml@...`.",
         "- `Coverage Config`: `yes` if `coverage.yml`, `coverage.xml`, `pytest.ini`, or `.coveragerc` exists.",
         "",
@@ -147,35 +134,9 @@ def render_automation_section(repos: list[RepoEntry], org_name: str) -> list[str
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Lint/Style Config | GitHub Actions | Daily Workflow | Coverage Config |",
-            divider="|------------|-------------------|----------------|----------------|-----------------|",
+            header="| Repository | 🔍 Gitlint | 🐍 Pyproject | 🪝 Pre-commit | ⚙ GitHub Actions | Daily Workflow | Coverage Config |",
+            divider="|------------|------------|-------------|---------------|------------------|----------------|-----------------|",
             row_renderer=render_automation_row,
-        )
-    )
-    return lines
-
-
-def render_topic_sections(repos: list[RepoEntry], org_name: str) -> list[str]:
-    topic_repos = [repo for repo in repos if repo.docs_as_code_version]
-    if not topic_repos:
-        return []
-
-    lines = [
-        "## Topic Views",
-        "",
-        "### Docs-As-Code",
-        "",
-        '- `Docs-As-Code Version`: `version = "..."` for `bazel_dep(name = "score_docs_as_code", ...)` in the repository root `MODULE.bazel`.',
-        "",
-    ]
-    lines.extend(
-        render_category_tables(
-            topic_repos,
-            org_name=org_name,
-            header="| Repository | Docs-As-Code Version | Bazel Version | GitHub Actions | Daily Workflow | Last Push | Open Issues | Open Ready PRs | Open Draft PRs |",
-            divider="|------------|----------------------|---------------|----------------|----------------|-----------|-------------|----------------|----------------|",
-            row_renderer=render_docs_as_code_row,
-            heading_level=4,
         )
     )
     return lines
@@ -221,48 +182,39 @@ def group_repos_by_category(repos: list[RepoEntry]) -> list[tuple[str, list[Repo
 def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| [{entry.name}]({url}) | {entry.last_push_date or '-'} | "
-        f"{entry.open_issues} | {entry.open_ready_prs} | {entry.open_draft_prs} | "
-        f"{render_bool(entry.is_bazel_repo)} | "
+        f"| [{entry.name}]({url}) | {render_ownership_cell(entry)} | "
+        f"{entry.last_push_date or '-'} | "
+        f"{entry.open_issues} | {render_ready_pr_count(entry.open_ready_prs)} | {entry.open_draft_prs} | "
+        f"{render_bazel_repo_presence(entry.is_bazel_repo)} | "
+        f"{render_plain_value(entry.latest_release_version)} | "
+        f"{render_commits_since_release(entry.commits_since_latest_release)} | "
         f"{entry.stars} | {entry.forks} |"
     )
 
 
-def render_ownership_row(entry: RepoEntry, *, org_name: str) -> str:
+def render_versions_row(
+    entry: RepoEntry,
+    *,
+    org_name: str,
+    max_bazel_version: tuple[int, ...] | None,
+    latest_docs_as_code_release: str | None,
+) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| [{entry.name}]({url}) | {render_list(entry.maintainers_in_bazel_registry)} | "
-        f"{render_list(entry.codeowners)} |"
-    )
-
-
-def render_ownership_with_versions_row(entry: RepoEntry, *, org_name: str) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
-    return (
-        f"| [{entry.name}]({url}) | {render_list(entry.maintainers_in_bazel_registry)} | "
-        f"{render_list(entry.codeowners)} | {entry.latest_bazel_registry_version or '-'} | "
-        f"{entry.bazel_version or '-'} | {entry.docs_as_code_version or '-'} | "
-        f"{entry.latest_release_version or '-'} | {entry.latest_release_date or '-'} | "
-        f"{render_optional_int(entry.commits_since_latest_release)} |"
+        f"| [{entry.name}]({url}) | {render_bazel_version_status(entry.bazel_version, max_bazel_version)} | "
+        f"{render_docs_as_code_version_status(entry.docs_as_code_version, latest_docs_as_code_release)} |"
     )
 
 
 def render_automation_row(entry: RepoEntry, *, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| [{entry.name}]({url}) | {render_bool(entry.has_lint_config)} | "
-        f"{render_bool(entry.has_ci)} | {render_bool(entry.uses_cicd_daily_workflow)} | "
+        f"| [{entry.name}]({url}) | {render_presence(entry.has_gitlint_config, icon='🔍')} | "
+        f"{render_presence(entry.has_pyproject_toml, icon='🐍')} | "
+        f"{render_presence(entry.has_pre_commit_config, icon='🪝')} | "
+        f"{render_presence(entry.has_ci, icon='⚙')} | "
+        f"{render_bool(entry.uses_cicd_daily_workflow)} | "
         f"{render_bool(entry.has_coverage_config)} |"
-    )
-
-
-def render_docs_as_code_row(entry: RepoEntry, *, org_name: str) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
-    return (
-        f"| [{entry.name}]({url}) | {entry.docs_as_code_version or '-'} | "
-        f"{entry.bazel_version or '-'} | {render_bool(entry.has_ci)} | "
-        f"{render_bool(entry.uses_cicd_daily_workflow)} | {entry.last_push_date or '-'} | "
-        f"{entry.open_issues} | {entry.open_ready_prs} | {entry.open_draft_prs} |"
     )
 
 
@@ -274,8 +226,150 @@ def render_optional_int(value: int | None) -> str:
     return str(value) if value is not None else "-"
 
 
-def render_list(values: tuple[str, ...]) -> str:
-    return ", ".join(values) if values else "-"
+def render_plain_value(value: str | None) -> str:
+    if value is None or not value.strip():
+        return "-"
+    return escape_markdown_table_cell(value.strip())
+
+
+def render_ready_pr_count(value: int) -> str:
+    if value > 5:
+        return f"🔴 {value}"
+    return str(value)
+
+
+def render_commits_since_release(value: int | None) -> str:
+    if value is None:
+        return "-"
+    if value == 0:
+        return "🟢 0"
+    if value <= 20:
+        return f"🟡 {value}"
+    return f"🔴 {value}"
+
+
+def render_bazel_repo_presence(value: bool) -> str:
+    return "🏗" if value else "-"
+
+
+def render_presence(value: bool, *, icon: str) -> str:
+    return icon if value else "-"
+
+
+def render_ownership_cell(entry: RepoEntry) -> str:
+    codeowners = render_people_list(entry.codeowners, handles_only=True)
+    lines: list[str] = []
+    if codeowners != "-":
+        lines.append(f"Codeowners: {codeowners}")
+
+    if entry.is_bazel_repo:
+        maintainers = render_people_list(
+            entry.maintainers_in_bazel_registry,
+            handles_only=True,
+        )
+        if maintainers != "-":
+            lines.append(f"Maintainers In Bazel Registry: {maintainers}")
+
+    if not lines:
+        return "-"
+
+    return f"<small><sub><small>{'<br><br>'.join(lines)}</small></sub></small>"
+
+
+def render_people_list(values: tuple[str, ...], *, handles_only: bool = False) -> str:
+    if not values:
+        return "-"
+
+    cleaned_values = values
+    if handles_only:
+        handles: list[str] = []
+        for value in values:
+            handles.extend(extract_handles(value))
+        cleaned_values = tuple(dict.fromkeys(handles))
+
+    if not cleaned_values:
+        return "-"
+
+    return escape_markdown_table_cell(", ".join(cleaned_values))
+
+
+def escape_markdown_table_cell(text: str) -> str:
+    normalized = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    return normalized.replace("|", r"\|")
+
+
+def extract_handles(value: str) -> list[str]:
+    return re.findall(r"@[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?", value)
+
+
+def parse_version_key(value: str | None) -> tuple[int, ...] | None:
+    if value is None:
+        return None
+    numeric_parts = re.findall(r"\d+", value)
+    if not numeric_parts:
+        return None
+    return tuple(int(part) for part in numeric_parts[:3])
+
+
+def get_max_bazel_version(repos: list[RepoEntry]) -> tuple[int, ...] | None:
+    keys = [
+        key
+        for repo in repos
+        if (key := parse_version_key(repo.bazel_version)) is not None
+    ]
+    return max(keys) if keys else None
+
+
+def get_latest_docs_as_code_release(repos: list[RepoEntry]) -> str | None:
+    for repo in repos:
+        if repo.name.casefold() != "docs-as-code":
+            continue
+        if repo.latest_release_version is None:
+            return None
+        return repo.latest_release_version.removeprefix("v").strip() or None
+    return None
+
+
+def render_bazel_version_status(
+    bazel_version: str | None,
+    max_bazel_version: tuple[int, ...] | None,
+) -> str:
+    if bazel_version is None or not bazel_version.strip():
+        return "🔴 -"
+
+    cleaned = bazel_version.strip()
+    parsed = parse_version_key(cleaned)
+    if parsed is not None and max_bazel_version is not None and parsed == max_bazel_version:
+        return f"🟢 {escape_markdown_table_cell(cleaned)}"
+    return f"🔴 {escape_markdown_table_cell(cleaned)}"
+
+
+def major_minor(version: str) -> tuple[int, int] | None:
+    parsed = parse_version_key(version)
+    if parsed is None or len(parsed) < 2:
+        return None
+    return (parsed[0], parsed[1])
+
+
+def render_docs_as_code_version_status(
+    docs_as_code_version: str | None,
+    latest_docs_as_code_release: str | None,
+) -> str:
+    if docs_as_code_version is None or not docs_as_code_version.strip():
+        return "⚪ -"
+
+    cleaned = docs_as_code_version.strip()
+    if latest_docs_as_code_release is None:
+        return f"⚪ {escape_markdown_table_cell(cleaned)}"
+
+    latest_cleaned = latest_docs_as_code_release.strip()
+    if cleaned == latest_cleaned:
+        return f"🟢 {escape_markdown_table_cell(cleaned)}"
+
+    if major_minor(cleaned) is not None and major_minor(cleaned) == major_minor(latest_cleaned):
+        return f"🟡 {escape_markdown_table_cell(cleaned)}"
+
+    return f"🔴 {escape_markdown_table_cell(cleaned)}"
 
 
 def has_latest_release(entry: RepoEntry) -> bool:

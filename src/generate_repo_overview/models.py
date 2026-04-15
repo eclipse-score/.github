@@ -8,8 +8,8 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 8
-SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = frozenset({2, 3, 4, 5, 6, 7, 8})
+SNAPSHOT_SCHEMA_VERSION = 9
+SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = frozenset({2, 3, 4, 5, 6, 7, 8, 9})
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +32,9 @@ class RepoEntry:
     latest_bazel_registry_version: str | None = None
     docs_as_code_version: str | None = None
     has_lint_config: bool = False
+    has_gitlint_config: bool = False
+    has_pyproject_toml: bool = False
+    has_pre_commit_config: bool = False
     has_ci: bool = False
     uses_cicd_daily_workflow: bool = False
     has_coverage_config: bool = False
