@@ -335,7 +335,7 @@ def render_bazel_version_status(
     max_bazel_version: tuple[int, ...] | None,
 ) -> str:
     if bazel_version is None or not bazel_version.strip():
-        return "🔴 -"
+        return "⚪ -"
 
     cleaned = bazel_version.strip()
     parsed = parse_version_key(cleaned)

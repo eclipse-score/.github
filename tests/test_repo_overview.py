@@ -772,7 +772,7 @@ def test_versions_table_docs_as_code_color_rules() -> None:
     assert "| [same-release](https://github.com/eclipse-score/same-release) | 🔴 8.5.0 | 🟢 4.1.3 |" in markdown
     assert "| [same-minor](https://github.com/eclipse-score/same-minor) | 🔴 8.4.0 | 🟡 4.1.1 |" in markdown
     assert "| [older](https://github.com/eclipse-score/older) | 🔴 8.3.0 | 🔴 3.9.9 |" in markdown
-    assert "| [none](https://github.com/eclipse-score/none) | 🔴 - | ⚪ - |" in markdown
+    assert "| [none](https://github.com/eclipse-score/none) | ⚪ - | ⚪ - |" in markdown
 
 
 def test_fetch_repositories_does_not_reuse_content_signals_from_older_schema() -> None:

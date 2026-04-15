@@ -128,38 +128,38 @@ Generated on 2026-04-15T22:10:27.220721+00:00
 
 | Repository | Bazel Version | Docs-As-Code Version |
 |------------|---------------|----------------------|
-| [.github](https://github.com/eclipse-score/.github) | 🔴 - | ⚪ - |
-| [apt-install](https://github.com/eclipse-score/apt-install) | 🔴 - | ⚪ - |
+| [.github](https://github.com/eclipse-score/.github) | ⚪ - | ⚪ - |
+| [apt-install](https://github.com/eclipse-score/apt-install) | ⚪ - | ⚪ - |
 | [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | 🔴 8.4.2 | ⚪ - |
 | [bazel_cpp_toolchains](https://github.com/eclipse-score/bazel_cpp_toolchains) | 🔴 8.3.1 | ⚪ - |
-| [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | 🔴 - | ⚪ - |
-| [bazel_registry](https://github.com/eclipse-score/bazel_registry) | 🔴 - | ⚪ - |
+| [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | ⚪ - | ⚪ - |
+| [bazel_registry](https://github.com/eclipse-score/bazel_registry) | ⚪ - | ⚪ - |
 | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | 🔴 8.4.2 | ⚪ - |
-| [cicd-actions](https://github.com/eclipse-score/cicd-actions) | 🔴 - | ⚪ - |
-| [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | 🔴 - | ⚪ - |
-| [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | 🔴 - | ⚪ - |
-| [devcontainer](https://github.com/eclipse-score/devcontainer) | 🔴 - | ⚪ - |
+| [cicd-actions](https://github.com/eclipse-score/cicd-actions) | ⚪ - | ⚪ - |
+| [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | ⚪ - | ⚪ - |
+| [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | ⚪ - | ⚪ - |
+| [devcontainer](https://github.com/eclipse-score/devcontainer) | ⚪ - | ⚪ - |
 | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | 🔴 8.4.2 | ⚪ - |
-| [ferrocene_toolchain_builder](https://github.com/eclipse-score/ferrocene_toolchain_builder) | 🔴 - | ⚪ - |
-| [infrastructure](https://github.com/eclipse-score/infrastructure) | 🔴 - | ⚪ - |
+| [ferrocene_toolchain_builder](https://github.com/eclipse-score/ferrocene_toolchain_builder) | ⚪ - | ⚪ - |
+| [infrastructure](https://github.com/eclipse-score/infrastructure) | ⚪ - | ⚪ - |
 | [itf](https://github.com/eclipse-score/itf) | 🔴 8.5.0 | ⚪ - |
 | [module_template](https://github.com/eclipse-score/module_template) | 🔴 8.3.0 | 🔴 2.3.0 |
-| [more-disk-space](https://github.com/eclipse-score/more-disk-space) | 🔴 - | ⚪ - |
+| [more-disk-space](https://github.com/eclipse-score/more-disk-space) | ⚪ - | ⚪ - |
 | [os_images](https://github.com/eclipse-score/os_images) | 🔴 8.3.0 | ⚪ - |
 | [qnx_unit_tests](https://github.com/eclipse-score/qnx_unit_tests) | 🟢 8.6.0 | ⚪ - |
 | [reference_integration](https://github.com/eclipse-score/reference_integration) | 🔴 8.4.2 | ⚪ - |
 | [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | 🔴 8.3.1 | ⚪ - |
 | [rules_rust](https://github.com/eclipse-score/rules_rust) | 🔴 8.4.2 | ⚪ - |
-| [sbom-tool](https://github.com/eclipse-score/sbom-tool) | 🔴 - | ⚪ - |
-| [score_cpp_policies](https://github.com/eclipse-score/score_cpp_policies) | 🔴 - | ⚪ - |
-| [score_rust_policies](https://github.com/eclipse-score/score_rust_policies) | 🔴 - | ⚪ - |
+| [sbom-tool](https://github.com/eclipse-score/sbom-tool) | ⚪ - | ⚪ - |
+| [score_cpp_policies](https://github.com/eclipse-score/score_cpp_policies) | ⚪ - | ⚪ - |
+| [score_rust_policies](https://github.com/eclipse-score/score_rust_policies) | ⚪ - | ⚪ - |
 | [testing_tools](https://github.com/eclipse-score/testing_tools) | 🔴 8.4.2 | ⚪ - |
-| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | 🔴 - | ⚪ - |
-| [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | 🔴 - | ⚪ - |
+| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | ⚪ - | ⚪ - |
+| [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | ⚪ - | ⚪ - |
 | [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | 🔴 8.1.0 | ⚪ - |
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | 🔴 8.4.2 | ⚪ - |
 | [tooling](https://github.com/eclipse-score/tooling) | 🔴 8.3.1 | 🔴 3.0.1 |
-| [tools](https://github.com/eclipse-score/tools) | 🔴 - | ⚪ - |
+| [tools](https://github.com/eclipse-score/tools) | ⚪ - | ⚪ - |
 
 ### modules
 
@@ -186,19 +186,19 @@ Generated on 2026-04-15T22:10:27.220721+00:00
 
 | Repository | Bazel Version | Docs-As-Code Version |
 |------------|---------------|----------------------|
-| [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | 🔴 - | ⚪ - |
+| [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | ⚪ - | ⚪ - |
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | 🔴 7.5.0 | ⚪ - |
-| [dev_playground](https://github.com/eclipse-score/dev_playground) | 🔴 - | ⚪ - |
-| [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | 🔴 - | 🔴 1.0.2 |
-| [score-crates](https://github.com/eclipse-score/score-crates) | 🔴 - | ⚪ - |
+| [dev_playground](https://github.com/eclipse-score/dev_playground) | ⚪ - | ⚪ - |
+| [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | ⚪ - | 🔴 1.0.2 |
+| [score-crates](https://github.com/eclipse-score/score-crates) | ⚪ - | ⚪ - |
 
 ### website
 
 | Repository | Bazel Version | Docs-As-Code Version |
 |------------|---------------|----------------------|
-| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | 🔴 - | ⚪ - |
-| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | 🔴 - | ⚪ - |
-| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | 🔴 - | ⚪ - |
+| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | ⚪ - | ⚪ - |
+| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | ⚪ - | ⚪ - |
+| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | ⚪ - | ⚪ - |
 | [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | 🔴 7.4.0 | ⚪ - |
 
 ## Delivery And Automation
