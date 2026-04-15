@@ -10,7 +10,7 @@ def test_render_writes_both_reports_from_cached_snapshot(tmp_path: Path) -> None
     readme_output = tmp_path / "README.md"
     metrics_output = tmp_path / "metrics.md"
     snapshot = RepoSnapshot(
-        schema_version=2,
+        schema_version=3,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(

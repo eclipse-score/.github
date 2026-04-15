@@ -8,7 +8,8 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 2
+SNAPSHOT_SCHEMA_VERSION = 3
+SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS = frozenset({2, 3})
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,7 @@ class RepoEntry:
     open_issues: int = 0
     open_prs: int = 0
     bazel_version: str | None = None
+    docs_as_code_version: str | None = None
     has_lint_config: bool = False
     has_ci: bool = False
     uses_cicd_daily_workflow: bool = False
@@ -75,10 +77,11 @@ def snapshot_from_dict(data: Mapping[str, Any]) -> RepoSnapshot:
         raise ValueError("Snapshot payload must contain a 'repos' list.")
 
     schema_version = data.get("schema_version", SNAPSHOT_SCHEMA_VERSION)
-    if schema_version != SNAPSHOT_SCHEMA_VERSION:
+    if schema_version not in SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS:
         raise ValueError(
             "Unsupported snapshot schema version "
-            f"{schema_version}; expected {SNAPSHOT_SCHEMA_VERSION}."
+            f"{schema_version}; expected one of "
+            f"{sorted(SUPPORTED_SNAPSHOT_SCHEMA_VERSIONS)}."
         )
 
     org_name = data.get("org_name")

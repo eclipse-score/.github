@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
+import re
 import subprocess
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -28,9 +30,15 @@ LINT_CONFIG_PATHS = (".gitlint", ".editorconfig", ".pre-commit-config.yaml")
 CI_PATHS = (".github/workflows",)
 COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
 BAZEL_VERSION_PATHS = (".bazelversion",)
+MODULE_PATHS = ("MODULE.bazel",)
 WORKFLOW_PATH_PREFIX = ".github/workflows/"
 WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
 DAILY_WORKFLOW_REFERENCE = "cicd-workflows/.github/workflows/daily.yml@"
+BAZEL_DEP_PATTERN_TEMPLATE = (
+    r'\bbazel_dep\s*\(\s*name\s*=\s*"{module_name}"(?P<body>.*?)\)'
+)
+VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
+DEFAULT_MAX_COLLECTION_WORKERS = 8
 
 
 def resolve_github_token(token_env: str = DEFAULT_TOKEN_ENV) -> str | None:
@@ -209,10 +217,18 @@ def fetch_repositories(
 ) -> list[RepoEntry]:
     print_status("Loading active repositories", prefix=status_prefix)
     active_repositories = fetch_active_repositories(organization)
+    print_status(
+        f"Found {len(active_repositories)} active repositories",
+        prefix=status_prefix,
+    )
     print_status("Loading repository custom properties in bulk", prefix=status_prefix)
     custom_properties_by_name = fetch_repository_custom_properties(
         organization,
         active_repository_names=set(active_repositories),
+    )
+    print_status(
+        f"Loaded custom properties for {len(custom_properties_by_name)} repositories",
+        prefix=status_prefix,
     )
 
     cached_by_name = (
@@ -220,21 +236,73 @@ def fetch_repositories(
         if existing_snapshot is not None
         else {}
     )
-
-    repos: list[RepoEntry] = []
-    for repository_name, repository in sorted(
+    sorted_repositories = sorted(
         active_repositories.items(),
         key=lambda item: item[0].casefold(),
-    ):
-        repos.append(
-            collect_repository_entry(
+    )
+
+    total_repositories = len(sorted_repositories)
+    if total_repositories == 0:
+        return []
+
+    max_workers = min(resolve_max_collection_workers(), total_repositories)
+    print_status(
+        f"Collecting repository details with up to {max_workers} parallel workers",
+        prefix=status_prefix,
+    )
+
+    repos_by_index: dict[int, RepoEntry] = {}
+    completion_count = 0
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {}
+        for index, (repository_name, repository) in enumerate(
+            sorted_repositories,
+            start=1,
+        ):
+            cached_entry = cached_by_name.get(repository_name)
+            progress_note = (
+                "using cached content signals"
+                if cached_entry
+                else "fetching content signals"
+            )
+            print_status(
+                f"[{index}/{total_repositories}] Collecting {repository_name} ({progress_note})",
+                prefix=status_prefix,
+            )
+            future = executor.submit(
+                collect_repository_entry,
                 repository_name=repository_name,
                 repository=repository,
                 custom_properties=custom_properties_by_name.get(repository_name, {}),
-                cached_entry=cached_by_name.get(repository_name),
+                cached_entry=cached_entry,
+                cached_schema_version=existing_snapshot.schema_version
+                if existing_snapshot is not None
+                else None,
             )
-        )
-    return repos
+            futures[future] = (index, repository_name)
+
+        for future in as_completed(futures):
+            index, repository_name = futures[future]
+            repos_by_index[index] = future.result()
+            completion_count += 1
+            print_status(
+                f"[{completion_count}/{total_repositories}] Finished {repository_name}",
+                prefix=status_prefix,
+            )
+
+    return [repos_by_index[index] for index in range(1, total_repositories + 1)]
+
+
+def resolve_max_collection_workers() -> int:
+    raw_value = os.getenv("REPO_OVERVIEW_MAX_WORKERS", "").strip()
+    if raw_value:
+        try:
+            parsed = int(raw_value)
+        except ValueError:
+            return DEFAULT_MAX_COLLECTION_WORKERS
+        if parsed > 0:
+            return parsed
+    return DEFAULT_MAX_COLLECTION_WORKERS
 
 
 def fetch_active_repositories(organization: Organization) -> dict[str, Any]:
@@ -289,11 +357,13 @@ def collect_repository_entry(
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
     cached_entry: RepoEntry | None,
+    cached_schema_version: int | None = None,
 ) -> RepoEntry:
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
     default_branch_sha = get_default_branch_sha(repository, default_branch)
     cached_content_signals = cached_signals_for_repository(
         cached_entry,
+        cached_schema_version=cached_schema_version,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
     )
@@ -321,6 +391,7 @@ def collect_repository_entry(
         open_issues=get_open_issue_count(repository),
         open_prs=get_open_pull_request_count(repository),
         bazel_version=content_signals["bazel_version"],
+        docs_as_code_version=content_signals["docs_as_code_version"],
         has_lint_config=content_signals["has_lint_config"],
         has_ci=content_signals["has_ci"],
         uses_cicd_daily_workflow=content_signals["uses_cicd_daily_workflow"],
@@ -336,10 +407,13 @@ def collect_repository_entry(
 def cached_signals_for_repository(
     cached_entry: RepoEntry | None,
     *,
+    cached_schema_version: int | None,
     default_branch: str | None,
     default_branch_sha: str | None,
 ) -> dict[str, str | bool | None] | None:
     if cached_entry is None:
+        return None
+    if cached_schema_version != SNAPSHOT_SCHEMA_VERSION:
         return None
 
     cached_sha = cached_entry.default_branch_sha
@@ -351,6 +425,7 @@ def cached_signals_for_repository(
 
     return {
         "bazel_version": cached_entry.bazel_version,
+        "docs_as_code_version": cached_entry.docs_as_code_version,
         "has_lint_config": cached_entry.has_lint_config,
         "has_ci": cached_entry.has_ci,
         "uses_cicd_daily_workflow": cached_entry.uses_cicd_daily_workflow,
@@ -369,6 +444,7 @@ def build_repo_entry(
     open_issues: int = 0,
     open_prs: int = 0,
     bazel_version: str | None = None,
+    docs_as_code_version: str | None = None,
     has_lint_config: bool = False,
     has_ci: bool = False,
     uses_cicd_daily_workflow: bool = False,
@@ -395,6 +471,7 @@ def build_repo_entry(
         open_issues=open_issues,
         open_prs=open_prs,
         bazel_version=bazel_version,
+        docs_as_code_version=docs_as_code_version,
         has_lint_config=has_lint_config,
         has_ci=has_ci,
         uses_cicd_daily_workflow=uses_cicd_daily_workflow,
@@ -432,6 +509,12 @@ def inspect_repository_content(
             tree_paths=tree_paths,
             ref=ref,
         ),
+        "docs_as_code_version": detect_dependency_version(
+            repository,
+            tree_paths=tree_paths,
+            ref=ref,
+            module_name="score_docs_as_code",
+        ),
         "has_lint_config": any(
             tree_contains_path(tree_paths, path) for path in LINT_CONFIG_PATHS
         ),
@@ -450,6 +533,7 @@ def inspect_repository_content(
 def default_content_signals() -> dict[str, str | bool | None]:
     return {
         "bazel_version": None,
+        "docs_as_code_version": None,
         "has_lint_config": False,
         "has_ci": False,
         "uses_cicd_daily_workflow": False,
@@ -495,6 +579,44 @@ def detect_bazel_version(
             return version
 
     return None
+
+
+def detect_dependency_version(
+    repository: Any,
+    *,
+    tree_paths: set[str],
+    ref: str | None,
+    module_name: str,
+) -> str | None:
+    for candidate in MODULE_PATHS:
+        if not tree_contains_path(tree_paths, candidate):
+            continue
+        content = fetch_text_file(repository, candidate, ref=ref)
+        version = get_bazel_dep_version(content, module_name=module_name)
+        if version:
+            return version
+
+    return None
+
+
+def get_bazel_dep_version(text: str | None, *, module_name: str) -> str | None:
+    if not text:
+        return None
+
+    pattern = re.compile(
+        BAZEL_DEP_PATTERN_TEMPLATE.format(module_name=re.escape(module_name)),
+        re.DOTALL,
+    )
+    match = pattern.search(text)
+    if match is None:
+        return None
+
+    version_match = VERSION_PATTERN.search(match.group("body"))
+    if version_match is None:
+        return None
+
+    version = version_match.group("version").strip()
+    return version or None
 
 
 def uses_cicd_daily_workflow(

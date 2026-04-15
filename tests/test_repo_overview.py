@@ -1,4 +1,5 @@
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -12,7 +13,7 @@ from generate_repo_overview.models import RepoEntry, RepoSnapshot
 
 def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
-        schema_version=2,
+        schema_version=3,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -48,7 +49,7 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
 
 def test_ensure_snapshot_prefers_existing_cache(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
-        schema_version=2,
+        schema_version=3,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(RepoEntry("tools", "Tooling", "Infrastructure", "Tooling"),),
@@ -108,7 +109,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
         list_custom_property_values=list,
     )
     cached_snapshot = RepoSnapshot(
-        schema_version=2,
+        schema_version=3,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -200,6 +201,26 @@ def test_detect_bazel_version_ignores_module_version_without_dot_bazelversion() 
             SimpleNamespace(),
             tree_paths={"MODULE.bazel"},
             ref="abc123",
+        )
+        is None
+    )
+
+
+def test_get_bazel_dep_version_extracts_docs_as_code_dependency_version() -> None:
+    assert (
+        collector.get_bazel_dep_version(
+            'bazel_dep(name = "score_docs_as_code", version = "4.0.0")\n',
+            module_name="score_docs_as_code",
+        )
+        == "4.0.0"
+    )
+
+
+def test_get_bazel_dep_version_ignores_other_dependencies() -> None:
+    assert (
+        collector.get_bazel_dep_version(
+            'bazel_dep(name = "score_process", version = "1.2.3")\n',
+            module_name="score_docs_as_code",
         )
         is None
     )
@@ -303,9 +324,108 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
     )
 
 
+def test_fetch_repositories_reports_per_repository_progress(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    tools_repo = SimpleNamespace(archived=False, name="tools")
+    alpha_repo = SimpleNamespace(archived=False, name="alpha")
+    organization = SimpleNamespace(
+        get_repos=lambda: [tools_repo, alpha_repo],
+        list_custom_property_values=lambda: [],
+    )
+    cached_snapshot = RepoSnapshot(
+        schema_version=3,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="alpha",
+                description="Alpha",
+                category="Infrastructure",
+                subcategory="Tooling",
+            ),
+        ),
+    )
+
+    original_collect_repository_entry = collector.collect_repository_entry
+
+    def fake_collect_repository_entry(**kwargs):
+        return RepoEntry(
+            name=kwargs["repository_name"],
+            description="placeholder",
+            category="Infrastructure",
+            subcategory="Tooling",
+        )
+
+    try:
+        collector.collect_repository_entry = fake_collect_repository_entry
+        collector.fetch_repositories(
+            organization,
+            existing_snapshot=cached_snapshot,
+        )
+    finally:
+        collector.collect_repository_entry = original_collect_repository_entry
+
+    captured = capsys.readouterr()
+
+    assert "Found 2 active repositories" in captured.err
+    assert "Loaded custom properties for 0 repositories" in captured.err
+    assert "Collecting repository details with up to 2 parallel workers" in captured.err
+    assert "[1/2] Collecting alpha (using cached content signals)" in captured.err
+    assert "[2/2] Collecting tools (fetching content signals)" in captured.err
+    assert "[1/2] Finished alpha" in captured.err or "[1/2] Finished tools" in captured.err
+
+
+def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -> None:
+    alpha_repo = SimpleNamespace(archived=False, name="alpha")
+    tools_repo = SimpleNamespace(archived=False, name="tools")
+    organization = SimpleNamespace(
+        get_repos=lambda: [tools_repo, alpha_repo],
+        list_custom_property_values=lambda: [],
+    )
+
+    original_collect_repository_entry = collector.collect_repository_entry
+    try:
+        def fake_collect_repository_entry(**kwargs):
+            if kwargs["repository_name"] == "alpha":
+                time.sleep(0.03)
+            return RepoEntry(
+                name=kwargs["repository_name"],
+                description="placeholder",
+                category="Infrastructure",
+                subcategory="Tooling",
+            )
+
+        collector.collect_repository_entry = fake_collect_repository_entry
+        repos = collector.fetch_repositories(organization)
+    finally:
+        collector.collect_repository_entry = original_collect_repository_entry
+
+    assert [repo.name for repo in repos] == ["alpha", "tools"]
+
+
+def test_resolve_max_collection_workers_prefers_positive_env_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REPO_OVERVIEW_MAX_WORKERS", "12")
+
+    assert collector.resolve_max_collection_workers() == 12
+
+
+def test_resolve_max_collection_workers_ignores_invalid_env_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REPO_OVERVIEW_MAX_WORKERS", "nope")
+
+    assert (
+        collector.resolve_max_collection_workers()
+        == collector.DEFAULT_MAX_COLLECTION_WORKERS
+    )
+
+
 def test_metrics_report_renders_summary_and_table() -> None:
     snapshot = RepoSnapshot(
-        schema_version=2,
+        schema_version=3,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -338,17 +458,25 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "- With GitHub Actions: 1" in markdown
     assert "- Using daily workflow: 1" in markdown
     assert "## Signal Definitions" in markdown
+    assert "`Docs-As-Code Version`" in markdown
     assert "`GitHub Actions`: `yes` if `.github/workflows` exists." in markdown
+    assert "## Repository Overview" in markdown
+    assert "## Delivery And Automation" in markdown
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | Infrastructure | "
-        "2026-04-12 | 2 | 1 | 8.4.2 | yes | yes | yes | no | v1.2.3 | 2026-04-01 | 7 | 3 | 4 |"
+        "2026-04-12 | 2 | 1 | 8.4.2 | 3 | 4 |"
+        in markdown
+    )
+    assert (
+        "| [tools](https://github.com/eclipse-score/tools) | yes | yes | yes | no | "
+        "v1.2.3 | 2026-04-01 | 7 |"
         in markdown
     )
 
 
 def test_metrics_report_uses_dash_for_missing_bazel_version() -> None:
     snapshot = RepoSnapshot(
-        schema_version=2,
+        schema_version=3,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -364,6 +492,111 @@ def test_metrics_report_uses_dash_for_missing_bazel_version() -> None:
     markdown = render_metrics_report(snapshot)
 
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | Infrastructure | - | 0 | 0 | - | no | no | no | no | - | - | - | 0 | 0 |"
+        "| [tools](https://github.com/eclipse-score/tools) | Infrastructure | - | 0 | 0 | - | 0 | 0 |"
         in markdown
     )
+
+
+def test_metrics_report_renders_docs_as_code_topic_view() -> None:
+    snapshot = RepoSnapshot(
+        schema_version=3,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="process_description",
+                description="Process docs",
+                category="Infrastructure",
+                subcategory="tooling",
+                last_push_date="2026-04-12",
+                open_issues=35,
+                open_prs=8,
+                bazel_version="8.4.2",
+                docs_as_code_version="4.0.0",
+                has_ci=True,
+                uses_cicd_daily_workflow=True,
+            ),
+        ),
+    )
+
+    markdown = render_metrics_report(snapshot)
+
+    assert "### Docs-As-Code" in markdown
+    assert (
+        "| [process_description](https://github.com/eclipse-score/process_description) | "
+        "Infrastructure | 4.0.0 | 8.4.2 | yes | yes | 2026-04-12 | 35 | 8 |"
+        in markdown
+    )
+
+
+def test_fetch_repositories_does_not_reuse_content_signals_from_older_schema() -> None:
+    pushed_at = datetime(2026, 4, 15, 10, 0, tzinfo=UTC)
+
+    class FakeRepo:
+        archived = False
+        name = "logging"
+        description = "Logging"
+        default_branch = "main"
+
+        def __init__(self) -> None:
+            self.pushed_at = pushed_at
+            self.open_issues_count = 1
+            self.stargazers_count = 2
+            self.forks_count = 3
+
+        def get_branch(self, branch_name: str) -> SimpleNamespace:
+            assert branch_name == "main"
+            return SimpleNamespace(commit=SimpleNamespace(sha="abc123"))
+
+        def get_pulls(self, state: str = "open") -> SimpleNamespace:
+            assert state == "open"
+            return SimpleNamespace(totalCount=0)
+
+    fake_repo = FakeRepo()
+    organization = SimpleNamespace(
+        get_repos=lambda: [fake_repo],
+        list_custom_property_values=list,
+    )
+    cached_snapshot = RepoSnapshot(
+        schema_version=2,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="logging",
+                description="Logging",
+                category="modules",
+                subcategory="General",
+                default_branch="main",
+                default_branch_sha="abc123",
+                bazel_version="8.3.0",
+            ),
+        ),
+    )
+
+    original_inspect_repository_content = collector.inspect_repository_content
+    original_get_latest_release_details = collector.get_latest_release_details
+    try:
+        collector.inspect_repository_content = lambda repository, ref: {
+            "bazel_version": "8.3.0",
+            "docs_as_code_version": "3.0.0",
+            "has_lint_config": False,
+            "has_ci": True,
+            "uses_cicd_daily_workflow": False,
+            "has_coverage_config": False,
+        }
+        collector.get_latest_release_details = lambda *args, **kwargs: {
+            "version": None,
+            "date": None,
+            "commits_since_release": None,
+        }
+
+        repos = collector.fetch_repositories(
+            organization,
+            existing_snapshot=cached_snapshot,
+        )
+    finally:
+        collector.inspect_repository_content = original_inspect_repository_content
+        collector.get_latest_release_details = original_get_latest_release_details
+
+    assert repos[0].docs_as_code_version == "3.0.0"

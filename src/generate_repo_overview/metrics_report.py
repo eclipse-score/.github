@@ -20,6 +20,7 @@ def render_metrics_report(snapshot: RepoSnapshot) -> str:
         "## Signal Definitions",
         "",
         "- `Bazel Version`: first non-comment line from `.bazelversion`. `-` means the repo does not declare one there.",
+        '- `Docs-As-Code Version`: `version = "..."` for `bazel_dep(name = "score_docs_as_code", ...)` in the repository root `MODULE.bazel`.',
         "- `Lint/Style Config`: `yes` if `.gitlint`, `.editorconfig`, or `.pre-commit-config.yaml` exists.",
         "- `GitHub Actions`: `yes` if `.github/workflows` exists.",
         "- `Daily Workflow`: `yes` if any workflow file references `cicd-workflows/.github/workflows/daily.yml@...`.",
@@ -27,10 +28,10 @@ def render_metrics_report(snapshot: RepoSnapshot) -> str:
         "- `Latest Release`: release tag name, falling back to the release name when needed.",
         "- `Commits Since Release`: compare the latest release tag to the current default branch head. `-` means no release or no comparable tag.",
         "",
-        "| Repository | Category | Last Push | Issues | PRs | Bazel Version | Lint/Style Config | GitHub Actions | Daily Workflow | Coverage Config | Latest Release | Release Date | Commits Since Release | Stars | Forks |",
-        "|------------|----------|-----------|--------|-----|---------------|-------------------|----------------|----------------|-----------------|----------------|--------------|-----------------------|-------|-------|",
     ]
-    lines.extend(render_metrics_row(repo, org_name=snapshot.org_name) for repo in repos)
+    lines.extend(render_overview_section(repos, org_name=snapshot.org_name))
+    lines.extend(render_automation_section(repos, org_name=snapshot.org_name))
+    lines.extend(render_topic_sections(repos, org_name=snapshot.org_name))
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -60,6 +61,68 @@ def render_metrics_row(entry: RepoEntry, org_name: str = DEFAULT_ORG) -> str:
         f"{render_bool(entry.has_coverage_config)} | {latest_release} | "
         f"{release_date} | {commits_since_release} | {entry.stars} | {entry.forks} |"
     )
+
+
+def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
+    lines = [
+        "## Repository Overview",
+        "",
+        "| Repository | Category | Last Push | Issues | PRs | Bazel Version | Stars | Forks |",
+        "|------------|----------|-----------|--------|-----|---------------|-------|-------|",
+    ]
+    for repo in repos:
+        url = f"https://github.com/{org_name}/{repo.name}"
+        lines.append(
+            f"| [{repo.name}]({url}) | {repo.category} | {repo.last_push_date or '-'} | "
+            f"{repo.open_issues} | {repo.open_prs} | {repo.bazel_version or '-'} | "
+            f"{repo.stars} | {repo.forks} |"
+        )
+    lines.append("")
+    return lines
+
+
+def render_automation_section(repos: list[RepoEntry], org_name: str) -> list[str]:
+    lines = [
+        "## Delivery And Automation",
+        "",
+        "| Repository | Lint/Style Config | GitHub Actions | Daily Workflow | Coverage Config | Latest Release | Release Date | Commits Since Release |",
+        "|------------|-------------------|----------------|----------------|-----------------|----------------|--------------|-----------------------|",
+    ]
+    for repo in repos:
+        url = f"https://github.com/{org_name}/{repo.name}"
+        lines.append(
+            f"| [{repo.name}]({url}) | {render_bool(repo.has_lint_config)} | "
+            f"{render_bool(repo.has_ci)} | {render_bool(repo.uses_cicd_daily_workflow)} | "
+            f"{render_bool(repo.has_coverage_config)} | {repo.latest_release_version or '-'} | "
+            f"{repo.latest_release_date or '-'} | {render_optional_int(repo.commits_since_latest_release)} |"
+        )
+    lines.append("")
+    return lines
+
+
+def render_topic_sections(repos: list[RepoEntry], org_name: str) -> list[str]:
+    topic_repos = [repo for repo in repos if repo.docs_as_code_version]
+    if not topic_repos:
+        return []
+
+    lines = [
+        "## Topic Views",
+        "",
+        "### Docs-As-Code",
+        "",
+        "| Repository | Category | Docs-As-Code Version | Bazel Version | GitHub Actions | Daily Workflow | Last Push | Issues | PRs |",
+        "|------------|----------|----------------------|---------------|----------------|----------------|-----------|--------|-----|",
+    ]
+    for repo in topic_repos:
+        url = f"https://github.com/{org_name}/{repo.name}"
+        lines.append(
+            f"| [{repo.name}]({url}) | {repo.category} | {repo.docs_as_code_version or '-'} | "
+            f"{repo.bazel_version or '-'} | {render_bool(repo.has_ci)} | "
+            f"{render_bool(repo.uses_cicd_daily_workflow)} | {repo.last_push_date or '-'} | "
+            f"{repo.open_issues} | {repo.open_prs} |"
+        )
+    lines.append("")
+    return lines
 
 
 def render_bool(value: bool) -> str:
