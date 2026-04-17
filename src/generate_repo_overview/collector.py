@@ -1,23 +1,26 @@
 from __future__ import annotations
 
-import fnmatch
 import json
 import os
-import re
-import shutil
 import subprocess
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
-from urllib.parse import quote, urlsplit, urlunsplit
+from typing import Any, Protocol, TypedDict, cast
 
 from tqdm import tqdm
 
 from .console import print_status
 from .constants import DEFAULT_CACHE, DEFAULT_ORG, DEFAULT_TOKEN_ENV
+from .git_checkout import (
+    build_authenticated_clone_url,
+    clone_fresh_checkout,
+    run_git_command,
+    sync_repository_checkout,
+    update_existing_checkout,
+)
 from .models import (
     DEFAULT_CATEGORY,
     DEFAULT_SUBCATEGORY,
@@ -29,9 +32,24 @@ from .models import (
     RepoSnapshot,
     VolatileMetricsSnapshot,
 )
-
-if TYPE_CHECKING:
-    import collections.abc
+from .registry_metadata import (
+    RegistrySignalsPayload,
+    fetch_bazel_registry_metadata_by_repo,
+    merge_bazel_registry_metadata,
+    parse_bazel_registry_maintainers,
+    parse_bazel_registry_metadata,
+    parse_github_repository_name,
+    parse_latest_bazel_registry_version,
+)
+from .signal_detection import (
+    DeepContentPayload,
+    default_content_signals,
+    detect_bazel_version,
+    get_bazel_dep_version,
+    get_codeowners_for_path,
+    inspect_repository_content_slow,
+    uses_cicd_daily_workflow,
+)
 
 
 class PullRequestCounts(TypedDict):
@@ -58,25 +76,6 @@ class VolatileMetricsPayload(TypedDict):
     commits_since_latest_release: int | None
 
 
-class DeepContentPayload(TypedDict):
-    is_bazel_repo: bool
-    bazel_version: str | None
-    codeowners: tuple[str, ...]
-    docs_as_code_version: str | None
-    has_gitlint_config: bool
-    has_pyproject_toml: bool
-    has_pre_commit_config: bool
-    has_lint_config: bool
-    has_ci: bool
-    uses_cicd_daily_workflow: bool
-    has_coverage_config: bool
-
-
-class RegistrySignalsPayload(TypedDict):
-    maintainers_in_bazel_registry: tuple[str, ...]
-    latest_bazel_registry_version: str | None
-
-
 @dataclass(frozen=True, slots=True)
 class ActiveRepositoryData:
     repository: object
@@ -92,35 +91,46 @@ class GitHubClientLike(Protocol):
     def get_rate_limit(self) -> object: ...
 
 
-GITLINT_PATHS = (".gitlint",)
-PYPROJECT_PATHS = ("pyproject.toml",)
-PRE_COMMIT_PATHS = (".pre-commit-config.yaml",)
-LINT_CONFIG_PATHS = GITLINT_PATHS + PRE_COMMIT_PATHS
-CI_PATHS = (".github/workflows",)
-COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
-BAZEL_VERSION_PATHS = (".bazelversion",)
-MODULE_PATHS = ("MODULE.bazel",)
-BAZEL_REPO_MARKER_PATHS = (
-    BAZEL_VERSION_PATHS
-    + MODULE_PATHS
-    + (
-        "WORKSPACE",
-        "WORKSPACE.bazel",
-    )
-)
-CODEOWNERS_PATH = ".github/CODEOWNERS"
-WORKFLOW_PATH_PREFIX = ".github/workflows/"
-WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
-DAILY_WORKFLOW_REFERENCE = "cicd-workflows/.github/workflows/daily.yml@"
-BAZEL_REGISTRY_LOCAL_CHECKOUT = Path("profile/cache/bazel_registry_checkout")
-BAZEL_DEP_PATTERN_TEMPLATE = (
-    r'\bbazel_dep\s*\(\s*name\s*=\s*"{module_name}"(?P<body>.*?)\)'
-)
-VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 DEFAULT_MAX_COLLECTION_WORKERS = 8
 MERGED_PULL_REQUEST_WINDOW_DAYS = 30
 DEFAULT_VOLATILE_METRICS_TTL_MINUTES = 60
 VOLATILE_METRICS_TTL_ENV = "REPO_OVERVIEW_VOLATILE_TTL_MINUTES"
+
+__all__ = [
+    "ActiveRepositoryData",
+    "DeepContentPayload",
+    "RegistrySignalsPayload",
+    "build_authenticated_clone_url",
+    "clone_fresh_checkout",
+    "collect_repository_entry",
+    "collect_snapshot",
+    "default_content_signals",
+    "detect_bazel_version",
+    "ensure_snapshot",
+    "fetch_active_repositories",
+    "fetch_active_repositories_via_rest",
+    "fetch_bazel_registry_metadata_by_repo",
+    "fetch_repositories",
+    "fetch_repository_descriptions",
+    "get_bazel_dep_version",
+    "get_codeowners_for_path",
+    "get_gh_auth_token",
+    "load_snapshot",
+    "load_snapshot_if_present",
+    "merge_bazel_registry_metadata",
+    "normalize_group_name",
+    "paginate_github_rest_list",
+    "parse_bazel_registry_maintainers",
+    "parse_bazel_registry_metadata",
+    "parse_github_repository_name",
+    "parse_latest_bazel_registry_version",
+    "resolve_github_token",
+    "run_git_command",
+    "sync_repository_checkout",
+    "update_existing_checkout",
+    "uses_cicd_daily_workflow",
+    "write_snapshot",
+]
 
 
 def resolve_github_token(token_env: str = DEFAULT_TOKEN_ENV) -> str | None:
@@ -310,13 +320,14 @@ def fetch_repositories(
         "Extracting repository custom properties from repo payloads",
         prefix=status_prefix,
     )
-    custom_properties_by_name = {
-        repository_name: repository_data.custom_properties
-        for repository_name, repository_data in active_repositories.items()
+    repositories_with_custom_properties = sum(
+        1
+        for repository_data in active_repositories.values()
         if repository_data.custom_properties
-    }
+    )
     print_status(
-        f"Extracted custom properties for {len(custom_properties_by_name)} repositories",
+        "Extracted custom properties for "
+        f"{repositories_with_custom_properties} repositories",
         prefix=status_prefix,
     )
     print_status("Loading maintainers in bazel_registry", prefix=status_prefix)
@@ -500,240 +511,6 @@ def parse_repository_custom_properties(
         if isinstance(value, list):
             parsed[key] = [item for item in value if isinstance(item, str)]
     return parsed
-
-
-def fetch_bazel_registry_metadata_by_repo(
-    *,
-    bazel_registry_repository: object | None,
-    active_repository_names: set[str],
-    github_token: str | None,
-) -> dict[str, RegistrySignalsPayload]:
-    if bazel_registry_repository is None:
-        return {}
-
-    default_branch = cast("str | None", getattr(bazel_registry_repository, "default_branch", None))
-    clone_url = cast("str | None", getattr(bazel_registry_repository, "clone_url", None))
-    if default_branch is None or clone_url is None:
-        return {}
-
-    checkout_path = sync_repository_checkout(
-        clone_url=clone_url,
-        default_branch=default_branch,
-        github_token=github_token,
-        checkout_path=BAZEL_REGISTRY_LOCAL_CHECKOUT,
-    )
-    if checkout_path is None:
-        return {}
-
-    metadata_paths = sorted(checkout_path.glob("modules/*/metadata.json"))
-
-    metadata_by_repo_name: dict[str, RegistrySignalsPayload] = {}
-    for metadata_path in metadata_paths:
-        try:
-            content = metadata_path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        for repository_name, metadata in parse_bazel_registry_metadata(
-            content,
-            active_repository_names=active_repository_names,
-        ).items():
-            metadata_by_repo_name[repository_name] = merge_bazel_registry_metadata(
-                metadata_by_repo_name.get(repository_name),
-                metadata,
-            )
-    return metadata_by_repo_name
-
-
-def sync_repository_checkout(
-    *,
-    clone_url: str,
-    default_branch: str,
-    github_token: str | None,
-    checkout_path: Path,
-) -> Path | None:
-    authenticated_url = build_authenticated_clone_url(clone_url, github_token)
-    checkout_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if update_existing_checkout(checkout_path, default_branch):
-        return checkout_path
-
-    if (checkout_path / ".git").exists():
-        shutil.rmtree(checkout_path, ignore_errors=True)
-
-    if not clone_fresh_checkout(
-        authenticated_url=authenticated_url,
-        default_branch=default_branch,
-        checkout_path=checkout_path,
-    ):
-        return None
-
-    return checkout_path
-
-
-def update_existing_checkout(checkout_path: Path, default_branch: str) -> bool:
-    git_dir = checkout_path / ".git"
-    if not git_dir.exists():
-        return False
-
-    fetch_ok = run_git_command(
-        [
-            "git",
-            "-C",
-            str(checkout_path),
-            "fetch",
-            "--depth",
-            "1",
-            "origin",
-            default_branch,
-        ]
-    )
-    checkout_ok = run_git_command(
-        [
-            "git",
-            "-C",
-            str(checkout_path),
-            "checkout",
-            "--force",
-            "--detach",
-            "FETCH_HEAD",
-        ]
-    )
-    if not (fetch_ok and checkout_ok):
-        return False
-
-    run_git_command(["git", "-C", str(checkout_path), "clean", "-fdx"])
-    return True
-
-
-def clone_fresh_checkout(
-    *,
-    authenticated_url: str,
-    default_branch: str,
-    checkout_path: Path,
-) -> bool:
-    shutil.rmtree(checkout_path, ignore_errors=True)
-    return run_git_command(
-        [
-            "git",
-            "clone",
-            "--depth",
-            "1",
-            "--branch",
-            default_branch,
-            authenticated_url,
-            str(checkout_path),
-        ]
-    )
-
-
-def run_git_command(command: list[str]) -> bool:
-    try:
-        subprocess.run(
-            command,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return False
-    return True
-
-
-def build_authenticated_clone_url(clone_url: str, github_token: str | None) -> str:
-    if github_token is None:
-        return clone_url
-
-    parsed = urlsplit(clone_url)
-    auth = f"x-access-token:{quote(github_token, safe='')}"
-    netloc = f"{auth}@{parsed.netloc}"
-    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
-
-
-def parse_bazel_registry_metadata(
-    text: str | None,
-    *,
-    active_repository_names: set[str],
-) -> dict[str, RegistrySignalsPayload]:
-    if not text:
-        return {}
-    try:
-        raw_metadata_object: object = json.loads(text)
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(raw_metadata_object, dict):
-        return {}
-    raw_metadata = cast("dict[str, object]", raw_metadata_object)
-
-    maintainers = parse_bazel_registry_maintainers(raw_metadata.get("maintainers"))
-    latest_version = parse_latest_bazel_registry_version(raw_metadata.get("versions"))
-
-    metadata_by_repo_name: dict[str, RegistrySignalsPayload] = {}
-    raw_repositories = raw_metadata.get("repository")
-    if not isinstance(raw_repositories, list):
-        return metadata_by_repo_name
-
-    repository_entries = cast("list[object]", raw_repositories)
-    for raw_repository in repository_entries:
-        repository_name = parse_github_repository_name(raw_repository)
-        if repository_name is None or repository_name not in active_repository_names:
-            continue
-        metadata_by_repo_name[repository_name] = {
-            "maintainers_in_bazel_registry": maintainers,
-            "latest_bazel_registry_version": latest_version,
-        }
-
-    return metadata_by_repo_name
-
-
-def parse_bazel_registry_maintainers(raw_maintainers: object) -> tuple[str, ...]:
-    if not isinstance(raw_maintainers, list):
-        return ()
-
-    maintainers: list[str] = []
-    maintainer_entries = cast("list[object]", raw_maintainers)
-    for raw_maintainer in maintainer_entries:
-        if not isinstance(raw_maintainer, dict):
-            continue
-        maintainer = cast("dict[str, object]", raw_maintainer)
-
-        name = maintainer.get("name")
-        github_handle = maintainer.get("github")
-        email = maintainer.get("email")
-
-        display_parts: list[str] = []
-        if isinstance(name, str) and name.strip():
-            display_parts.append(name.strip())
-        if isinstance(github_handle, str) and github_handle.strip():
-            display_parts.append(f"(@{github_handle.strip()})")
-        if not display_parts and isinstance(email, str) and email.strip():
-            display_parts.append(email.strip())
-        if display_parts:
-            maintainers.append(" ".join(display_parts))
-
-    return dedupe_preserving_order(maintainers)
-
-
-def parse_latest_bazel_registry_version(raw_versions: object) -> str | None:
-    if not isinstance(raw_versions, list):
-        return None
-    version_entries = cast("list[object]", raw_versions)
-    for raw_version in version_entries:
-        if isinstance(raw_version, str) and raw_version.strip():
-            return raw_version.strip()
-    return None
-
-
-def parse_github_repository_name(value: object) -> str | None:
-    if not isinstance(value, str) or not value.startswith("github:"):
-        return None
-
-    owner_and_repo = value.removeprefix("github:")
-    if "/" not in owner_and_repo:
-        return None
-
-    _, repository_name = owner_and_repo.split("/", maxsplit=1)
-    repository_name = repository_name.strip()
-    return repository_name or None
 
 
 def collect_repository_entry(
@@ -1149,306 +926,6 @@ def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
         return ", ".join(cleaned) if cleaned else fallback
     cleaned = value.strip()
     return cleaned or fallback
-
-
-def inspect_repository_content_slow(
-    repository: Any,
-    *,
-    ref: str | None,
-) -> DeepContentPayload:
-    """Run slow deep content inspection using repository tree and file reads."""
-    tree_paths = fetch_repository_tree_paths(repository, ref=ref)
-    if not tree_paths:
-        return default_content_signals()
-
-    return {
-        "is_bazel_repo": detect_is_bazel_repo(tree_paths),
-        "bazel_version": detect_bazel_version(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-        ),
-        "codeowners": detect_codeowners(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-        ),
-        "docs_as_code_version": detect_dependency_version(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-            module_name="score_docs_as_code",
-        ),
-        "has_gitlint_config": any(
-            tree_contains_path(tree_paths, path) for path in GITLINT_PATHS
-        ),
-        "has_pyproject_toml": any(
-            tree_contains_path(tree_paths, path) for path in PYPROJECT_PATHS
-        ),
-        "has_pre_commit_config": any(
-            tree_contains_path(tree_paths, path) for path in PRE_COMMIT_PATHS
-        ),
-        "has_lint_config": any(
-            tree_contains_path(tree_paths, path) for path in LINT_CONFIG_PATHS
-        ),
-        "has_ci": any(tree_contains_path(tree_paths, path) for path in CI_PATHS),
-        "uses_cicd_daily_workflow": uses_cicd_daily_workflow(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-        ),
-        "has_coverage_config": any(
-            tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
-        ),
-    }
-
-
-def default_content_signals() -> DeepContentPayload:
-    return {
-        "is_bazel_repo": False,
-        "bazel_version": None,
-        "codeowners": (),
-        "docs_as_code_version": None,
-        "has_gitlint_config": False,
-        "has_pyproject_toml": False,
-        "has_pre_commit_config": False,
-        "has_lint_config": False,
-        "has_ci": False,
-        "uses_cicd_daily_workflow": False,
-        "has_coverage_config": False,
-    }
-
-
-def fetch_repository_tree_paths(repository: Any, *, ref: str | None) -> set[str]:
-    if ref is None or not hasattr(repository, "get_git_tree"):
-        return set()
-
-    try:
-        tree = repository.get_git_tree(ref, recursive=True)
-    except Exception:
-        return set()
-
-    return {
-        path
-        for item in getattr(tree, "tree", [])
-        if isinstance((path := getattr(item, "path", None)), str)
-    }
-
-
-def tree_contains_path(tree_paths: set[str], candidate: str) -> bool:
-    if candidate in tree_paths:
-        return True
-    prefix = f"{candidate}/"
-    return any(path.startswith(prefix) for path in tree_paths)
-
-
-def detect_bazel_version(
-    repository: Any,
-    *,
-    tree_paths: set[str],
-    ref: str | None,
-) -> str | None:
-    for candidate in BAZEL_VERSION_PATHS:
-        if not tree_contains_path(tree_paths, candidate):
-            continue
-        content = fetch_text_file(repository, candidate, ref=ref)
-        version = first_non_comment_line(content)
-        if version:
-            return version
-
-    return None
-
-
-def detect_is_bazel_repo(tree_paths: set[str]) -> bool:
-    return any(
-        tree_contains_path(tree_paths, candidate)
-        for candidate in BAZEL_REPO_MARKER_PATHS
-    )
-
-
-def detect_dependency_version(
-    repository: Any,
-    *,
-    tree_paths: set[str],
-    ref: str | None,
-    module_name: str,
-) -> str | None:
-    for candidate in MODULE_PATHS:
-        if not tree_contains_path(tree_paths, candidate):
-            continue
-        content = fetch_text_file(repository, candidate, ref=ref)
-        version = get_bazel_dep_version(content, module_name=module_name)
-        if version:
-            return version
-
-    return None
-
-
-def detect_codeowners(
-    repository: Any,
-    *,
-    tree_paths: set[str],
-    ref: str | None,
-) -> tuple[str, ...]:
-    if not tree_contains_path(tree_paths, CODEOWNERS_PATH):
-        return ()
-
-    content = fetch_text_file(repository, CODEOWNERS_PATH, ref=ref)
-    return get_codeowners_for_path(content, target_path=CODEOWNERS_PATH)
-
-
-def get_codeowners_for_path(
-    text: str | None,
-    *,
-    target_path: str,
-) -> tuple[str, ...]:
-    if not text:
-        return ()
-
-    owners: tuple[str, ...] = ()
-    for raw_line in text.splitlines():
-        line = raw_line.split("#", maxsplit=1)[0].strip()
-        if not line:
-            continue
-
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-
-        pattern, *candidate_owners = parts
-        if codeowners_pattern_matches(pattern, target_path=target_path):
-            owners = normalize_codeowners(candidate_owners)
-
-    return owners
-
-
-def codeowners_pattern_matches(pattern: str, *, target_path: str) -> bool:
-    normalized_pattern = pattern.lstrip("/")
-    normalized_target_path = target_path.lstrip("/")
-
-    if pattern == "/":
-        return True
-    if normalized_pattern in {"*", "**", "/*"}:
-        return True
-
-    if normalized_pattern.endswith("/"):
-        directory_pattern = normalized_pattern.rstrip("/")
-        return (
-            normalized_target_path == directory_pattern
-            or normalized_target_path.startswith(f"{directory_pattern}/")
-        )
-
-    if "/" not in normalized_pattern:
-        # Bare patterns can match either the basename or the full path, mirroring CODEOWNERS behavior.
-        return fnmatch.fnmatch(
-            normalized_target_path.rsplit("/", maxsplit=1)[-1],
-            normalized_pattern,
-        ) or fnmatch.fnmatch(normalized_target_path, normalized_pattern)
-
-    return fnmatch.fnmatch(normalized_target_path, normalized_pattern)
-
-
-def get_bazel_dep_version(text: str | None, *, module_name: str) -> str | None:
-    if not text:
-        return None
-
-    pattern = re.compile(
-        BAZEL_DEP_PATTERN_TEMPLATE.format(module_name=re.escape(module_name)),
-        re.DOTALL,
-    )
-    match = pattern.search(text)
-    if match is None:
-        return None
-
-    version_match = VERSION_PATTERN.search(match.group("body"))
-    if version_match is None:
-        return None
-
-    version = version_match.group("version").strip()
-    return version or None
-
-
-def uses_cicd_daily_workflow(
-    repository: Any,
-    *,
-    tree_paths: set[str],
-    ref: str | None,
-) -> bool:
-    workflow_paths = sorted(
-        path
-        for path in tree_paths
-        if path.startswith(WORKFLOW_PATH_PREFIX)
-        and path.endswith(WORKFLOW_FILE_SUFFIXES)
-    )
-    for workflow_path in workflow_paths:
-        content = fetch_text_file(repository, workflow_path, ref=ref)
-        if content is None:
-            continue
-        if DAILY_WORKFLOW_REFERENCE in content:
-            return True
-    return False
-
-
-def fetch_text_file(repository: Any, path: str, *, ref: str | None) -> str | None:
-    if not hasattr(repository, "get_contents"):
-        return None
-
-    try:
-        if ref is None:
-            content = repository.get_contents(path)
-        else:
-            content = repository.get_contents(path, ref=ref)
-    except Exception:
-        return None
-
-    raw_content = getattr(content, "decoded_content", None)
-    if not isinstance(raw_content, (bytes, bytearray)):
-        return None
-    return raw_content.decode("utf-8", errors="replace")
-
-
-def merge_bazel_registry_metadata(
-    existing: RegistrySignalsPayload | None,
-    incoming: RegistrySignalsPayload,
-) -> RegistrySignalsPayload:
-    if existing is None:
-        return incoming
-
-    return {
-        "maintainers_in_bazel_registry": dedupe_preserving_order(
-            list(existing["maintainers_in_bazel_registry"])
-            + list(incoming["maintainers_in_bazel_registry"])
-        ),
-        "latest_bazel_registry_version": existing["latest_bazel_registry_version"]
-        or incoming["latest_bazel_registry_version"],
-    }
-
-
-def normalize_codeowners(values: list[str]) -> tuple[str, ...]:
-    return dedupe_preserving_order(" ".join(values).replace(",", " ").split())
-
-
-def dedupe_preserving_order(values: list[str]) -> tuple[str, ...]:
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for value in values:
-        cleaned = value.strip()
-        if not cleaned or cleaned in seen:
-            continue
-        seen.add(cleaned)
-        deduped.append(cleaned)
-    return tuple(deduped)
-
-
-def first_non_comment_line(text: str | None) -> str | None:
-    if not text:
-        return None
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        return stripped
-    return None
 
 
 def get_default_branch_sha(repository: Any, default_branch: str | None) -> str | None:
