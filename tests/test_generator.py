@@ -128,47 +128,80 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
 
 
 def test_fetch_repository_descriptions_skips_archived_repositories() -> None:
-    organization = SimpleNamespace(
-        get_repos=lambda: [
-            SimpleNamespace(name="active-repo", description="Active", archived=False),
-            SimpleNamespace(name="archived-repo", description="Archived", archived=True),
-        ]
-    )
+    active_repo = SimpleNamespace(name="active-repo", description="Active")
 
-    assert fetch_repository_descriptions(cast("Any", organization)) == {
-        "active-repo": "Active"
-    }
+    original_fetch_active_repositories = collector.fetch_active_repositories
+    try:
+        collector.fetch_active_repositories = lambda organization: {
+            "active-repo": collector.ActiveRepositoryData(
+                repository=active_repo,
+                custom_properties={},
+            )
+        }
+        assert fetch_repository_descriptions(cast("Any", object())) == {
+            "active-repo": "Active"
+        }
+    finally:
+        collector.fetch_active_repositories = original_fetch_active_repositories
 
 
 def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None:
+    class FakeRequester:
+        is_not_lazy = False
+
+        def requestJsonAndCheck(
+            self,
+            verb: str,
+            url: str,
+            parameters: dict[str, Any] | None = None,
+            headers: dict[str, str] | None = None,
+        ) -> tuple[dict[str, str], Any]:
+            assert verb == "GET"
+            assert url == "/orgs/eclipse-score/repos"
+            assert parameters is not None
+            assert parameters.get("page") == 1
+            return (
+                {},
+                [
+                    {
+                        "name": "active-repo",
+                        "archived": False,
+                        "description": "Active",
+                        "default_branch": "main",
+                        "custom_properties": {
+                            "category": "Infrastructure",
+                            "subcategory": "General",
+                        },
+                    },
+                    {
+                        "name": "archived-repo",
+                        "archived": True,
+                        "description": "Archived",
+                        "default_branch": "main",
+                        "custom_properties": {
+                            "category": "Infrastructure",
+                            "subcategory": "General",
+                        },
+                    },
+                ],
+            )
+
     organization = SimpleNamespace(
-        get_repos=lambda: [
-            SimpleNamespace(
-                name="active-repo",
-                description="Active",
-                archived=False,
-                raw_data={
-                    "custom_properties": {
-                        "category": "Infrastructure",
-                        "subcategory": "General",
-                    }
-                },
-            ),
-            SimpleNamespace(
-                name="archived-repo",
-                description="Archived",
-                archived=True,
-                raw_data={
-                    "custom_properties": {
-                        "category": "Infrastructure",
-                        "subcategory": "General",
-                    }
-                },
-            ),
-        ],
+        login="eclipse-score",
+        requester=FakeRequester(),
     )
 
-    repos = fetch_repositories(cast("Any", organization))
+    original_collect_repository_entry = collector.collect_repository_entry
+    try:
+        collector.collect_repository_entry = lambda **kwargs: RepoEntry(
+            name=kwargs["repository_name"],
+            description=kwargs["repository"].description,
+            category=kwargs["custom_properties"].get("category", "Uncategorized"),
+            subcategory=kwargs["custom_properties"].get("subcategory", "General"),
+        )
+        repos = fetch_repositories(cast("Any", organization))
+    finally:
+        collector.collect_repository_entry = original_collect_repository_entry
 
     assert len(repos) == 1
     assert repos[0].name == "active-repo"

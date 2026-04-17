@@ -4,12 +4,15 @@ import fnmatch
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
+from urllib.parse import quote, urlsplit, urlunsplit
 
 from tqdm import tqdm
 
@@ -29,7 +32,6 @@ from .models import (
 
 if TYPE_CHECKING:
     import collections.abc
-    from pathlib import Path
 
 
 class PullRequestCounts(TypedDict):
@@ -82,7 +84,8 @@ class ActiveRepositoryData:
 
 
 class OrganizationLike(Protocol):
-    def get_repos(self) -> collections.abc.Iterable[object]: ...
+    login: str
+    requester: Any
 
 
 class GitHubClientLike(Protocol):
@@ -109,8 +112,7 @@ CODEOWNERS_PATH = ".github/CODEOWNERS"
 WORKFLOW_PATH_PREFIX = ".github/workflows/"
 WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
 DAILY_WORKFLOW_REFERENCE = "cicd-workflows/.github/workflows/daily.yml@"
-BAZEL_REGISTRY_METADATA_PATH_SUFFIX = "/metadata.json"
-BAZEL_REGISTRY_MODULES_PREFIX = "modules/"
+BAZEL_REGISTRY_LOCAL_CHECKOUT = Path("profile/cache/bazel_registry_checkout")
 BAZEL_DEP_PATTERN_TEMPLATE = (
     r'\bbazel_dep\s*\(\s*name\s*=\s*"{module_name}"(?P<body>.*?)\)'
 )
@@ -231,6 +233,7 @@ def collect_snapshot(
             organization,
             existing_snapshot=existing_snapshot,
             reuse_unchanged_repositories=reuse_unchanged_repositories,
+            github_token=token,
             status_prefix=status_prefix,
         )
 
@@ -294,6 +297,7 @@ def fetch_repositories(
     existing_snapshot: RepoSnapshot | None = None,
     *,
     reuse_unchanged_repositories: bool = False,
+    github_token: str | None = None,
     status_prefix: str = "repo-overview",
 ) -> list[RepoEntry]:
     print_status("Loading active repositories", prefix=status_prefix)
@@ -322,6 +326,7 @@ def fetch_repositories(
             bazel_registry_data.repository if bazel_registry_data is not None else None
         ),
         active_repository_names=set(active_repositories),
+        github_token=github_token,
     )
     print_status(
         "Loaded bazel_registry metadata for "
@@ -403,18 +408,68 @@ def resolve_max_collection_workers() -> int:
 def fetch_active_repositories(
     organization: OrganizationLike,
 ) -> dict[str, ActiveRepositoryData]:
+    return fetch_active_repositories_via_rest(
+        requester=organization.requester,
+        org_login=organization.login,
+    )
+
+
+def fetch_active_repositories_via_rest(
+    *,
+    requester: Any,
+    org_login: str,
+) -> dict[str, ActiveRepositoryData]:
+    from github.Repository import Repository
+
     active_repositories: dict[str, ActiveRepositoryData] = {}
-    for repository in organization.get_repos():
-        if getattr(repository, "archived", False):
-            continue
-        repository_name = getattr(repository, "name", None)
-        if not isinstance(repository_name, str):
+    repo_items = paginate_github_rest_list(
+        requester=requester,
+        path=f"/orgs/{org_login}/repos",
+        parameters={"type": "all", "sort": "full_name", "direction": "asc"},
+    )
+    for response_headers, payload in repo_items:
+        repository = Repository(
+            requester=requester,
+            headers=response_headers,
+            attributes=payload,
+            completed=True,
+        )
+        repository_name = cast("str | None", getattr(repository, "name", None))
+        if repository_name is None or cast("bool", getattr(repository, "archived", False)):
             continue
         active_repositories[repository_name] = ActiveRepositoryData(
             repository=repository,
             custom_properties=parse_repository_custom_properties(repository),
         )
     return active_repositories
+
+
+def paginate_github_rest_list(
+    *,
+    requester: Any,
+    path: str,
+    parameters: dict[str, Any] | None = None,
+    per_page: int = 100,
+) -> list[tuple[dict[str, Any], dict[str, object]]]:
+    page = 1
+    items: list[tuple[dict[str, Any], dict[str, object]]] = []
+    while True:
+        page_parameters = dict(parameters or {})
+        page_parameters["per_page"] = per_page
+        page_parameters["page"] = page
+        response_headers, data = requester.requestJsonAndCheck(
+            "GET",
+            path,
+            parameters=page_parameters,
+        )
+        if not isinstance(data, list):
+            raise RuntimeError(f"GitHub API call to {path} returned a non-list payload.")
+        page_items = [item for item in data if isinstance(item, dict)]
+        items.extend((cast("dict[str, Any]", response_headers), item) for item in page_items)
+        if len(data) < per_page:
+            break
+        page += 1
+    return items
 
 
 def fetch_repository_descriptions(
@@ -429,12 +484,14 @@ def fetch_repository_descriptions(
 def parse_repository_custom_properties(
     repository: object,
 ) -> dict[str, CustomPropertyValue]:
-    raw_properties = get_preloaded_custom_properties(repository)
-    if not raw_properties:
+    repository_fields = vars(repository)
+    preloaded_attribute = repository_fields.get("_custom_properties")
+    preloaded_value = getattr(preloaded_attribute, "value", None)
+    if not isinstance(preloaded_value, dict):
         return {}
 
     parsed: dict[str, CustomPropertyValue] = {}
-    for key, value in raw_properties.items():
+    for key, value in preloaded_value.items():
         if not isinstance(key, str):
             continue
         if value is None or isinstance(value, str):
@@ -445,62 +502,37 @@ def parse_repository_custom_properties(
     return parsed
 
 
-def get_preloaded_custom_properties(repository: object) -> dict[str, object]:
-    """Read custom properties from already-loaded object state without completing API objects."""
-    repository_fields = vars(repository)
-
-    # Primary path for PyGithub Repository instances populated by list responses.
-    preloaded_attribute = repository_fields.get("_custom_properties")
-    preloaded_value = getattr(preloaded_attribute, "value", None)
-    if isinstance(preloaded_value, dict):
-        return preloaded_value
-
-    # Fallback paths for objects/tests where payload is provided directly.
-    for field_name in ("_rawData", "raw_data"):
-        payload = repository_fields.get(field_name)
-        if not isinstance(payload, dict):
-            continue
-        raw_properties = payload.get("custom_properties")
-        if isinstance(raw_properties, dict):
-            return raw_properties
-
-    return {}
-
-
 def fetch_bazel_registry_metadata_by_repo(
     *,
     bazel_registry_repository: object | None,
     active_repository_names: set[str],
+    github_token: str | None,
 ) -> dict[str, RegistrySignalsPayload]:
     if bazel_registry_repository is None:
         return {}
 
-    default_branch = cast(
-        "str | None",
-        getattr(bazel_registry_repository, "default_branch", None),
+    default_branch = cast("str | None", getattr(bazel_registry_repository, "default_branch", None))
+    clone_url = cast("str | None", getattr(bazel_registry_repository, "clone_url", None))
+    if default_branch is None or clone_url is None:
+        return {}
+
+    checkout_path = sync_repository_checkout(
+        clone_url=clone_url,
+        default_branch=default_branch,
+        github_token=github_token,
+        checkout_path=BAZEL_REGISTRY_LOCAL_CHECKOUT,
     )
-    default_branch_sha = get_default_branch_sha(
-        bazel_registry_repository,
-        default_branch,
-    )
-    tree_paths = fetch_repository_tree_paths(
-        bazel_registry_repository,
-        ref=default_branch_sha,
-    )
-    metadata_paths = sorted(
-        path
-        for path in tree_paths
-        if path.startswith(BAZEL_REGISTRY_MODULES_PREFIX)
-        and path.endswith(BAZEL_REGISTRY_METADATA_PATH_SUFFIX)
-    )
+    if checkout_path is None:
+        return {}
+
+    metadata_paths = sorted(checkout_path.glob("modules/*/metadata.json"))
 
     metadata_by_repo_name: dict[str, RegistrySignalsPayload] = {}
     for metadata_path in metadata_paths:
-        content = fetch_text_file(
-            bazel_registry_repository,
-            metadata_path,
-            ref=default_branch_sha,
-        )
+        try:
+            content = metadata_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
         for repository_name, metadata in parse_bazel_registry_metadata(
             content,
             active_repository_names=active_repository_names,
@@ -510,6 +542,111 @@ def fetch_bazel_registry_metadata_by_repo(
                 metadata,
             )
     return metadata_by_repo_name
+
+
+def sync_repository_checkout(
+    *,
+    clone_url: str,
+    default_branch: str,
+    github_token: str | None,
+    checkout_path: Path,
+) -> Path | None:
+    authenticated_url = build_authenticated_clone_url(clone_url, github_token)
+    checkout_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if update_existing_checkout(checkout_path, default_branch):
+        return checkout_path
+
+    if (checkout_path / ".git").exists():
+        shutil.rmtree(checkout_path, ignore_errors=True)
+
+    if not clone_fresh_checkout(
+        authenticated_url=authenticated_url,
+        default_branch=default_branch,
+        checkout_path=checkout_path,
+    ):
+        return None
+
+    return checkout_path
+
+
+def update_existing_checkout(checkout_path: Path, default_branch: str) -> bool:
+    git_dir = checkout_path / ".git"
+    if not git_dir.exists():
+        return False
+
+    fetch_ok = run_git_command(
+        [
+            "git",
+            "-C",
+            str(checkout_path),
+            "fetch",
+            "--depth",
+            "1",
+            "origin",
+            default_branch,
+        ]
+    )
+    checkout_ok = run_git_command(
+        [
+            "git",
+            "-C",
+            str(checkout_path),
+            "checkout",
+            "--force",
+            "--detach",
+            "FETCH_HEAD",
+        ]
+    )
+    if not (fetch_ok and checkout_ok):
+        return False
+
+    run_git_command(["git", "-C", str(checkout_path), "clean", "-fdx"])
+    return True
+
+
+def clone_fresh_checkout(
+    *,
+    authenticated_url: str,
+    default_branch: str,
+    checkout_path: Path,
+) -> bool:
+    shutil.rmtree(checkout_path, ignore_errors=True)
+    return run_git_command(
+        [
+            "git",
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            default_branch,
+            authenticated_url,
+            str(checkout_path),
+        ]
+    )
+
+
+def run_git_command(command: list[str]) -> bool:
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
+
+
+def build_authenticated_clone_url(clone_url: str, github_token: str | None) -> str:
+    if github_token is None:
+        return clone_url
+
+    parsed = urlsplit(clone_url)
+    auth = f"x-access-token:{quote(github_token, safe='')}"
+    netloc = f"{auth}@{parsed.netloc}"
+    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 def parse_bazel_registry_metadata(

@@ -133,10 +133,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
             return SimpleNamespace(total_commits=7)
 
     fake_repo = FakeRepo()
-    organization = SimpleNamespace(
-        get_repos=lambda: [fake_repo],
-        list_custom_property_values=list,
-    )
+    organization = SimpleNamespace()
     cached_snapshot = RepoSnapshot(
         schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
@@ -165,10 +162,20 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
         ),
     )
 
-    repos = collector.fetch_repositories(
-        cast("Any", organization),
-        existing_snapshot=cached_snapshot,
-    )
+    original_fetch_active_repositories = collector.fetch_active_repositories
+    try:
+        collector.fetch_active_repositories = lambda organization: {
+            "tools": collector.ActiveRepositoryData(
+                repository=fake_repo,
+                custom_properties={},
+            )
+        }
+        repos = collector.fetch_repositories(
+            cast("Any", organization),
+            existing_snapshot=cached_snapshot,
+        )
+    finally:
+        collector.fetch_active_repositories = original_fetch_active_repositories
 
     assert fake_repo.tree_calls == 0
     assert len(repos) == 1
@@ -767,10 +774,7 @@ def test_fetch_repositories_reports_per_repository_progress(
 ) -> None:
     tools_repo = SimpleNamespace(archived=False, name="tools")
     alpha_repo = SimpleNamespace(archived=False, name="alpha")
-    organization = SimpleNamespace(
-        get_repos=lambda: [tools_repo, alpha_repo],
-        list_custom_property_values=list,
-    )
+    organization = SimpleNamespace()
     cached_snapshot = RepoSnapshot(
         schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
@@ -786,6 +790,7 @@ def test_fetch_repositories_reports_per_repository_progress(
     )
 
     original_collect_repository_entry = collector.collect_repository_entry
+    original_fetch_active_repositories = collector.fetch_active_repositories
 
     def fake_collect_repository_entry(**kwargs: Any) -> RepoEntry:
         return RepoEntry(
@@ -796,6 +801,16 @@ def test_fetch_repositories_reports_per_repository_progress(
         )
 
     try:
+        collector.fetch_active_repositories = lambda organization: {
+            "tools": collector.ActiveRepositoryData(
+                repository=tools_repo,
+                custom_properties={},
+            ),
+            "alpha": collector.ActiveRepositoryData(
+                repository=alpha_repo,
+                custom_properties={},
+            ),
+        }
         collector.collect_repository_entry = fake_collect_repository_entry
         collector.fetch_repositories(
             cast("Any", organization),
@@ -803,6 +818,7 @@ def test_fetch_repositories_reports_per_repository_progress(
         )
     finally:
         collector.collect_repository_entry = original_collect_repository_entry
+        collector.fetch_active_repositories = original_fetch_active_repositories
 
     captured = capsys.readouterr()
 
@@ -814,13 +830,21 @@ def test_fetch_repositories_reports_per_repository_progress(
 def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -> None:
     alpha_repo = SimpleNamespace(archived=False, name="alpha")
     tools_repo = SimpleNamespace(archived=False, name="tools")
-    organization = SimpleNamespace(
-        get_repos=lambda: [tools_repo, alpha_repo],
-        list_custom_property_values=list,
-    )
+    organization = SimpleNamespace()
 
     original_collect_repository_entry = collector.collect_repository_entry
+    original_fetch_active_repositories = collector.fetch_active_repositories
     try:
+        collector.fetch_active_repositories = lambda organization: {
+            "tools": collector.ActiveRepositoryData(
+                repository=tools_repo,
+                custom_properties={},
+            ),
+            "alpha": collector.ActiveRepositoryData(
+                repository=alpha_repo,
+                custom_properties={},
+            ),
+        }
         def fake_collect_repository_entry(**kwargs: Any) -> RepoEntry:
             if kwargs["repository_name"] == "alpha":
                 time.sleep(0.03)
@@ -835,6 +859,7 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
         repos = collector.fetch_repositories(cast("Any", organization))
     finally:
         collector.collect_repository_entry = original_collect_repository_entry
+        collector.fetch_active_repositories = original_fetch_active_repositories
 
     assert [repo.name for repo in repos] == ["alpha", "tools"]
 
