@@ -9,6 +9,7 @@ description = "Collect cached GitHub organization overviews and render Markdown 
 requires-python = ">=3.12"
 dependencies = [
   "PyGithub",
+  "tqdm",
 ]
 
 [project.scripts]

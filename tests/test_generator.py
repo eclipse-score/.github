@@ -19,6 +19,7 @@ from generate_repo_overview.models import (
     CategoryConfig,
     ReadmeConfig,
     RepoEntry,
+    RegistrySignals,
     SubcategoryConfig,
 )
 from generate_repo_overview.profile_readme import (
@@ -103,6 +104,19 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
         repository_name="tools",
         description=None,
         custom_properties={"category": "Infrastructure", "subcategory": None},
+        content_signals=collector.default_content_signals(),
+        registry_signals=RegistrySignals(),
+        volatile_metrics={
+            "last_push_date": None,
+            "merged_prs_30_days": 0,
+            "open_issues": 0,
+            "open_prs": 0,
+            "open_ready_prs": 0,
+            "open_draft_prs": 0,
+            "latest_release_version": None,
+            "latest_release_date": None,
+            "commits_since_latest_release": None,
+        },
     )
 
     assert entry == RepoEntry(
@@ -129,24 +143,38 @@ def test_fetch_repository_descriptions_skips_archived_repositories() -> None:
 def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None:
     organization = SimpleNamespace(
         get_repos=lambda: [
-            SimpleNamespace(name="active-repo", description="Active", archived=False),
-            SimpleNamespace(name="archived-repo", description="Archived", archived=True),
-        ],
-        list_custom_property_values=lambda: [
             SimpleNamespace(
-                repository_name="active-repo",
-                properties={"category": "Infrastructure", "subcategory": "General"},
+                name="active-repo",
+                description="Active",
+                archived=False,
+                raw_data={
+                    "custom_properties": {
+                        "category": "Infrastructure",
+                        "subcategory": "General",
+                    }
+                },
             ),
             SimpleNamespace(
-                repository_name="archived-repo",
-                properties={"category": "Infrastructure", "subcategory": "General"},
+                name="archived-repo",
+                description="Archived",
+                archived=True,
+                raw_data={
+                    "custom_properties": {
+                        "category": "Infrastructure",
+                        "subcategory": "General",
+                    }
+                },
             ),
         ],
     )
 
-    assert fetch_repositories(cast("Any", organization)) == [
-        RepoEntry("active-repo", "Active", "Infrastructure", "General")
-    ]
+    repos = fetch_repositories(cast("Any", organization))
+
+    assert len(repos) == 1
+    assert repos[0].name == "active-repo"
+    assert repos[0].description == "Active"
+    assert repos[0].category == "Infrastructure"
+    assert repos[0].subcategory == "General"
 
 
 def test_render_readme_uses_simple_markdown_sections() -> None:

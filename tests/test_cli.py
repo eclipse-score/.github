@@ -28,6 +28,7 @@ def test_collect_help_does_not_expose_refresh_flag(
 
     assert exc_info.value.code == 0
     assert "--refresh" not in captured.out
+    assert "--deep" in captured.out
 
 
 def test_render_help_does_not_expose_refresh_flag(

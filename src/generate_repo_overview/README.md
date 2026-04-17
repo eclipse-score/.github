@@ -127,6 +127,22 @@ Rendered outputs such as `profile/README.md` and `profile/metrics.md` are produc
 - Collection paths always contact GitHub for current repository metadata.
 - During collection, some content-derived fields can still be reused from the previous snapshot when the repository content fingerprint (`default_branch_sha`) matches.
 
+The `collect` command defaults to a cache-aware mode for unchanged repositories:
+
+- it still fetches high-level state (including current default-branch SHA)
+- if the SHA matches the previous snapshot, it reuses cached deep details
+- if the SHA changed, it runs the slower deep inspection path for that repository
+
+Volatile metrics (for example PR/issue counts and release deltas) are tracked
+with a per-repository `volatile_metrics_fetched_at` timestamp. In fast mode,
+those values are reused only while they are fresh (1 hour by default); once the
+timestamp is older than the configured TTL, only volatile metrics are refreshed
+while deep content signals remain cached.
+
+Set `REPO_OVERVIEW_VOLATILE_TTL_MINUTES` to adjust this freshness window.
+
+Use `collect --deep` when you need a full deep refresh for every repository.
+
 This is why cached rendering is fast, while live collection is incremental rather than “download everything again.”
 
 ## Why The Package Uses API Access Instead Of Cloning Repositories

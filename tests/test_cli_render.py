@@ -3,9 +3,11 @@ from pathlib import Path
 import generate_repo_overview.cli as cli
 from generate_repo_overview.collector import write_snapshot
 from generate_repo_overview.models import (
+    DeepContentSignals,
     SNAPSHOT_SCHEMA_VERSION,
     RepoEntry,
     RepoSnapshot,
+    VolatileMetricsSnapshot,
 )
 
 
@@ -23,17 +25,21 @@ def test_render_writes_both_reports_from_cached_snapshot(tmp_path: Path) -> None
                 description="Tooling",
                 category="Infrastructure",
                 subcategory="Tooling",
-                last_push_date="2026-04-12",
-                open_issues=2,
-                open_prs=1,
-                open_ready_prs=1,
-                open_draft_prs=0,
-                is_bazel_repo=True,
-                bazel_version="8.4.2",
-                has_lint_config=True,
-                has_ci=True,
-                has_coverage_config=False,
-                latest_release_date="2026-04-01",
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    bazel_version="8.4.2",
+                    has_lint_config=True,
+                    has_ci=True,
+                    has_coverage_config=False,
+                ),
+                volatile=VolatileMetricsSnapshot(
+                    last_push_date="2026-04-12",
+                    open_issues=2,
+                    open_prs=1,
+                    open_ready_prs=1,
+                    open_draft_prs=0,
+                    latest_release_date="2026-04-01",
+                ),
                 stars=3,
                 forks=4,
             ),

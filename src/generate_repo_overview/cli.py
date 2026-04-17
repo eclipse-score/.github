@@ -60,7 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
         "collect",
         help="Collect and write the cached repository snapshot.",
     )
-    add_collection_args(collect_parser, include_refresh=False)
+    add_collection_args(collect_parser, include_refresh=False, include_deep=True)
 
     render_parser = subparsers.add_parser(
         "render",
@@ -90,6 +90,7 @@ def add_collection_args(
     parser: argparse.ArgumentParser,
     *,
     include_refresh: bool,
+    include_deep: bool = False,
 ) -> None:
     parser.add_argument("--org", default=DEFAULT_ORG, help="GitHub organization name")
     parser.add_argument(
@@ -108,6 +109,15 @@ def add_collection_args(
             "--refresh",
             action="store_true",
             help="Refresh the snapshot from GitHub instead of reusing the cache",
+        )
+    if include_deep:
+        parser.add_argument(
+            "--deep",
+            action="store_true",
+            help=(
+                "Force a deep refresh for every repository. "
+                "By default, unchanged repositories reuse cached detailed signals."
+            ),
         )
 
 
@@ -213,6 +223,7 @@ def run_collect(args: argparse.Namespace) -> int:
         org_name=args.org,
         token_env=args.token_env,
         cache_path=args.cache,
+        reuse_unchanged_repositories=not args.deep,
         status_prefix="repo-overview",
     )
     return 0

@@ -9,7 +9,13 @@ import pytest
 
 import generate_repo_overview.collector as collector
 from generate_repo_overview.metrics_report import render_metrics_report
-from generate_repo_overview.models import RepoEntry, RepoSnapshot
+from generate_repo_overview.models import (
+    DeepContentSignals,
+    RepoEntry,
+    RegistrySignals,
+    RepoSnapshot,
+    VolatileMetricsSnapshot,
+)
 
 
 def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> None:
@@ -25,26 +31,32 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
                 subcategory="Tooling",
                 default_branch="main",
                 default_branch_sha="abc123",
-                last_push_date="2026-04-12",
-                open_issues=2,
-                open_prs=1,
-                open_ready_prs=1,
-                open_draft_prs=0,
-                is_bazel_repo=True,
-                bazel_version="8.4.2",
-                codeowners=("@infra-team",),
-                maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
-                latest_bazel_registry_version="0.2.5",
-                has_lint_config=True,
-                has_gitlint_config=True,
-                has_pyproject_toml=True,
-                has_pre_commit_config=True,
-                has_ci=True,
-                uses_cicd_daily_workflow=True,
-                has_coverage_config=False,
-                latest_release_version="v1.2.3",
-                latest_release_date="2026-04-01",
-                commits_since_latest_release=7,
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    bazel_version="8.4.2",
+                    codeowners=("@infra-team",),
+                    has_lint_config=True,
+                    has_gitlint_config=True,
+                    has_pyproject_toml=True,
+                    has_pre_commit_config=True,
+                    has_ci=True,
+                    uses_cicd_daily_workflow=True,
+                    has_coverage_config=False,
+                ),
+                registry=RegistrySignals(
+                    maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+                    latest_bazel_registry_version="0.2.5",
+                ),
+                volatile=VolatileMetricsSnapshot(
+                    last_push_date="2026-04-12",
+                    open_issues=2,
+                    open_prs=1,
+                    open_ready_prs=1,
+                    open_draft_prs=0,
+                    latest_release_version="v1.2.3",
+                    latest_release_date="2026-04-01",
+                    commits_since_latest_release=7,
+                ),
                 stars=3,
                 forks=4,
             ),
@@ -137,13 +149,18 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
                 subcategory="Tooling",
                 default_branch="main",
                 default_branch_sha="abc123",
-                is_bazel_repo=True,
-                bazel_version="8.4.2",
-                codeowners=("@infra-team",),
-                has_lint_config=True,
-                has_ci=True,
-                uses_cicd_daily_workflow=True,
-                has_coverage_config=False,
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    bazel_version="8.4.2",
+                    codeowners=("@infra-team",),
+                    has_lint_config=True,
+                    has_ci=True,
+                    uses_cicd_daily_workflow=True,
+                    has_coverage_config=False,
+                ),
+                volatile=VolatileMetricsSnapshot(
+                    volatile_metrics_fetched_at="2026-04-13T11:30:00+00:00",
+                ),
             ),
         ),
     )
@@ -154,19 +171,245 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
     )
 
     assert fake_repo.tree_calls == 0
-    assert repos == [
-        RepoEntry(
-            name="tools",
-            description="Tooling",
-            category="Uncategorized",
-            subcategory="General",
-            default_branch="main",
-            default_branch_sha="abc123",
-            last_push_date="2026-04-13",
-            open_issues=2,
-            open_prs=1,
-            open_ready_prs=1,
-            open_draft_prs=0,
+    assert len(repos) == 1
+    entry = repos[0]
+    assert entry.name == "tools"
+    assert entry.default_branch_sha == "abc123"
+    assert entry.content.is_bazel_repo is True
+    assert entry.content.bazel_version == "8.4.2"
+    assert entry.volatile.last_push_date == "2026-04-13"
+    assert entry.volatile.open_issues == 2
+    assert entry.volatile.open_prs == 1
+    assert entry.volatile.open_ready_prs == 1
+    assert entry.volatile.open_draft_prs == 0
+    assert entry.volatile.latest_release_version == "v1.2.3"
+    assert entry.volatile.latest_release_date == "2026-04-01"
+    assert entry.volatile.commits_since_latest_release == 7
+    assert entry.volatile.volatile_metrics_fetched_at is not None
+    assert entry.stars == 3
+    assert entry.forks == 4
+
+
+def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None:
+    class FakeRepo:
+        default_branch = "main"
+        description = "Tooling (updated)"
+        stargazers_count = 12
+        forks_count = 3
+
+        def get_branch(self, branch_name: str) -> SimpleNamespace:
+            assert branch_name == "main"
+            return SimpleNamespace(commit=SimpleNamespace(sha="abc123"))
+
+        def get_git_tree(self, ref: str, recursive: bool = True) -> SimpleNamespace:
+            raise AssertionError("get_git_tree should not be called in cache-aware fast mode")
+
+        def get_pulls(self, *args: Any, **kwargs: Any) -> list[SimpleNamespace]:
+            raise AssertionError("get_pulls should not be called in cache-aware fast mode")
+
+        def get_latest_release(self) -> SimpleNamespace:
+            raise AssertionError("get_latest_release should not be called in cache-aware fast mode")
+
+    repo = FakeRepo()
+    cached_entry = RepoEntry(
+        name="tools",
+        description="Tooling",
+        category="Infrastructure",
+        subcategory="Tooling",
+        default_branch="main",
+        default_branch_sha="abc123",
+        content=DeepContentSignals(
+            is_bazel_repo=True,
+            bazel_version="8.4.2",
+            codeowners=("@infra-team",),
+            docs_as_code_version="1.2.3",
+            has_lint_config=True,
+            has_gitlint_config=True,
+            has_pyproject_toml=True,
+            has_pre_commit_config=True,
+            has_ci=True,
+            uses_cicd_daily_workflow=True,
+            has_coverage_config=True,
+        ),
+        registry=RegistrySignals(
+            maintainers_in_bazel_registry=("Old Maintainer",),
+            latest_bazel_registry_version="0.1.0",
+        ),
+        volatile=VolatileMetricsSnapshot(
+            last_push_date="2026-04-10",
+            merged_prs_30_days=8,
+            open_issues=7,
+            open_prs=4,
+            open_ready_prs=3,
+            open_draft_prs=1,
+            latest_release_version="v1.2.3",
+            latest_release_date="2026-04-01",
+            commits_since_latest_release=5,
+            volatile_metrics_fetched_at="2099-01-01T00:00:00+00:00",
+        ),
+        stars=1,
+        forks=1,
+    )
+
+    entry = collector.collect_repository_entry(
+        repository_name="tools",
+        repository=repo,
+        custom_properties={"category": "Engineering", "subcategory": "Platform"},
+        bazel_registry_metadata={
+            "maintainers_in_bazel_registry": ("New Maintainer",),
+            "latest_bazel_registry_version": "0.2.0",
+        },
+        cached_entry=cached_entry,
+        reuse_cached_entry_when_unchanged=True,
+    )
+
+    assert entry == RepoEntry(
+        name="tools",
+        description="Tooling (updated)",
+        category="Engineering",
+        subcategory="Platform",
+        default_branch="main",
+        default_branch_sha="abc123",
+        content=DeepContentSignals(
+            is_bazel_repo=True,
+            bazel_version="8.4.2",
+            codeowners=("@infra-team",),
+            docs_as_code_version="1.2.3",
+            has_lint_config=True,
+            has_gitlint_config=True,
+            has_pyproject_toml=True,
+            has_pre_commit_config=True,
+            has_ci=True,
+            uses_cicd_daily_workflow=True,
+            has_coverage_config=True,
+        ),
+        registry=RegistrySignals(
+            maintainers_in_bazel_registry=("New Maintainer",),
+            latest_bazel_registry_version="0.2.0",
+        ),
+        volatile=VolatileMetricsSnapshot(
+            last_push_date="2026-04-10",
+            merged_prs_30_days=8,
+            open_issues=7,
+            open_prs=4,
+            open_ready_prs=3,
+            open_draft_prs=1,
+            latest_release_version="v1.2.3",
+            latest_release_date="2026-04-01",
+            commits_since_latest_release=5,
+            volatile_metrics_fetched_at="2099-01-01T00:00:00+00:00",
+        ),
+        stars=12,
+        forks=3,
+    )
+
+
+def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_missing() -> None:
+    class FakeRepo:
+        default_branch = "main"
+        description = "Tooling"
+        stargazers_count = 5
+        forks_count = 2
+
+        def get_branch(self, branch_name: str) -> SimpleNamespace:
+            assert branch_name == "main"
+            return SimpleNamespace(commit=SimpleNamespace(sha="abc123"))
+
+        def get_git_tree(self, ref: str, recursive: bool = True) -> SimpleNamespace:
+            raise AssertionError("get_git_tree should not be called in cache-aware fast mode")
+
+        def get_pulls(self, *args: Any, **kwargs: Any) -> list[SimpleNamespace]:
+            raise AssertionError("get_pulls should not be called in cache-aware fast mode")
+
+        def get_latest_release(self) -> SimpleNamespace:
+            raise AssertionError("get_latest_release should not be called in cache-aware fast mode")
+
+    cached_entry = RepoEntry(
+        name="tools",
+        description="Tooling",
+        category="Infrastructure",
+        subcategory="Tooling",
+        default_branch="main",
+        default_branch_sha="abc123",
+        content=DeepContentSignals(is_bazel_repo=True),
+        registry=RegistrySignals(
+            maintainers_in_bazel_registry=("Stale Maintainer",),
+            latest_bazel_registry_version="9.9.9",
+        ),
+        volatile=VolatileMetricsSnapshot(
+            volatile_metrics_fetched_at="2099-01-01T00:00:00+00:00",
+        ),
+    )
+
+    entry = collector.collect_repository_entry(
+        repository_name="tools",
+        repository=FakeRepo(),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=cached_entry,
+        reuse_cached_entry_when_unchanged=True,
+    )
+
+    assert entry.registry == RegistrySignals()
+
+
+def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_fetch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> datetime:
+            current = cls(2026, 4, 17, 12, 0, tzinfo=UTC)
+            return current if tz is not None else current.replace(tzinfo=None)
+
+    monkeypatch.setattr(collector, "datetime", FixedDatetime)
+
+    class FakeRepo:
+        default_branch = "main"
+        description = "Tooling"
+        stargazers_count = 2
+        forks_count = 3
+        pushed_at = datetime(2026, 4, 16, 12, 0, tzinfo=UTC)
+        open_issues_count = 6
+
+        def __init__(self) -> None:
+            self.tree_calls = 0
+
+        def get_branch(self, branch_name: str) -> SimpleNamespace:
+            assert branch_name == "main"
+            return SimpleNamespace(
+                commit=SimpleNamespace(
+                    sha="abc123",
+                    commit=SimpleNamespace(committer=SimpleNamespace(date=self.pushed_at)),
+                )
+            )
+
+        def get_git_tree(self, ref: str, recursive: bool = True) -> SimpleNamespace:
+            self.tree_calls += 1
+            return SimpleNamespace(tree=[])
+
+        def get_pulls(self, state: str = "open", **_: Any) -> list[SimpleNamespace]:
+            if state == "open":
+                return [SimpleNamespace(draft=False), SimpleNamespace(draft=True)]
+            return []
+
+        def get_latest_release(self) -> SimpleNamespace:
+            return SimpleNamespace(raw_data={"tag_name": "v1.0.0"}, published_at=self.pushed_at)
+
+        def compare(self, base: str, head: str) -> SimpleNamespace:
+            assert base == "v1.0.0"
+            assert head == "abc123"
+            return SimpleNamespace(total_commits=4)
+
+    repo = FakeRepo()
+    cached_entry = RepoEntry(
+        name="tools",
+        description="Tooling",
+        category="Infrastructure",
+        subcategory="Tooling",
+        default_branch="main",
+        default_branch_sha="abc123",
+        content=DeepContentSignals(
             is_bazel_repo=True,
             bazel_version="8.4.2",
             codeowners=("@infra-team",),
@@ -174,13 +417,37 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
             has_ci=True,
             uses_cicd_daily_workflow=True,
             has_coverage_config=False,
-            latest_release_version="v1.2.3",
+        ),
+        volatile=VolatileMetricsSnapshot(
+            open_issues=1,
+            open_prs=1,
+            open_ready_prs=1,
+            merged_prs_30_days=1,
+            latest_release_version="v0.9.0",
             latest_release_date="2026-04-01",
-            commits_since_latest_release=7,
-            stars=3,
-            forks=4,
-        )
-    ]
+            commits_since_latest_release=1,
+            volatile_metrics_fetched_at="2026-04-17T09:00:00+00:00",
+        ),
+    )
+
+    entry = collector.collect_repository_entry(
+        repository_name="tools",
+        repository=repo,
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=cached_entry,
+        reuse_cached_entry_when_unchanged=True,
+    )
+
+    assert repo.tree_calls == 0
+    assert entry.content.is_bazel_repo is True
+    assert entry.volatile.open_prs == 2
+    assert entry.volatile.open_ready_prs == 1
+    assert entry.volatile.open_draft_prs == 1
+    assert entry.volatile.open_issues == 4
+    assert entry.volatile.latest_release_version == "v1.0.0"
+    assert entry.volatile.commits_since_latest_release == 4
+    assert entry.volatile.volatile_metrics_fetched_at == "2026-04-17T12:00:00+00:00"
 
 
 def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
@@ -540,11 +807,8 @@ def test_fetch_repositories_reports_per_repository_progress(
     captured = capsys.readouterr()
 
     assert "Found 2 active repositories" in captured.err
-    assert "Loaded custom properties for 0 repositories" in captured.err
+    assert "Extracted custom properties for 0 repositories" in captured.err
     assert "Collecting repository details with up to 2 parallel workers" in captured.err
-    assert "[1/2] Collecting alpha (using cached content signals)" in captured.err
-    assert "[2/2] Collecting tools (fetching content signals)" in captured.err
-    assert "[1/2] Finished alpha" in captured.err or "[1/2] Finished tools" in captured.err
 
 
 def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -> None:
@@ -605,32 +869,38 @@ def test_metrics_report_renders_summary_and_table() -> None:
                 description="Tooling",
                 category="Infrastructure",
                 subcategory="Tooling",
-                merged_prs_30_days=11,
-                open_issues=2,
-                open_prs=2,
-                open_ready_prs=1,
-                open_draft_prs=1,
-                is_bazel_repo=True,
-                bazel_version="8.4.2",
-                codeowners=(
-                    "@docs-team",
-                    "@platform-team",
-                    "@infra-team",
-                    "@qa-team",
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    bazel_version="8.4.2",
+                    codeowners=(
+                        "@docs-team",
+                        "@platform-team",
+                        "@infra-team",
+                        "@qa-team",
+                    ),
+                    has_lint_config=True,
+                    has_ci=True,
+                    uses_cicd_daily_workflow=True,
+                    has_coverage_config=False,
                 ),
-                maintainers_in_bazel_registry=(
-                    "Andrey Babanin (@4og)",
-                    "Nikola Radakovic (@nradakovic)",
-                    "Pawel Rutka (@pawelrutkaq)",
+                registry=RegistrySignals(
+                    maintainers_in_bazel_registry=(
+                        "Andrey Babanin (@4og)",
+                        "Nikola Radakovic (@nradakovic)",
+                        "Pawel Rutka (@pawelrutkaq)",
+                    ),
+                    latest_bazel_registry_version="0.2.5",
                 ),
-                latest_bazel_registry_version="0.2.5",
-                has_lint_config=True,
-                has_ci=True,
-                uses_cicd_daily_workflow=True,
-                has_coverage_config=False,
-                latest_release_version="v1.2.3",
-                latest_release_date="2026-04-01",
-                commits_since_latest_release=7,
+                volatile=VolatileMetricsSnapshot(
+                    merged_prs_30_days=11,
+                    open_issues=2,
+                    open_prs=2,
+                    open_ready_prs=1,
+                    open_draft_prs=1,
+                    latest_release_version="v1.2.3",
+                    latest_release_date="2026-04-01",
+                    commits_since_latest_release=7,
+                ),
                 stars=3,
                 forks=4,
             ),
@@ -709,7 +979,7 @@ def test_metrics_report_shows_fire_icon_for_high_merged_pr_activity() -> None:
                 description="Tooling",
                 category="Infrastructure",
                 subcategory="Tooling",
-                merged_prs_30_days=10,
+                volatile=VolatileMetricsSnapshot(merged_prs_30_days=10),
             ),
         ),
     )
@@ -730,9 +1000,13 @@ def test_metrics_report_ownership_cell_skips_maintainers_for_non_bazel_repo() ->
                 description="Tooling",
                 category="Infrastructure",
                 subcategory="Tooling",
-                is_bazel_repo=False,
-                codeowners=("@docs-team",),
-                maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+                content=DeepContentSignals(
+                    is_bazel_repo=False,
+                    codeowners=("@docs-team",),
+                ),
+                registry=RegistrySignals(
+                    maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
+                ),
             ),
         ),
     )
@@ -757,9 +1031,13 @@ def test_metrics_report_ownership_cell_marks_missing_maintainers_for_bazel_repo(
                 description="Tooling",
                 category="Infrastructure",
                 subcategory="Tooling",
-                is_bazel_repo=True,
-                codeowners=("@docs-team",),
-                maintainers_in_bazel_registry=(),
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    codeowners=("@docs-team",),
+                ),
+                registry=RegistrySignals(
+                    maintainers_in_bazel_registry=(),
+                ),
             ),
         ),
     )
@@ -780,16 +1058,20 @@ def test_metrics_report_renders_versions_table() -> None:
                 description="Process docs",
                 category="Infrastructure",
                 subcategory="tooling",
-                last_push_date="2026-04-12",
-                open_issues=35,
-                open_prs=8,
-                open_ready_prs=6,
-                open_draft_prs=2,
-                is_bazel_repo=True,
-                bazel_version="8.4.2",
-                docs_as_code_version="4.0.0",
-                has_ci=True,
-                uses_cicd_daily_workflow=True,
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    bazel_version="8.4.2",
+                    docs_as_code_version="4.0.0",
+                    has_ci=True,
+                    uses_cicd_daily_workflow=True,
+                ),
+                volatile=VolatileMetricsSnapshot(
+                    last_push_date="2026-04-12",
+                    open_issues=35,
+                    open_prs=8,
+                    open_ready_prs=6,
+                    open_draft_prs=2,
+                ),
             ),
         ),
     )
@@ -816,40 +1098,48 @@ def test_versions_table_docs_as_code_color_rules() -> None:
                 description="Docs",
                 category="Infrastructure",
                 subcategory="Tooling",
-                latest_release_version="v4.1.3",
-                bazel_version="8.6.0",
+                volatile=VolatileMetricsSnapshot(latest_release_version="v4.1.3"),
+                content=DeepContentSignals(bazel_version="8.6.0"),
             ),
             RepoEntry(
                 name="same-release",
                 description="Same",
                 category="Infrastructure",
                 subcategory="Tooling",
-                docs_as_code_version="4.1.3",
-                bazel_version="8.5.0",
+                content=DeepContentSignals(
+                    docs_as_code_version="4.1.3",
+                    bazel_version="8.5.0",
+                ),
             ),
             RepoEntry(
                 name="same-minor",
                 description="Minor",
                 category="Infrastructure",
                 subcategory="Tooling",
-                docs_as_code_version="4.1.1",
-                bazel_version="8.4.0",
+                content=DeepContentSignals(
+                    docs_as_code_version="4.1.1",
+                    bazel_version="8.4.0",
+                ),
             ),
             RepoEntry(
                 name="older",
                 description="Older",
                 category="Infrastructure",
                 subcategory="Tooling",
-                docs_as_code_version="3.9.9",
-                bazel_version="8.3.0",
+                content=DeepContentSignals(
+                    docs_as_code_version="3.9.9",
+                    bazel_version="8.3.0",
+                ),
             ),
             RepoEntry(
                 name="none",
                 description="None",
                 category="Infrastructure",
                 subcategory="Tooling",
-                docs_as_code_version=None,
-                bazel_version=None,
+                content=DeepContentSignals(
+                    docs_as_code_version=None,
+                    bazel_version=None,
+                ),
             ),
         ),
     )

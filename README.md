@@ -30,6 +30,23 @@ For a fresh GitHub pull before rendering, run:
 uv run generate-repo-overview collect
 ```
 
+By default, `collect` now does a cache-aware refresh: it checks fast, high-level
+repository state and reuses cached deep details for repositories whose default
+branch SHA has not changed. Use this for regular updates.
+
+For volatile repository metrics (open PRs/issues, release counters, and recent
+activity), fast mode keeps a per-repository fetch timestamp and refreshes those
+values automatically when they are older than 1 hour.
+
+You can tune this freshness window with `REPO_OVERVIEW_VOLATILE_TTL_MINUTES`
+(default: `60`).
+
+If you need a full deep refresh for every repository, run:
+
+```sh
+uv run generate-repo-overview collect --deep
+```
+
 If you only want the profile README:
 
 ```sh

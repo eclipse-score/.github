@@ -38,10 +38,10 @@ def render_metrics_report(snapshot: RepoSnapshot) -> str:
 def render_summary(repos: list[RepoEntry]) -> list[str]:
     return [
         f"- Repositories: {len(repos)}",
-        f"- With GitHub Actions: {sum(repo.has_ci for repo in repos)}",
-        f"- Using daily workflow: {sum(repo.uses_cicd_daily_workflow for repo in repos)}",
-        f"- With lint/style config: {sum(repo.has_lint_config for repo in repos)}",
-        f"- With coverage config: {sum(repo.has_coverage_config for repo in repos)}",
+        f"- With GitHub Actions: {sum(repo.content.has_ci for repo in repos)}",
+        f"- Using daily workflow: {sum(repo.content.uses_cicd_daily_workflow for repo in repos)}",
+        f"- With lint/style config: {sum(repo.content.has_lint_config for repo in repos)}",
+        f"- With coverage config: {sum(repo.content.has_coverage_config for repo in repos)}",
         f"- With releases: {sum(has_latest_release(repo) for repo in repos)}",
     ]
 
@@ -171,11 +171,11 @@ def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
         f"| [{entry.name}]({url}) | {render_ownership_cell(entry)} | "
-        f"{render_merged_pr_count(entry.merged_prs_30_days)} | "
-        f"{entry.open_issues} | {render_ready_pr_count(entry.open_ready_prs)} | {entry.open_draft_prs} | "
-        f"{render_bazel_repo_presence(entry.is_bazel_repo)} | "
-        f"{render_plain_value(entry.latest_release_version)} | "
-        f"{render_commits_since_release(entry.commits_since_latest_release)} | "
+        f"{render_merged_pr_count(entry.volatile.merged_prs_30_days)} | "
+        f"{entry.volatile.open_issues} | {render_ready_pr_count(entry.volatile.open_ready_prs)} | {entry.volatile.open_draft_prs} | "
+        f"{render_bazel_repo_presence(entry.content.is_bazel_repo)} | "
+        f"{render_plain_value(entry.volatile.latest_release_version)} | "
+        f"{render_commits_since_release(entry.volatile.commits_since_latest_release)} | "
         f"{entry.stars} | {entry.forks} |"
     )
 
@@ -189,20 +189,20 @@ def render_versions_row(
 ) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| [{entry.name}]({url}) | {render_bazel_version_status(entry.bazel_version, max_bazel_version)} | "
-        f"{render_docs_as_code_version_status(entry.docs_as_code_version, latest_docs_as_code_release)} |"
+        f"| [{entry.name}]({url}) | {render_bazel_version_status(entry.content.bazel_version, max_bazel_version)} | "
+        f"{render_docs_as_code_version_status(entry.content.docs_as_code_version, latest_docs_as_code_release)} |"
     )
 
 
 def render_automation_row(entry: RepoEntry, *, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| [{entry.name}]({url}) | {render_presence(entry.has_gitlint_config, icon='🔍')} | "
-        f"{render_presence(entry.has_pyproject_toml, icon='🐍')} | "
-        f"{render_presence(entry.has_pre_commit_config, icon='🪝')} | "
-        f"{render_presence(entry.has_ci, icon='⚙')} | "
-        f"{render_bool(entry.uses_cicd_daily_workflow)} | "
-        f"{render_bool(entry.has_coverage_config)} |"
+        f"| [{entry.name}]({url}) | {render_presence(entry.content.has_gitlint_config, icon='🔍')} | "
+        f"{render_presence(entry.content.has_pyproject_toml, icon='🐍')} | "
+        f"{render_presence(entry.content.has_pre_commit_config, icon='🪝')} | "
+        f"{render_presence(entry.content.has_ci, icon='⚙')} | "
+        f"{render_bool(entry.content.uses_cicd_daily_workflow)} | "
+        f"{render_bool(entry.content.has_coverage_config)} |"
     )
 
 
@@ -257,14 +257,14 @@ def render_presence(value: bool, *, icon: str) -> str:
 
 
 def render_ownership_cell(entry: RepoEntry) -> str:
-    codeowners = render_people_list(entry.codeowners, handles_only=True)
+    codeowners = render_people_list(entry.content.codeowners, handles_only=True)
     lines: list[str] = []
     if codeowners != "-":
         lines.append(f"Codeowners: {codeowners}")
 
-    if entry.is_bazel_repo:
+    if entry.content.is_bazel_repo:
         maintainers = render_people_list(
-            entry.maintainers_in_bazel_registry,
+            entry.registry.maintainers_in_bazel_registry,
             handles_only=True,
         )
         if maintainers != "-":
@@ -315,7 +315,7 @@ def get_max_bazel_version(repos: list[RepoEntry]) -> tuple[int, ...] | None:
     keys = [
         key
         for repo in repos
-        if (key := parse_version_key(repo.bazel_version)) is not None
+        if (key := parse_version_key(repo.content.bazel_version)) is not None
     ]
     return max(keys) if keys else None
 
@@ -324,9 +324,9 @@ def get_latest_docs_as_code_release(repos: list[RepoEntry]) -> str | None:
     for repo in repos:
         if repo.name.casefold() != "docs-as-code":
             continue
-        if repo.latest_release_version is None:
+        if repo.volatile.latest_release_version is None:
             return None
-        return repo.latest_release_version.removeprefix("v").strip() or None
+        return repo.volatile.latest_release_version.removeprefix("v").strip() or None
     return None
 
 
@@ -375,4 +375,7 @@ def render_docs_as_code_version_status(
 
 
 def has_latest_release(entry: RepoEntry) -> bool:
-    return entry.latest_release_version is not None or entry.latest_release_date is not None
+    return (
+        entry.volatile.latest_release_version is not None
+        or entry.volatile.latest_release_date is not None
+    )

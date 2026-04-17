@@ -5,9 +5,13 @@ import json
 import os
 import re
 import subprocess
+import sys
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
+
+from tqdm import tqdm
 
 from .console import print_status
 from .constants import DEFAULT_CACHE, DEFAULT_ORG, DEFAULT_TOKEN_ENV
@@ -16,10 +20,11 @@ from .models import (
     DEFAULT_SUBCATEGORY,
     SNAPSHOT_SCHEMA_VERSION,
     CustomPropertyValue,
+    DeepContentSignals,
+    RegistrySignals,
     RepoEntry,
     RepoSnapshot,
-    snapshot_from_dict,
-    snapshot_to_dict,
+    VolatileMetricsSnapshot,
 )
 
 if TYPE_CHECKING:
@@ -39,7 +44,19 @@ class LatestReleaseDetails(TypedDict):
     commits_since_release: int | None
 
 
-class ContentSignals(TypedDict):
+class VolatileMetricsPayload(TypedDict):
+    last_push_date: str | None
+    merged_prs_30_days: int
+    open_issues: int
+    open_prs: int
+    open_ready_prs: int
+    open_draft_prs: int
+    latest_release_version: str | None
+    latest_release_date: str | None
+    commits_since_latest_release: int | None
+
+
+class DeepContentPayload(TypedDict):
     is_bazel_repo: bool
     bazel_version: str | None
     codeowners: tuple[str, ...]
@@ -53,19 +70,24 @@ class ContentSignals(TypedDict):
     has_coverage_config: bool
 
 
-class BazelRegistryMetadata(TypedDict):
+class RegistrySignalsPayload(TypedDict):
     maintainers_in_bazel_registry: tuple[str, ...]
     latest_bazel_registry_version: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ActiveRepositoryData:
+    repository: object
+    custom_properties: dict[str, CustomPropertyValue]
 
 
 class OrganizationLike(Protocol):
     def get_repos(self) -> collections.abc.Iterable[object]: ...
 
-    def list_custom_property_values(self) -> collections.abc.Iterable[object]: ...
-
 
 class GitHubClientLike(Protocol):
     def get_rate_limit(self) -> object: ...
+
 
 GITLINT_PATHS = (".gitlint",)
 PYPROJECT_PATHS = ("pyproject.toml",)
@@ -75,9 +97,13 @@ CI_PATHS = (".github/workflows",)
 COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
 BAZEL_VERSION_PATHS = (".bazelversion",)
 MODULE_PATHS = ("MODULE.bazel",)
-BAZEL_REPO_MARKER_PATHS = BAZEL_VERSION_PATHS + MODULE_PATHS + (
-    "WORKSPACE",
-    "WORKSPACE.bazel",
+BAZEL_REPO_MARKER_PATHS = (
+    BAZEL_VERSION_PATHS
+    + MODULE_PATHS
+    + (
+        "WORKSPACE",
+        "WORKSPACE.bazel",
+    )
 )
 CODEOWNERS_PATH = ".github/CODEOWNERS"
 WORKFLOW_PATH_PREFIX = ".github/workflows/"
@@ -91,6 +117,8 @@ BAZEL_DEP_PATTERN_TEMPLATE = (
 VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 DEFAULT_MAX_COLLECTION_WORKERS = 8
 MERGED_PULL_REQUEST_WINDOW_DAYS = 30
+DEFAULT_VOLATILE_METRICS_TTL_MINUTES = 60
+VOLATILE_METRICS_TTL_ENV = "REPO_OVERVIEW_VOLATILE_TTL_MINUTES"
 
 
 def resolve_github_token(token_env: str = DEFAULT_TOKEN_ENV) -> str | None:
@@ -119,7 +147,7 @@ def load_snapshot(path: Path) -> RepoSnapshot:
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("Snapshot file must contain a JSON object.")
-    return snapshot_from_dict(raw)
+    return RepoSnapshot.from_dict(raw)
 
 
 def load_snapshot_if_present(path: Path) -> RepoSnapshot | None:
@@ -133,7 +161,7 @@ def load_snapshot_if_present(path: Path) -> RepoSnapshot | None:
 
 def write_snapshot(snapshot: RepoSnapshot, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = snapshot_to_dict(snapshot)
+    payload = snapshot.to_dict()
     path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -170,6 +198,7 @@ def collect_snapshot(
     org_name: str = DEFAULT_ORG,
     token_env: str = DEFAULT_TOKEN_ENV,
     cache_path: Path | None = DEFAULT_CACHE,
+    reuse_unchanged_repositories: bool = False,
     status_prefix: str = "repo-overview",
 ) -> RepoSnapshot:
     try:
@@ -181,9 +210,7 @@ def collect_snapshot(
 
     token = resolve_github_token(token_env)
     if not token:
-        message = (
-            f"Missing GitHub token. Set {token_env} or authenticate with `gh auth login`."
-        )
+        message = f"Missing GitHub token. Set {token_env} or authenticate with `gh auth login`."
         raise SystemExit(message)
 
     existing_snapshot = (
@@ -203,6 +230,7 @@ def collect_snapshot(
         repos = fetch_repositories(
             organization,
             existing_snapshot=existing_snapshot,
+            reuse_unchanged_repositories=reuse_unchanged_repositories,
             status_prefix=status_prefix,
         )
 
@@ -265,6 +293,7 @@ def fetch_repositories(
     organization: OrganizationLike,
     existing_snapshot: RepoSnapshot | None = None,
     *,
+    reuse_unchanged_repositories: bool = False,
     status_prefix: str = "repo-overview",
 ) -> list[RepoEntry]:
     print_status("Loading active repositories", prefix=status_prefix)
@@ -273,18 +302,25 @@ def fetch_repositories(
         f"Found {len(active_repositories)} active repositories",
         prefix=status_prefix,
     )
-    print_status("Loading repository custom properties in bulk", prefix=status_prefix)
-    custom_properties_by_name = fetch_repository_custom_properties(
-        organization,
-        active_repository_names=set(active_repositories),
-    )
     print_status(
-        f"Loaded custom properties for {len(custom_properties_by_name)} repositories",
+        "Extracting repository custom properties from repo payloads",
+        prefix=status_prefix,
+    )
+    custom_properties_by_name = {
+        repository_name: repository_data.custom_properties
+        for repository_name, repository_data in active_repositories.items()
+        if repository_data.custom_properties
+    }
+    print_status(
+        f"Extracted custom properties for {len(custom_properties_by_name)} repositories",
         prefix=status_prefix,
     )
     print_status("Loading maintainers in bazel_registry", prefix=status_prefix)
+    bazel_registry_data = active_repositories.get("bazel_registry")
     bazel_registry_metadata_by_repo = fetch_bazel_registry_metadata_by_repo(
-        bazel_registry_repository=active_repositories.get("bazel_registry"),
+        bazel_registry_repository=(
+            bazel_registry_data.repository if bazel_registry_data is not None else None
+        ),
         active_repository_names=set(active_repositories),
     )
     print_status(
@@ -314,43 +350,40 @@ def fetch_repositories(
     )
 
     repos_by_index: dict[int, RepoEntry] = {}
-    completion_count = 0
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with (
+        ThreadPoolExecutor(max_workers=max_workers) as executor,
+        tqdm(
+            total=total_repositories,
+            desc="Finished",
+            unit="repo",
+            file=sys.stderr,
+            disable=not sys.stderr.isatty(),
+        ) as progress,
+    ):
         futures: dict[Future[RepoEntry], tuple[int, str]] = {}
-        for index, (repository_name, repository) in enumerate(
+        for index, (repository_name, repository_data) in enumerate(
             sorted_repositories,
             start=1,
         ):
             cached_entry = cached_by_name.get(repository_name)
-            progress_note = (
-                "using cached content signals"
-                if cached_entry
-                else "fetching content signals"
-            )
-            print_status(
-                f"[{index}/{total_repositories}] Collecting {repository_name} ({progress_note})",
-                prefix=status_prefix,
-            )
             future = executor.submit(
                 collect_repository_entry,
                 repository_name=repository_name,
-                repository=repository,
-                custom_properties=custom_properties_by_name.get(repository_name, {}),
+                repository=repository_data.repository,
+                custom_properties=repository_data.custom_properties,
                 bazel_registry_metadata=bazel_registry_metadata_by_repo.get(
                     repository_name
                 ),
                 cached_entry=cached_entry,
+                reuse_cached_entry_when_unchanged=reuse_unchanged_repositories,
             )
             futures[future] = (index, repository_name)
 
         for future in as_completed(futures):
             index, repository_name = futures[future]
             repos_by_index[index] = future.result()
-            completion_count += 1
-            print_status(
-                f"[{completion_count}/{total_repositories}] Finished {repository_name}",
-                prefix=status_prefix,
-            )
+            progress.update(1)
+            progress.set_postfix_str(repository_name)
 
     return [repos_by_index[index] for index in range(1, total_repositories + 1)]
 
@@ -367,15 +400,20 @@ def resolve_max_collection_workers() -> int:
     return DEFAULT_MAX_COLLECTION_WORKERS
 
 
-def fetch_active_repositories(organization: OrganizationLike) -> dict[str, object]:
-    active_repositories: dict[str, object] = {}
+def fetch_active_repositories(
+    organization: OrganizationLike,
+) -> dict[str, ActiveRepositoryData]:
+    active_repositories: dict[str, ActiveRepositoryData] = {}
     for repository in organization.get_repos():
         if getattr(repository, "archived", False):
             continue
         repository_name = getattr(repository, "name", None)
         if not isinstance(repository_name, str):
             continue
-        active_repositories[repository_name] = repository
+        active_repositories[repository_name] = ActiveRepositoryData(
+            repository=repository,
+            custom_properties=parse_repository_custom_properties(repository),
+        )
     return active_repositories
 
 
@@ -383,43 +421,57 @@ def fetch_repository_descriptions(
     organization: OrganizationLike,
 ) -> dict[str, str | None]:
     return {
-        name: cast("str | None", getattr(repository, "description", None))
-        for name, repository in fetch_active_repositories(organization).items()
+        name: cast("str | None", getattr(repository_data.repository, "description", None))
+        for name, repository_data in fetch_active_repositories(organization).items()
     }
 
 
-def fetch_repository_custom_properties(
-    organization: OrganizationLike,
-    *,
-    active_repository_names: set[str],
-) -> dict[str, dict[str, CustomPropertyValue]]:
-    try:
-        property_values = organization.list_custom_property_values()
-    except AttributeError:
+def parse_repository_custom_properties(
+    repository: object,
+) -> dict[str, CustomPropertyValue]:
+    raw_properties = get_preloaded_custom_properties(repository)
+    if not raw_properties:
         return {}
 
-    properties_by_name: dict[str, dict[str, CustomPropertyValue]] = {}
-    for repository_properties in property_values:
-        repository_name = getattr(repository_properties, "repository_name", None)
-        if repository_name not in active_repository_names:
+    parsed: dict[str, CustomPropertyValue] = {}
+    for key, value in raw_properties.items():
+        if not isinstance(key, str):
             continue
-
-        properties = getattr(repository_properties, "properties", None)
-        if not isinstance(properties, dict):
+        if value is None or isinstance(value, str):
+            parsed[key] = value
             continue
-        properties_by_name[repository_name] = cast(
-            "dict[str, CustomPropertyValue]",
-            properties,
-        )
+        if isinstance(value, list):
+            parsed[key] = [item for item in value if isinstance(item, str)]
+    return parsed
 
-    return properties_by_name
+
+def get_preloaded_custom_properties(repository: object) -> dict[str, object]:
+    """Read custom properties from already-loaded object state without completing API objects."""
+    repository_fields = vars(repository)
+
+    # Primary path for PyGithub Repository instances populated by list responses.
+    preloaded_attribute = repository_fields.get("_custom_properties")
+    preloaded_value = getattr(preloaded_attribute, "value", None)
+    if isinstance(preloaded_value, dict):
+        return preloaded_value
+
+    # Fallback paths for objects/tests where payload is provided directly.
+    for field_name in ("_rawData", "raw_data"):
+        payload = repository_fields.get(field_name)
+        if not isinstance(payload, dict):
+            continue
+        raw_properties = payload.get("custom_properties")
+        if isinstance(raw_properties, dict):
+            return raw_properties
+
+    return {}
 
 
 def fetch_bazel_registry_metadata_by_repo(
     *,
     bazel_registry_repository: object | None,
     active_repository_names: set[str],
-) -> dict[str, BazelRegistryMetadata]:
+) -> dict[str, RegistrySignalsPayload]:
     if bazel_registry_repository is None:
         return {}
 
@@ -442,7 +494,7 @@ def fetch_bazel_registry_metadata_by_repo(
         and path.endswith(BAZEL_REGISTRY_METADATA_PATH_SUFFIX)
     )
 
-    metadata_by_repo_name: dict[str, BazelRegistryMetadata] = {}
+    metadata_by_repo_name: dict[str, RegistrySignalsPayload] = {}
     for metadata_path in metadata_paths:
         content = fetch_text_file(
             bazel_registry_repository,
@@ -464,7 +516,7 @@ def parse_bazel_registry_metadata(
     text: str | None,
     *,
     active_repository_names: set[str],
-) -> dict[str, BazelRegistryMetadata]:
+) -> dict[str, RegistrySignalsPayload]:
     if not text:
         return {}
     try:
@@ -478,7 +530,7 @@ def parse_bazel_registry_metadata(
     maintainers = parse_bazel_registry_maintainers(raw_metadata.get("maintainers"))
     latest_version = parse_latest_bazel_registry_version(raw_metadata.get("versions"))
 
-    metadata_by_repo_name: dict[str, BazelRegistryMetadata] = {}
+    metadata_by_repo_name: dict[str, RegistrySignalsPayload] = {}
     raw_repositories = raw_metadata.get("repository")
     if not isinstance(raw_repositories, list):
         return metadata_by_repo_name
@@ -552,11 +604,116 @@ def collect_repository_entry(
     repository_name: str,
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
-    bazel_registry_metadata: BazelRegistryMetadata | None,
+    bazel_registry_metadata: RegistrySignalsPayload | None,
     cached_entry: RepoEntry | None,
+    reuse_cached_entry_when_unchanged: bool = False,
 ) -> RepoEntry:
+    """Collect one repository entry using explicit fast/slow collection paths.
+
+    Fast path: when cache reuse is enabled and default-branch state is unchanged,
+    reuse cached content indicators and optionally cached volatile metrics.
+
+    Slow path: when cache reuse is impossible (or disabled), inspect repository
+    content and refresh volatile metrics from live API calls.
+    """
+    fast_entry = maybe_collect_repository_entry_fast_path(
+        repository_name=repository_name,
+        repository=repository,
+        custom_properties=custom_properties,
+        bazel_registry_metadata=bazel_registry_metadata,
+        cached_entry=cached_entry,
+        reuse_cached_entry_when_unchanged=reuse_cached_entry_when_unchanged,
+    )
+    if fast_entry is not None:
+        return fast_entry
+
+    return collect_repository_entry_slow_path(
+        repository_name=repository_name,
+        repository=repository,
+        custom_properties=custom_properties,
+        bazel_registry_metadata=bazel_registry_metadata,
+        cached_entry=cached_entry,
+    )
+
+
+def maybe_collect_repository_entry_fast_path(
+    *,
+    repository_name: str,
+    repository: Any,
+    custom_properties: dict[str, CustomPropertyValue],
+    bazel_registry_metadata: RegistrySignalsPayload | None,
+    cached_entry: RepoEntry | None,
+    reuse_cached_entry_when_unchanged: bool,
+) -> RepoEntry | None:
+    """Attempt a fast collection path that avoids deep content inspection.
+
+    Returns ``None`` when the fast path is not applicable.
+    """
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
     default_branch_sha = get_default_branch_sha(repository, default_branch)
+    cache_matches_default_branch = cached_entry_matches_default_branch(
+        cached_entry,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+    )
+
+    if not (reuse_cached_entry_when_unchanged and cache_matches_default_branch):
+        return None
+
+    assert cached_entry is not None
+    if should_reuse_cached_volatile_metrics(cached_entry):
+        return build_repo_entry_from_cached(
+            cached_entry=cached_entry,
+            repository_name=repository_name,
+            description=cast("str | None", getattr(repository, "description", None)),
+            custom_properties=custom_properties,
+            default_branch=default_branch,
+            default_branch_sha=default_branch_sha,
+            bazel_registry_metadata=bazel_registry_metadata,
+            stars=getattr(repository, "stargazers_count", 0) or 0,
+            forks=getattr(repository, "forks_count", 0) or 0,
+        )
+
+    # Medium-fast variant: keep cached content indicators but refresh volatile API metrics.
+    content_signals = cached_signals_for_repository(
+        cached_entry,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+    )
+    assert content_signals is not None
+    volatile_metrics = collect_volatile_metrics(
+        repository,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+    )
+    registry_signals = build_registry_signals(bazel_registry_metadata)
+    return build_repo_entry(
+        repository_name=repository_name,
+        description=cast("str | None", getattr(repository, "description", None)),
+        custom_properties=custom_properties,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+        content_signals=content_signals,
+        registry_signals=registry_signals,
+        volatile_metrics=volatile_metrics,
+        volatile_metrics_fetched_at=datetime.now(UTC).isoformat(),
+        stars=getattr(repository, "stargazers_count", 0) or 0,
+        forks=getattr(repository, "forks_count", 0) or 0,
+    )
+
+
+def collect_repository_entry_slow_path(
+    *,
+    repository_name: str,
+    repository: Any,
+    custom_properties: dict[str, CustomPropertyValue],
+    bazel_registry_metadata: RegistrySignalsPayload | None,
+    cached_entry: RepoEntry | None,
+) -> RepoEntry:
+    """Collect using slow path logic (deep content inspection when cache can't prove reuse)."""
+    default_branch = cast("str | None", getattr(repository, "default_branch", None))
+    default_branch_sha = get_default_branch_sha(repository, default_branch)
+
     cached_content_signals = cached_signals_for_repository(
         cached_entry,
         default_branch=default_branch,
@@ -564,12 +721,45 @@ def collect_repository_entry(
     )
 
     if cached_content_signals is None:
-        content_signals = inspect_repository_content(
+        content_signals = inspect_repository_content_slow(
             repository,
             ref=default_branch_sha,
         )
     else:
         content_signals = cached_content_signals
+    volatile_metrics = collect_volatile_metrics(
+        repository,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+    )
+    registry_signals = build_registry_signals(bazel_registry_metadata)
+
+    return build_repo_entry(
+        repository_name=repository_name,
+        description=cast("str | None", getattr(repository, "description", None)),
+        custom_properties=custom_properties,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+        content_signals=content_signals,
+        registry_signals=registry_signals,
+        volatile_metrics=volatile_metrics,
+        volatile_metrics_fetched_at=datetime.now(UTC).isoformat(),
+        stars=getattr(repository, "stargazers_count", 0) or 0,
+        forks=getattr(repository, "forks_count", 0) or 0,
+    )
+
+
+def collect_volatile_metrics(
+    repository: Any,
+    *,
+    default_branch: str | None,
+    default_branch_sha: str | None,
+) -> VolatileMetricsPayload:
+    """Collect volatile metrics from live API calls.
+
+    This is comparatively slow and intentionally refreshed on demand based on
+    the configured volatile-metric TTL.
+    """
     open_pull_request_counts = get_open_pull_request_counts(repository)
     merged_pull_request_count = get_merged_pull_request_count_last_30_days(
         repository,
@@ -584,49 +774,21 @@ def collect_repository_entry(
         repository,
         default_branch=default_branch,
     )
-
-    return build_repo_entry(
-        repository_name=repository_name,
-        description=cast("str | None", getattr(repository, "description", None)),
-        custom_properties=custom_properties,
-        default_branch=default_branch,
-        default_branch_sha=default_branch_sha,
-        last_push_date=last_commit_date or iso_date(getattr(repository, "pushed_at", None)),
-        merged_prs_30_days=merged_pull_request_count,
-        open_issues=get_open_issue_count(
+    return {
+        "last_push_date": last_commit_date
+        or iso_date(getattr(repository, "pushed_at", None)),
+        "merged_prs_30_days": merged_pull_request_count,
+        "open_issues": get_open_issue_count(
             repository,
             open_pull_request_total=open_pull_request_counts["total"],
         ),
-        open_prs=open_pull_request_counts["total"],
-        open_ready_prs=open_pull_request_counts["ready"],
-        open_draft_prs=open_pull_request_counts["draft"],
-        is_bazel_repo=content_signals["is_bazel_repo"],
-        bazel_version=content_signals["bazel_version"],
-        codeowners=content_signals["codeowners"],
-        maintainers_in_bazel_registry=(
-            bazel_registry_metadata.get("maintainers_in_bazel_registry", ())
-            if bazel_registry_metadata is not None
-            else ()
-        ),
-        latest_bazel_registry_version=(
-            bazel_registry_metadata.get("latest_bazel_registry_version")
-            if bazel_registry_metadata is not None
-            else None
-        ),
-        docs_as_code_version=content_signals["docs_as_code_version"],
-        has_lint_config=content_signals["has_lint_config"],
-        has_gitlint_config=bool(content_signals.get("has_gitlint_config", False)),
-        has_pyproject_toml=bool(content_signals.get("has_pyproject_toml", False)),
-        has_pre_commit_config=bool(content_signals.get("has_pre_commit_config", False)),
-        has_ci=content_signals["has_ci"],
-        uses_cicd_daily_workflow=content_signals["uses_cicd_daily_workflow"],
-        has_coverage_config=content_signals["has_coverage_config"],
-        latest_release_version=latest_release["version"],
-        latest_release_date=latest_release["date"],
-        commits_since_latest_release=latest_release["commits_since_release"],
-        stars=getattr(repository, "stargazers_count", 0) or 0,
-        forks=getattr(repository, "forks_count", 0) or 0,
-    )
+        "open_prs": open_pull_request_counts["total"],
+        "open_ready_prs": open_pull_request_counts["ready"],
+        "open_draft_prs": open_pull_request_counts["draft"],
+        "latest_release_version": latest_release["version"],
+        "latest_release_date": latest_release["date"],
+        "commits_since_latest_release": latest_release["commits_since_release"],
+    }
 
 
 def get_default_branch_last_commit_date(
@@ -654,31 +816,79 @@ def cached_signals_for_repository(
     *,
     default_branch: str | None,
     default_branch_sha: str | None,
-) -> ContentSignals | None:
-    if cached_entry is None:
-        return None
-
-    # Reuse cached content signals only when we can prove the default-branch state is unchanged.
-    cached_sha = cached_entry.default_branch_sha
-    if default_branch_sha is not None and cached_sha != default_branch_sha:
-        return None
-
-    if default_branch_sha is None and default_branch is not None and cached_entry.default_branch != default_branch:
+) -> DeepContentPayload | None:
+    if not cached_entry_matches_default_branch(
+        cached_entry,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+    ):
         return None
 
     return {
-        "is_bazel_repo": cached_entry.is_bazel_repo,
-        "bazel_version": cached_entry.bazel_version,
-        "codeowners": cached_entry.codeowners,
-        "docs_as_code_version": cached_entry.docs_as_code_version,
-        "has_lint_config": cached_entry.has_lint_config,
-        "has_gitlint_config": cached_entry.has_gitlint_config,
-        "has_pyproject_toml": cached_entry.has_pyproject_toml,
-        "has_pre_commit_config": cached_entry.has_pre_commit_config,
-        "has_ci": cached_entry.has_ci,
-        "uses_cicd_daily_workflow": cached_entry.uses_cicd_daily_workflow,
-        "has_coverage_config": cached_entry.has_coverage_config,
+        "is_bazel_repo": cached_entry.content.is_bazel_repo,
+        "bazel_version": cached_entry.content.bazel_version,
+        "codeowners": cached_entry.content.codeowners,
+        "docs_as_code_version": cached_entry.content.docs_as_code_version,
+        "has_lint_config": cached_entry.content.has_lint_config,
+        "has_gitlint_config": cached_entry.content.has_gitlint_config,
+        "has_pyproject_toml": cached_entry.content.has_pyproject_toml,
+        "has_pre_commit_config": cached_entry.content.has_pre_commit_config,
+        "has_ci": cached_entry.content.has_ci,
+        "uses_cicd_daily_workflow": cached_entry.content.uses_cicd_daily_workflow,
+        "has_coverage_config": cached_entry.content.has_coverage_config,
     }
+
+
+def cached_entry_matches_default_branch(
+    cached_entry: RepoEntry | None,
+    *,
+    default_branch: str | None,
+    default_branch_sha: str | None,
+) -> bool:
+    if cached_entry is None:
+        return False
+
+    # Reuse cached repository details only when we can prove the default-branch state is unchanged.
+    cached_sha = cached_entry.default_branch_sha
+    if default_branch_sha is not None:
+        return cached_sha == default_branch_sha
+
+    if default_branch is not None:
+        return cached_entry.default_branch == default_branch
+
+    return False
+
+
+def build_repo_entry_from_cached(
+    *,
+    cached_entry: RepoEntry,
+    repository_name: str,
+    description: str | None,
+    custom_properties: dict[str, CustomPropertyValue],
+    default_branch: str | None,
+    default_branch_sha: str | None,
+    bazel_registry_metadata: RegistrySignalsPayload | None,
+    stars: int,
+    forks: int,
+) -> RepoEntry:
+    registry = build_registry_signals(bazel_registry_metadata)
+    return replace(
+        cached_entry,
+        name=repository_name,
+        description=description or "(no description)",
+        category=normalize_group_name(
+            custom_properties.get("category"), DEFAULT_CATEGORY
+        ),
+        subcategory=normalize_group_name(
+            custom_properties.get("subcategory"),
+            DEFAULT_SUBCATEGORY,
+        ),
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+        registry=registry,
+        stars=stars,
+        forks=forks,
+    )
 
 
 def build_repo_entry(
@@ -688,28 +898,10 @@ def build_repo_entry(
     *,
     default_branch: str | None = None,
     default_branch_sha: str | None = None,
-    last_push_date: str | None = None,
-    merged_prs_30_days: int = 0,
-    open_issues: int = 0,
-    open_prs: int = 0,
-    open_ready_prs: int = 0,
-    open_draft_prs: int = 0,
-    is_bazel_repo: bool = False,
-    bazel_version: str | None = None,
-    codeowners: tuple[str, ...] = (),
-    maintainers_in_bazel_registry: tuple[str, ...] = (),
-    latest_bazel_registry_version: str | None = None,
-    docs_as_code_version: str | None = None,
-    has_lint_config: bool = False,
-    has_gitlint_config: bool = False,
-    has_pyproject_toml: bool = False,
-    has_pre_commit_config: bool = False,
-    has_ci: bool = False,
-    uses_cicd_daily_workflow: bool = False,
-    has_coverage_config: bool = False,
-    latest_release_version: str | None = None,
-    latest_release_date: str | None = None,
-    commits_since_latest_release: int | None = None,
+    content_signals: DeepContentPayload,
+    registry_signals: RegistrySignals,
+    volatile_metrics: VolatileMetricsPayload,
+    volatile_metrics_fetched_at: str | None = None,
     stars: int = 0,
     forks: int = 0,
 ) -> RepoEntry:
@@ -725,31 +917,91 @@ def build_repo_entry(
         subcategory=subcategory,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
-        last_push_date=last_push_date,
-        merged_prs_30_days=merged_prs_30_days,
-        open_issues=open_issues,
-        open_prs=open_prs,
-        open_ready_prs=open_ready_prs,
-        open_draft_prs=open_draft_prs,
-        is_bazel_repo=is_bazel_repo,
-        bazel_version=bazel_version,
-        codeowners=codeowners,
-        maintainers_in_bazel_registry=maintainers_in_bazel_registry,
-        latest_bazel_registry_version=latest_bazel_registry_version,
-        docs_as_code_version=docs_as_code_version,
-        has_lint_config=has_lint_config,
-        has_gitlint_config=has_gitlint_config,
-        has_pyproject_toml=has_pyproject_toml,
-        has_pre_commit_config=has_pre_commit_config,
-        has_ci=has_ci,
-        uses_cicd_daily_workflow=uses_cicd_daily_workflow,
-        has_coverage_config=has_coverage_config,
-        latest_release_version=latest_release_version,
-        latest_release_date=latest_release_date,
-        commits_since_latest_release=commits_since_latest_release,
+        content=DeepContentSignals(
+            is_bazel_repo=content_signals["is_bazel_repo"],
+            bazel_version=content_signals["bazel_version"],
+            codeowners=content_signals["codeowners"],
+            docs_as_code_version=content_signals["docs_as_code_version"],
+            has_lint_config=content_signals["has_lint_config"],
+            has_gitlint_config=bool(content_signals.get("has_gitlint_config", False)),
+            has_pyproject_toml=bool(content_signals.get("has_pyproject_toml", False)),
+            has_pre_commit_config=bool(
+                content_signals.get("has_pre_commit_config", False)
+            ),
+            has_ci=content_signals["has_ci"],
+            uses_cicd_daily_workflow=content_signals["uses_cicd_daily_workflow"],
+            has_coverage_config=content_signals["has_coverage_config"],
+        ),
+        registry=registry_signals,
+        volatile=VolatileMetricsSnapshot(
+            last_push_date=volatile_metrics["last_push_date"],
+            merged_prs_30_days=volatile_metrics["merged_prs_30_days"],
+            open_issues=volatile_metrics["open_issues"],
+            open_prs=volatile_metrics["open_prs"],
+            open_ready_prs=volatile_metrics["open_ready_prs"],
+            open_draft_prs=volatile_metrics["open_draft_prs"],
+            latest_release_version=volatile_metrics["latest_release_version"],
+            latest_release_date=volatile_metrics["latest_release_date"],
+            commits_since_latest_release=volatile_metrics[
+                "commits_since_latest_release"
+            ],
+            volatile_metrics_fetched_at=volatile_metrics_fetched_at,
+        ),
         stars=stars,
         forks=forks,
     )
+
+
+def should_reuse_cached_volatile_metrics(cached_entry: RepoEntry) -> bool:
+    fetched_at = parse_datetime_utc(cached_entry.volatile.volatile_metrics_fetched_at)
+    if fetched_at is None:
+        return False
+    ttl = resolve_volatile_metrics_ttl()
+    return datetime.now(UTC) - fetched_at <= ttl
+
+
+def build_registry_signals(
+    metadata: RegistrySignalsPayload | None,
+) -> RegistrySignals:
+    return RegistrySignals(
+        maintainers_in_bazel_registry=(
+            metadata.get("maintainers_in_bazel_registry")
+            if metadata is not None
+            else ()
+        ),
+        latest_bazel_registry_version=(
+            metadata.get("latest_bazel_registry_version")
+            if metadata is not None
+            else None
+        ),
+    )
+
+
+def resolve_volatile_metrics_ttl() -> timedelta:
+    raw_value = os.getenv(VOLATILE_METRICS_TTL_ENV, "").strip()
+    if not raw_value:
+        return timedelta(minutes=DEFAULT_VOLATILE_METRICS_TTL_MINUTES)
+
+    try:
+        parsed_minutes = int(raw_value)
+    except ValueError:
+        return timedelta(minutes=DEFAULT_VOLATILE_METRICS_TTL_MINUTES)
+
+    if parsed_minutes < 0:
+        return timedelta(minutes=DEFAULT_VOLATILE_METRICS_TTL_MINUTES)
+    return timedelta(minutes=parsed_minutes)
+
+
+def parse_datetime_utc(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
@@ -762,11 +1014,12 @@ def normalize_group_name(value: str | list[str] | None, fallback: str) -> str:
     return cleaned or fallback
 
 
-def inspect_repository_content(
+def inspect_repository_content_slow(
     repository: Any,
     *,
     ref: str | None,
-) -> ContentSignals:
+) -> DeepContentPayload:
+    """Run slow deep content inspection using repository tree and file reads."""
     tree_paths = fetch_repository_tree_paths(repository, ref=ref)
     if not tree_paths:
         return default_content_signals()
@@ -813,7 +1066,7 @@ def inspect_repository_content(
     }
 
 
-def default_content_signals() -> ContentSignals:
+def default_content_signals() -> DeepContentPayload:
     return {
         "is_bazel_repo": False,
         "bazel_version": None,
@@ -943,8 +1196,9 @@ def codeowners_pattern_matches(pattern: str, *, target_path: str) -> bool:
 
     if normalized_pattern.endswith("/"):
         directory_pattern = normalized_pattern.rstrip("/")
-        return normalized_target_path == directory_pattern or normalized_target_path.startswith(
-            f"{directory_pattern}/"
+        return (
+            normalized_target_path == directory_pattern
+            or normalized_target_path.startswith(f"{directory_pattern}/")
         )
 
     if "/" not in normalized_pattern:
@@ -1017,9 +1271,9 @@ def fetch_text_file(repository: Any, path: str, *, ref: str | None) -> str | Non
 
 
 def merge_bazel_registry_metadata(
-    existing: BazelRegistryMetadata | None,
-    incoming: BazelRegistryMetadata,
-) -> BazelRegistryMetadata:
+    existing: RegistrySignalsPayload | None,
+    incoming: RegistrySignalsPayload,
+) -> RegistrySignalsPayload:
     if existing is None:
         return incoming
 
@@ -1089,7 +1343,9 @@ def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
     except Exception:
         return default_open_pull_request_counts()
 
-    draft_count = sum(is_draft_pull_request(pull_request) for pull_request in pull_requests)
+    draft_count = sum(
+        is_draft_pull_request(pull_request) for pull_request in pull_requests
+    )
     total_count = len(pull_requests)
     return {
         "ready": total_count - draft_count,
