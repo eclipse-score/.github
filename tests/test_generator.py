@@ -5,15 +5,15 @@ from typing import Any, cast
 import pytest
 
 import generate_repo_overview.collector as collector
+import generate_repo_overview.collector.repo_entry as repo_entry
+import generate_repo_overview.collector.signal_detection as signal_detection
 import generate_repo_overview.profile_readme as profile_readme
-from generate_repo_overview.collector import (
+from generate_repo_overview.collector import fetch_repositories, fetch_repository_descriptions
+from generate_repo_overview.collector.repo_entry import (
     build_repo_entry,
-    fetch_repositories,
-    fetch_repository_descriptions,
-    get_gh_auth_token,
     normalize_group_name,
-    resolve_github_token,
 )
+from generate_repo_overview.collector import get_gh_auth_token, resolve_github_token
 from generate_repo_overview.console import print_status
 from generate_repo_overview.models import (
     CategoryConfig,
@@ -104,7 +104,7 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
         repository_name="tools",
         description=None,
         custom_properties={"category": "Infrastructure", "subcategory": None},
-        content_signals=collector.default_content_signals(),
+        content_signals=signal_detection.default_content_signals(),
         registry_signals=RegistrySignals(),
         volatile_metrics={
             "last_push_date": None,
@@ -191,9 +191,9 @@ def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None
         requester=FakeRequester(),
     )
 
-    original_collect_repository_entry = collector.collect_repository_entry
+    original_collect_repository_entry = repo_entry.collect_repository_entry
     try:
-        collector.collect_repository_entry = lambda **kwargs: RepoEntry(
+        repo_entry.collect_repository_entry = lambda **kwargs: RepoEntry(
             name=kwargs["repository_name"],
             description=kwargs["repository"].description,
             category=kwargs["custom_properties"].get("category", "Uncategorized"),
@@ -201,7 +201,7 @@ def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None
         )
         repos = fetch_repositories(cast("Any", organization))
     finally:
-        collector.collect_repository_entry = original_collect_repository_entry
+        repo_entry.collect_repository_entry = original_collect_repository_entry
 
     assert len(repos) == 1
     assert repos[0].name == "active-repo"

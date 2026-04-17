@@ -8,19 +8,24 @@ from typing import Any, cast
 import pytest
 
 import generate_repo_overview.collector as collector
+import generate_repo_overview.collector.registry_metadata as registry_metadata
+import generate_repo_overview.collector.repo_entry as repo_entry
+import generate_repo_overview.collector.signal_detection as signal_detection
+import generate_repo_overview.collector.snapshot_io as snapshot_io
 from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
     DeepContentSignals,
     RepoEntry,
     RegistrySignals,
     RepoSnapshot,
+    SNAPSHOT_SCHEMA_VERSION,
     VolatileMetricsSnapshot,
 )
 
 
 def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -64,20 +69,20 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
     )
     snapshot_path = tmp_path / "repo_overview.json"
 
-    collector.write_snapshot(snapshot, snapshot_path)
+    snapshot_io.write_snapshot(snapshot, snapshot_path)
 
-    assert collector.load_snapshot(snapshot_path) == snapshot
+    assert snapshot_io.load_snapshot(snapshot_path) == snapshot
 
 
 def test_ensure_snapshot_prefers_existing_cache(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(RepoEntry("tools", "Tooling", "Infrastructure", "Tooling"),),
     )
     snapshot_path = tmp_path / "repo_overview.json"
-    collector.write_snapshot(snapshot, snapshot_path)
+    snapshot_io.write_snapshot(snapshot, snapshot_path)
 
     loaded_snapshot = collector.ensure_snapshot(cache_path=snapshot_path)
 
@@ -135,7 +140,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
     fake_repo = FakeRepo()
     organization = SimpleNamespace()
     cached_snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -258,7 +263,7 @@ def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None
         forks=1,
     )
 
-    entry = collector.collect_repository_entry(
+    entry = repo_entry.collect_repository_entry(
         repository_name="tools",
         repository=repo,
         custom_properties={"category": "Engineering", "subcategory": "Platform"},
@@ -348,7 +353,7 @@ def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_m
         ),
     )
 
-    entry = collector.collect_repository_entry(
+    entry = repo_entry.collect_repository_entry(
         repository_name="tools",
         repository=FakeRepo(),
         custom_properties={},
@@ -369,7 +374,7 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
             current = cls(2026, 4, 17, 12, 0, tzinfo=UTC)
             return current if tz is not None else current.replace(tzinfo=None)
 
-    monkeypatch.setattr(collector, "datetime", FixedDatetime)
+    monkeypatch.setattr(repo_entry, "datetime", FixedDatetime)
 
     class FakeRepo:
         default_branch = "main"
@@ -437,7 +442,7 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
         ),
     )
 
-    entry = collector.collect_repository_entry(
+    entry = repo_entry.collect_repository_entry(
         repository_name="tools",
         repository=repo,
         custom_properties={},
@@ -466,12 +471,12 @@ def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
         ]
     )
 
-    assert collector.get_open_pull_request_counts(repository) == {
+    assert repo_entry.get_open_pull_request_counts(repository) == {
         "ready": 2,
         "draft": 1,
         "total": 3,
     }
-    assert collector.get_open_issue_count(
+    assert repo_entry.get_open_issue_count(
         SimpleNamespace(open_issues_count=5),
         open_pull_request_total=3,
     ) == 2
@@ -486,9 +491,9 @@ def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window
             return now if tz is not None else now.replace(tzinfo=None)
 
     now = FixedDatetime(2026, 4, 17, 12, 0, tzinfo=UTC)
-    cutoff = now - collector.timedelta(days=collector.MERGED_PULL_REQUEST_WINDOW_DAYS)
+    cutoff = now - repo_entry.timedelta(days=repo_entry.MERGED_PULL_REQUEST_WINDOW_DAYS)
 
-    monkeypatch.setattr(collector, "datetime", FixedDatetime)
+    monkeypatch.setattr(repo_entry, "datetime", FixedDatetime)
 
     def get_pulls(*, state: str, sort: str, direction: str, base: str) -> list[SimpleNamespace]:
         assert state == "closed"
@@ -497,30 +502,30 @@ def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window
         assert base == "main"
         return [
             SimpleNamespace(
-                merged_at=now - collector.timedelta(days=5),
-                updated_at=now - collector.timedelta(days=4),
+                merged_at=now - repo_entry.timedelta(days=5),
+                updated_at=now - repo_entry.timedelta(days=4),
                 base=SimpleNamespace(ref="main"),
             ),
             SimpleNamespace(
-                merged_at=now - collector.timedelta(days=2),
-                updated_at=now - collector.timedelta(days=1),
+                merged_at=now - repo_entry.timedelta(days=2),
+                updated_at=now - repo_entry.timedelta(days=1),
                 base=SimpleNamespace(ref="release"),
             ),
             SimpleNamespace(
                 merged_at=None,
-                updated_at=now - collector.timedelta(days=1),
+                updated_at=now - repo_entry.timedelta(days=1),
                 base=SimpleNamespace(ref="main"),
             ),
             SimpleNamespace(
-                merged_at=cutoff - collector.timedelta(days=1),
-                updated_at=cutoff - collector.timedelta(days=1),
+                merged_at=cutoff - repo_entry.timedelta(days=1),
+                updated_at=cutoff - repo_entry.timedelta(days=1),
                 base=SimpleNamespace(ref="main"),
             ),
         ]
 
     repository = SimpleNamespace(get_pulls=get_pulls)
 
-    assert collector.get_merged_pull_request_count_last_30_days(
+    assert repo_entry.get_merged_pull_request_count_last_30_days(
         repository,
         default_branch="main",
     ) == 1
@@ -529,7 +534,7 @@ def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window
 def test_get_merged_pull_request_count_last_30_days_returns_zero_without_default_branch() -> None:
     repository = SimpleNamespace(get_pulls=lambda **kwargs: [])
 
-    assert collector.get_merged_pull_request_count_last_30_days(
+    assert repo_entry.get_merged_pull_request_count_last_30_days(
         repository,
         default_branch=None,
     ) == 0
@@ -543,7 +548,7 @@ def test_get_latest_release_details_returns_none_when_release_lookup_is_lazy() -
 
     repository = SimpleNamespace(get_latest_release=lambda: LazyFailingRelease())
 
-    assert collector.get_latest_release_details(
+    assert repo_entry.get_latest_release_details(
         repository,
         default_branch="main",
         default_branch_sha="abc123",
@@ -561,18 +566,18 @@ def test_get_latest_release_version_prefers_raw_tag_name() -> None:
         tag_name="latest",
     )
 
-    assert collector.get_latest_release_version(release) == "v0.2.5"
+    assert repo_entry.get_latest_release_version(release) == "v0.2.5"
 
 
 def test_get_latest_release_version_ignores_latest_sentinel_without_raw_data() -> None:
     release = SimpleNamespace(name="latest", title="latest")
 
-    assert collector.get_latest_release_version(release) is None
+    assert repo_entry.get_latest_release_version(release) is None
 
 
 def test_detect_bazel_version_ignores_module_version_without_dot_bazelversion() -> None:
     assert (
-        collector.detect_bazel_version(
+        signal_detection.detect_bazel_version(
             SimpleNamespace(),
             tree_paths={"MODULE.bazel"},
             ref="abc123",
@@ -583,7 +588,7 @@ def test_detect_bazel_version_ignores_module_version_without_dot_bazelversion() 
 
 def test_get_bazel_dep_version_extracts_docs_as_code_dependency_version() -> None:
     assert (
-        collector.get_bazel_dep_version(
+        signal_detection.get_bazel_dep_version(
             'bazel_dep(name = "score_docs_as_code", version = "4.0.0")\n',
             module_name="score_docs_as_code",
         )
@@ -593,7 +598,7 @@ def test_get_bazel_dep_version_extracts_docs_as_code_dependency_version() -> Non
 
 def test_get_bazel_dep_version_ignores_other_dependencies() -> None:
     assert (
-        collector.get_bazel_dep_version(
+        signal_detection.get_bazel_dep_version(
             'bazel_dep(name = "score_process", version = "1.2.3")\n',
             module_name="score_docs_as_code",
         )
@@ -602,7 +607,7 @@ def test_get_bazel_dep_version_ignores_other_dependencies() -> None:
 
 
 def test_get_codeowners_for_path_prefers_specific_codeowners_rule() -> None:
-    assert collector.get_codeowners_for_path(
+    assert signal_detection.get_codeowners_for_path(
         """
 * @infra-team
 .github/CODEOWNERS @docs-team @platform-team
@@ -612,7 +617,7 @@ def test_get_codeowners_for_path_prefers_specific_codeowners_rule() -> None:
 
 
 def test_get_codeowners_for_path_normalizes_comma_separated_owners() -> None:
-    assert collector.get_codeowners_for_path(
+    assert signal_detection.get_codeowners_for_path(
         """
 * @armin-acn, @johannes-esr, @masc2023
 """.strip(),
@@ -621,7 +626,7 @@ def test_get_codeowners_for_path_normalizes_comma_separated_owners() -> None:
 
 
 def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version() -> None:
-    metadata = collector.parse_bazel_registry_metadata(
+    metadata = registry_metadata.parse_bazel_registry_metadata(
         """
 {
   "maintainers": [
@@ -649,7 +654,7 @@ def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version
 
 
 def test_merge_bazel_registry_metadata_combines_owners_and_keeps_latest_version() -> None:
-    assert collector.merge_bazel_registry_metadata(
+    assert registry_metadata.merge_bazel_registry_metadata(
         {
             "maintainers_in_bazel_registry": ("Andrey Babanin (@4og)",),
             "latest_bazel_registry_version": "0.2.5",
@@ -683,7 +688,7 @@ def test_uses_cicd_daily_workflow_detects_shared_daily_workflow_reference() -> N
                 )
             )
 
-    assert collector.uses_cicd_daily_workflow(
+    assert signal_detection.uses_cicd_daily_workflow(
         FakeRepo(),
         tree_paths={".github/workflows/nightly.yml"},
         ref="abc123",
@@ -700,7 +705,7 @@ def test_get_commits_since_release_returns_none_when_compare_is_lazy() -> None:
     release = SimpleNamespace(tag_name="v1.2.3")
 
     assert (
-        collector.get_commits_since_release(
+        repo_entry.get_commits_since_release(
             repository,
             release=release,
             default_branch="main",
@@ -776,7 +781,7 @@ def test_fetch_repositories_reports_per_repository_progress(
     alpha_repo = SimpleNamespace(archived=False, name="alpha")
     organization = SimpleNamespace()
     cached_snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -789,7 +794,7 @@ def test_fetch_repositories_reports_per_repository_progress(
         ),
     )
 
-    original_collect_repository_entry = collector.collect_repository_entry
+    original_collect_repository_entry = repo_entry.collect_repository_entry
     original_fetch_active_repositories = collector.fetch_active_repositories
 
     def fake_collect_repository_entry(**kwargs: Any) -> RepoEntry:
@@ -811,13 +816,13 @@ def test_fetch_repositories_reports_per_repository_progress(
                 custom_properties={},
             ),
         }
-        collector.collect_repository_entry = fake_collect_repository_entry
+        repo_entry.collect_repository_entry = fake_collect_repository_entry
         collector.fetch_repositories(
             cast("Any", organization),
             existing_snapshot=cached_snapshot,
         )
     finally:
-        collector.collect_repository_entry = original_collect_repository_entry
+        repo_entry.collect_repository_entry = original_collect_repository_entry
         collector.fetch_active_repositories = original_fetch_active_repositories
 
     captured = capsys.readouterr()
@@ -832,7 +837,7 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
     tools_repo = SimpleNamespace(archived=False, name="tools")
     organization = SimpleNamespace()
 
-    original_collect_repository_entry = collector.collect_repository_entry
+    original_collect_repository_entry = repo_entry.collect_repository_entry
     original_fetch_active_repositories = collector.fetch_active_repositories
     try:
         collector.fetch_active_repositories = lambda organization: {
@@ -855,10 +860,10 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
                 subcategory="Tooling",
             )
 
-        collector.collect_repository_entry = fake_collect_repository_entry
+        repo_entry.collect_repository_entry = fake_collect_repository_entry
         repos = collector.fetch_repositories(cast("Any", organization))
     finally:
-        collector.collect_repository_entry = original_collect_repository_entry
+        repo_entry.collect_repository_entry = original_collect_repository_entry
         collector.fetch_active_repositories = original_fetch_active_repositories
 
     assert [repo.name for repo in repos] == ["alpha", "tools"]
@@ -885,7 +890,7 @@ def test_resolve_max_collection_workers_ignores_invalid_env_override(
 
 def test_metrics_report_renders_summary_and_table() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -971,7 +976,7 @@ def test_metrics_report_renders_summary_and_table() -> None:
 
 def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -995,7 +1000,7 @@ def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
 
 def test_metrics_report_shows_fire_icon_for_high_merged_pr_activity() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -1016,7 +1021,7 @@ def test_metrics_report_shows_fire_icon_for_high_merged_pr_activity() -> None:
 
 def test_metrics_report_ownership_cell_skips_maintainers_for_non_bazel_repo() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -1047,7 +1052,7 @@ def test_metrics_report_ownership_cell_skips_maintainers_for_non_bazel_repo() ->
 
 def test_metrics_report_ownership_cell_marks_missing_maintainers_for_bazel_repo() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -1074,7 +1079,7 @@ def test_metrics_report_ownership_cell_marks_missing_maintainers_for_bazel_repo(
 
 def test_metrics_report_renders_versions_table() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -1114,7 +1119,7 @@ def test_metrics_report_renders_versions_table() -> None:
 
 def test_versions_table_docs_as_code_color_rules() -> None:
     snapshot = RepoSnapshot(
-        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         repos=(
@@ -1192,4 +1197,4 @@ def test_load_snapshot_if_present_ignores_mismatched_schema(tmp_path: Path) -> N
         encoding="utf-8",
     )
 
-    assert collector.load_snapshot_if_present(cache_path) is None
+    assert snapshot_io.load_snapshot_if_present(cache_path) is None
