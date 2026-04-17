@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict, cast
 
 from .console import print_status
@@ -90,6 +90,7 @@ BAZEL_DEP_PATTERN_TEMPLATE = (
 )
 VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 DEFAULT_MAX_COLLECTION_WORKERS = 8
+MERGED_PULL_REQUEST_WINDOW_DAYS = 30
 
 
 def resolve_github_token(token_env: str = DEFAULT_TOKEN_ENV) -> str | None:
@@ -570,6 +571,10 @@ def collect_repository_entry(
     else:
         content_signals = cached_content_signals
     open_pull_request_counts = get_open_pull_request_counts(repository)
+    merged_pull_request_count = get_merged_pull_request_count_last_30_days(
+        repository,
+        default_branch=default_branch,
+    )
     latest_release = get_latest_release_details(
         repository,
         default_branch=default_branch,
@@ -587,6 +592,7 @@ def collect_repository_entry(
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         last_push_date=last_commit_date or iso_date(getattr(repository, "pushed_at", None)),
+        merged_prs_30_days=merged_pull_request_count,
         open_issues=get_open_issue_count(
             repository,
             open_pull_request_total=open_pull_request_counts["total"],
@@ -652,6 +658,7 @@ def cached_signals_for_repository(
     if cached_entry is None:
         return None
 
+    # Reuse cached content signals only when we can prove the default-branch state is unchanged.
     cached_sha = cached_entry.default_branch_sha
     if default_branch_sha is not None and cached_sha != default_branch_sha:
         return None
@@ -682,6 +689,7 @@ def build_repo_entry(
     default_branch: str | None = None,
     default_branch_sha: str | None = None,
     last_push_date: str | None = None,
+    merged_prs_30_days: int = 0,
     open_issues: int = 0,
     open_prs: int = 0,
     open_ready_prs: int = 0,
@@ -718,6 +726,7 @@ def build_repo_entry(
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         last_push_date=last_push_date,
+        merged_prs_30_days=merged_prs_30_days,
         open_issues=open_issues,
         open_prs=open_prs,
         open_ready_prs=open_ready_prs,
@@ -939,6 +948,7 @@ def codeowners_pattern_matches(pattern: str, *, target_path: str) -> bool:
         )
 
     if "/" not in normalized_pattern:
+        # Bare patterns can match either the basename or the full path, mirroring CODEOWNERS behavior.
         return fnmatch.fnmatch(
             normalized_target_path.rsplit("/", maxsplit=1)[-1],
             normalized_pattern,
@@ -1069,8 +1079,6 @@ def get_open_issue_count(repository: Any, *, open_pull_request_total: int) -> in
 
 
 def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
-    if not hasattr(repository, "get_pulls"):
-        return default_open_pull_request_counts()
     try:
         pulls = repository.get_pulls(state="open")
     except Exception:
@@ -1078,14 +1086,7 @@ def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
 
     try:
         pull_requests = list(pulls)
-    except TypeError:
-        total_count = getattr(pulls, "totalCount", None)
-        if isinstance(total_count, int):
-            return {
-                "ready": total_count,
-                "draft": 0,
-                "total": total_count,
-            }
+    except Exception:
         return default_open_pull_request_counts()
 
     draft_count = sum(is_draft_pull_request(pull_request) for pull_request in pull_requests)
@@ -1095,6 +1096,54 @@ def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
         "draft": draft_count,
         "total": total_count,
     }
+
+
+def get_merged_pull_request_count_last_30_days(
+    repository: Any,
+    *,
+    default_branch: str | None,
+) -> int:
+    if default_branch is None:
+        return 0
+
+    cutoff = datetime.now(UTC) - timedelta(days=MERGED_PULL_REQUEST_WINDOW_DAYS)
+    try:
+        pulls = repository.get_pulls(
+            state="closed",
+            sort="updated",
+            direction="desc",
+            base=default_branch,
+        )
+    except Exception:
+        return 0
+
+    count = 0
+    for pull_request in pulls:
+        updated_at = normalize_datetime_utc(getattr(pull_request, "updated_at", None))
+        # With descending `updated` ordering, once we pass the cutoff we can stop scanning.
+        if updated_at is not None and updated_at < cutoff:
+            break
+
+        base = getattr(pull_request, "base", None)
+        base_ref = getattr(base, "ref", None)
+        if isinstance(base_ref, str) and base_ref != default_branch:
+            continue
+
+        merged_at = normalize_datetime_utc(getattr(pull_request, "merged_at", None))
+        if merged_at is None or merged_at < cutoff:
+            continue
+        count += 1
+
+    return count
+
+
+def normalize_datetime_utc(value: object) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+    # Treat naive timestamps as UTC so comparisons stay deterministic.
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def default_open_pull_request_counts() -> PullRequestCounts:

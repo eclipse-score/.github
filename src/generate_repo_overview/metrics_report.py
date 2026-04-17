@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 
 HANDLE_PATTERN = re.compile(r"@[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?")
+BAZEL_ICON_URL = "https://bazel.build/_pwa/bazel/icons/icon-72x72.png"
 
 
 def render_metrics_report(snapshot: RepoSnapshot) -> str:
@@ -50,8 +51,9 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
         "## Repository Overview",
         "",
         "- `Open Issues`: open issues only. Pull requests are excluded.",
-        "- `Open Ready PRs` and `Open Draft PRs`: open pull requests split by draft status (`Open Ready PRs > 5` is marked `🔴`).",
-        "- `Bazel Repo`: `🔺` if the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.",
+        "- `Merged PRs (30d)`: pull requests merged into each repository's default branch within the last 30 days (`>= 10` is marked `🔥`).",
+        "- `Open PRs` and `Open Draft PRs`: open pull requests split by draft status (`Open PRs > 5` is marked `🔴`).",
+        "- `Bazel Repo`: Bazel icon if the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.",
         "- `Latest Release`: release tag name, falling back to the release name when needed.",
         "- `Commits Since Release`: compare the latest release tag to current default branch head.",
         "- Icons: `🟢` healthy, `🟡` caution, `🔴` alert.",
@@ -63,8 +65,8 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Ownership | Last Commit | Open Issues | Open Ready PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |",
-            divider="|------------|-----------|-------------|-------------|----------------|----------------|------------|----------------|-----------------------|-------|-------|",
+            header="| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |",
+            divider="|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|",
             row_renderer=render_overview_row,
         )
     )
@@ -96,7 +98,7 @@ def render_versions_section(repos: list[RepoEntry], org_name: str) -> list[str]:
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Bazel Version | Docs-As-Code Version |",
+            header=f"| Repository | {render_bazel_version_column_header()} | Docs-As-Code Version |",
             divider="|------------|---------------|----------------------|",
             row_renderer=render_row,
         )
@@ -169,7 +171,7 @@ def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
         f"| [{entry.name}]({url}) | {render_ownership_cell(entry)} | "
-        f"{entry.last_push_date or '-'} | "
+        f"{render_merged_pr_count(entry.merged_prs_30_days)} | "
         f"{entry.open_issues} | {render_ready_pr_count(entry.open_ready_prs)} | {entry.open_draft_prs} | "
         f"{render_bazel_repo_presence(entry.is_bazel_repo)} | "
         f"{render_plain_value(entry.latest_release_version)} | "
@@ -220,6 +222,12 @@ def render_ready_pr_count(value: int) -> str:
     return str(value)
 
 
+def render_merged_pr_count(value: int) -> str:
+    if value >= 10:
+        return f"🔥 {value}"
+    return str(value)
+
+
 def render_commits_since_release(value: int | None) -> str:
     if value is None:
         return "-"
@@ -231,7 +239,17 @@ def render_commits_since_release(value: int | None) -> str:
 
 
 def render_bazel_repo_presence(value: bool) -> str:
-    return "🏗" if value else "-"
+    if not value:
+        return "-"
+    return render_bazel_icon()
+
+
+def render_bazel_version_column_header() -> str:
+    return f"{render_bazel_icon()} Bazel Version"
+
+
+def render_bazel_icon() -> str:
+    return f'<img src="{BAZEL_ICON_URL}" alt="Bazel" width="16" height="16">'
 
 
 def render_presence(value: bool, *, icon: str) -> str:

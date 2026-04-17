@@ -20,6 +20,7 @@ class RepoEntry:
     default_branch: str | None = None
     default_branch_sha: str | None = None
     last_push_date: str | None = None
+    merged_prs_30_days: int = 0
     open_issues: int = 0
     open_prs: int = 0
     open_ready_prs: int = 0

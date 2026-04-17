@@ -97,9 +97,16 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
             self.tree_calls += 1
             return SimpleNamespace(tree=[])
 
-        def get_pulls(self, state: str = "open") -> list[SimpleNamespace]:
-            assert state == "open"
-            return [SimpleNamespace(draft=False)]
+        def get_pulls(
+            self,
+            state: str = "open",
+            **_: Any,
+        ) -> list[SimpleNamespace]:
+            if state == "open":
+                return [SimpleNamespace(draft=False)]
+            if state == "closed":
+                return []
+            raise AssertionError(f"Unexpected pull state: {state}")
 
         def get_latest_release(self) -> SimpleNamespace:
             return SimpleNamespace(
@@ -194,6 +201,64 @@ def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
         SimpleNamespace(open_issues_count=5),
         open_pull_request_total=3,
     ) == 2
+
+
+def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz: Any = None) -> datetime:
+            return now if tz is not None else now.replace(tzinfo=None)
+
+    now = FixedDatetime(2026, 4, 17, 12, 0, tzinfo=UTC)
+    cutoff = now - collector.timedelta(days=collector.MERGED_PULL_REQUEST_WINDOW_DAYS)
+
+    monkeypatch.setattr(collector, "datetime", FixedDatetime)
+
+    def get_pulls(*, state: str, sort: str, direction: str, base: str) -> list[SimpleNamespace]:
+        assert state == "closed"
+        assert sort == "updated"
+        assert direction == "desc"
+        assert base == "main"
+        return [
+            SimpleNamespace(
+                merged_at=now - collector.timedelta(days=5),
+                updated_at=now - collector.timedelta(days=4),
+                base=SimpleNamespace(ref="main"),
+            ),
+            SimpleNamespace(
+                merged_at=now - collector.timedelta(days=2),
+                updated_at=now - collector.timedelta(days=1),
+                base=SimpleNamespace(ref="release"),
+            ),
+            SimpleNamespace(
+                merged_at=None,
+                updated_at=now - collector.timedelta(days=1),
+                base=SimpleNamespace(ref="main"),
+            ),
+            SimpleNamespace(
+                merged_at=cutoff - collector.timedelta(days=1),
+                updated_at=cutoff - collector.timedelta(days=1),
+                base=SimpleNamespace(ref="main"),
+            ),
+        ]
+
+    repository = SimpleNamespace(get_pulls=get_pulls)
+
+    assert collector.get_merged_pull_request_count_last_30_days(
+        repository,
+        default_branch="main",
+    ) == 1
+
+
+def test_get_merged_pull_request_count_last_30_days_returns_zero_without_default_branch() -> None:
+    repository = SimpleNamespace(get_pulls=lambda **kwargs: [])
+
+    assert collector.get_merged_pull_request_count_last_30_days(
+        repository,
+        default_branch=None,
+    ) == 0
 
 
 def test_get_latest_release_details_returns_none_when_release_lookup_is_lazy() -> None:
@@ -540,7 +605,7 @@ def test_metrics_report_renders_summary_and_table() -> None:
                 description="Tooling",
                 category="Infrastructure",
                 subcategory="Tooling",
-                last_push_date="2026-04-12",
+                merged_prs_30_days=11,
                 open_issues=2,
                 open_prs=2,
                 open_ready_prs=1,
@@ -586,7 +651,7 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "`⚙ GitHub Actions`: shown when `.github/workflows` exists." in markdown
     assert "## Repository Overview" in markdown
     assert "## Versions" in markdown
-    assert "| Repository | Ownership | Last Commit |" in markdown
+    assert "| Repository | Ownership | Merged PRs (30d) |" in markdown
     assert "## Ownership" not in markdown
     assert "## Ownership With Versions" not in markdown
     assert "## Delivery And Automation" in markdown
@@ -595,7 +660,7 @@ def test_metrics_report_renders_summary_and_table() -> None:
         "| [tools](https://github.com/eclipse-score/tools) | "
         "<small><sub><small>Codeowners: @docs-team, @platform-team, @infra-team, @qa-team<br><br>"
         "Maintainers In Bazel Registry: @4og, @nradakovic, @pawelrutkaq</small></sub></small> | "
-        "2026-04-12 | 2 | 1 | 1 | 🏗 | v1.2.3 | 🟡 7 | 3 | 4 |"
+        "🔥 11 | 2 | 1 | 1 | <img src=\"https://bazel.build/_pwa/bazel/icons/icon-72x72.png\" alt=\"Bazel\" width=\"16\" height=\"16\"> | v1.2.3 | 🟡 7 | 3 | 4 |"
         in markdown
     )
     assert (
@@ -628,9 +693,30 @@ def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
 
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | - "
-        "| - | 0 | 0 | 0 | - | - | - | 0 | 0 |"
+        "| 0 | 0 | 0 | 0 | - | - | - | 0 | 0 |"
         in markdown
     )
+
+
+def test_metrics_report_shows_fire_icon_for_high_merged_pr_activity() -> None:
+    snapshot = RepoSnapshot(
+        schema_version=collector.SNAPSHOT_SCHEMA_VERSION,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="tools",
+                description="Tooling",
+                category="Infrastructure",
+                subcategory="Tooling",
+                merged_prs_30_days=10,
+            ),
+        ),
+    )
+
+    markdown = render_metrics_report(snapshot)
+
+    assert "| [tools](https://github.com/eclipse-score/tools) | - | 🔥 10 |" in markdown
 
 
 def test_metrics_report_ownership_cell_skips_maintainers_for_non_bazel_repo() -> None:
