@@ -64,8 +64,8 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |",
-            divider="|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|",
+            header="| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars / Forks |",
+            divider="|------------|-----------|------------------|-------------------------------|----------------|-----------------------|---------------|",
             row_renderer=render_overview_row,
         )
     )
@@ -174,7 +174,7 @@ def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
         f"{render_open_issues_and_prs(entry.volatile.open_issues, entry.volatile.open_ready_prs, entry.volatile.open_draft_prs)} | "
         f"{render_plain_value(entry.volatile.latest_release_version)} | "
         f"{render_commits_since_release(entry.volatile.commits_since_latest_release)} | "
-        f"{entry.stars} | {entry.forks} |"
+        f"{entry.stars} / {entry.forks} |"
     )
 
 
