@@ -17,10 +17,9 @@ Generated on 2026-04-17T23:50:42.901767+00:00
 
 ## Repository Overview
 
-- `Open Issues`: open issues only. Pull requests are excluded.
+- `Open Issues / PRs`: open issues only and open pull requests as `issues / ready+draft`.
 - `Merged PRs (30d)`: pull requests merged into each repository's default branch within the last 30 days (`>= 10` is marked `🔥`).
-- `Open PRs` and `Open Draft PRs`: open pull requests split by draft status (`Open PRs > 5` is marked `🔴`).
-- `Bazel Repo`: Bazel icon if the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.
+- `Bazel`: icon shown next to the repository name when the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.
 - `Latest Release`: release tag name, falling back to the release name when needed.
 - `Commits Since Release`: compare the latest release tag to current default branch head.
 - Icons: `🟢` healthy, `🟡` caution, `🔴` alert.
@@ -29,87 +28,87 @@ Generated on 2026-04-17T23:50:42.901767+00:00
 
 ### general
 
-| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |
-|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|
-| [process_description](https://github.com/eclipse-score/process_description) | <small><sub><small>Codeowners: @pahmann, @masc2023, @aschemmel-tech, @PandaeDo<br><br>Maintainers In Bazel Registry: @masc2023, @aschemmel-tech, @pahmann, @PandaeDo</small></sub></small> | 🔥 33 | 64 | 3 | 3 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v1.5.3 | 🟡 3 | 2 | 22 |
-| [score](https://github.com/eclipse-score/score) | <small><sub><small>Codeowners: @antonkri, @FScholPer, @qor-lb, @johannes-esr</small></sub></small> | 🔥 49 | 494 | 🔴 12 | 4 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.5.4 | 🔴 117 | 93 | 94 |
+| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |
+|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|
+| [process_description](https://github.com/eclipse-score/process_description) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @pahmann, @masc2023, @aschemmel-tech, @PandaeDo<br><br>Maintainers In Bazel Registry: @masc2023, @aschemmel-tech, @pahmann, @PandaeDo</small></sub></small> | 🔥 33 | 64 / 3+3 | v1.5.3 | 🟡 3 | 2 | 22 |
+| [score](https://github.com/eclipse-score/score) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @antonkri, @FScholPer, @qor-lb, @johannes-esr</small></sub></small> | 🔥 49 | 494 / 🔴 12+4 | v0.5.4 | 🔴 117 | 93 | 94 |
 
 ### infrastructure
 
-| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |
-|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|
-| [.github](https://github.com/eclipse-score/.github) | - | 4 | 1 | 2 | 0 | - | - | - | 0 | 9 |
-| [apt-install](https://github.com/eclipse-score/apt-install) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix</small></sub></small> | 1 | 0 | 0 | 0 | - | - | - | 3 | 3 |
-| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) | - | 0 | 0 | 2 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.0 | 🟢 0 | 1 | 5 |
-| [bazel_cpp_toolchains](https://github.com/eclipse-score/bazel_cpp_toolchains) | <small><sub><small>Codeowners: @AlexanderLanin, @dcalavrezo-qorix, @nradakovic, @antonkri<br><br>Maintainers In Bazel Registry: @nradakovic</small></sub></small> | 8 | 4 | 0 | 2 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.5.1 | 🟢 0 | 2 | 9 |
-| [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | <small><sub><small>Maintainers In Bazel Registry: @nradakovic</small></sub></small> | 2 | 0 | 0 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.2 | 🟢 0 | 1 | 10 |
-| [bazel_registry](https://github.com/eclipse-score/bazel_registry) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic</small></sub></small> | 🔥 43 | 4 | 0 | 2 | - | v0.5.0-beta | 🔴 137 | 2 | 18 |
-| [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | - | 0 | 1 | 3 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 0 | 3 |
-| [cicd-actions](https://github.com/eclipse-score/cicd-actions) | - | 0 | 0 | 0 | 0 | - | - | - | 0 | 3 |
-| [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic, @pawelrutkaq, @PiotrKorkus, @kgraeper, @opajonk, @lurtz</small></sub></small> | 🔥 16 | 10 | 3 | 2 | - | - | - | 0 | 12 |
-| [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic</small></sub></small> | 0 | 2 | 0 | 1 | - | v0.0.1a1 | 🟢 0 | 1 | 3 |
-| [devcontainer](https://github.com/eclipse-score/devcontainer) | <small><sub><small>Codeowners: @opajonk, @lurtz</small></sub></small> | 6 | 4 | 0 | 0 | - | v1.4.1 | 🟢 0 | 2 | 8 |
-| [docs-as-code](https://github.com/eclipse-score/docs-as-code) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic<br><br>Maintainers In Bazel Registry: @MaximilianSoerenPollak, @a-zw</small></sub></small> | 🔥 30 | 29 | 5 | 6 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v4.0.1 | 🟡 2 | 6 | 24 |
-| [ferrocene_toolchain_builder](https://github.com/eclipse-score/ferrocene_toolchain_builder) | - | 1 | 0 | 0 | 0 | - | 1.2.0 | 🟡 3 | 0 | 2 |
-| [infrastructure](https://github.com/eclipse-score/infrastructure) | - | 0 | 0 | 0 | 1 | - | - | - | 0 | 4 |
-| [itf](https://github.com/eclipse-score/itf) | - | 🔥 14 | 3 | 2 | 2 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | 0.2.0 | 🟡 18 | 0 | 16 |
-| [module_template](https://github.com/eclipse-score/module_template) | - | 3 | 3 | 🔴 13 | 2 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 2 | 15 |
-| [more-disk-space](https://github.com/eclipse-score/more-disk-space) | - | 0 | 0 | 0 | 0 | - | - | - | 0 | 2 |
-| [os_images](https://github.com/eclipse-score/os_images) | - | 0 | 4 | 5 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 0 | 5 |
-| [qnx_unit_tests](https://github.com/eclipse-score/qnx_unit_tests) | - | 🔥 23 | 0 | 0 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | 0.1.0 | 🟢 0 | 0 | 3 |
-| [reference_integration](https://github.com/eclipse-score/reference_integration) | <small><sub><small>Codeowners: @pawelrutkaq, @PiotrKorkus, @kgraeper, @nradakovic, @dcalavrezo-qorix, @AlexanderLanin, @MaximilianSoerenPollak, @opajonk, @lurtz, @antonkri, @FScholPer</small></sub></small> | 8 | 21 | 3 | 3 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.5.0-beta | 🔴 63 | 4 | 24 |
-| [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | <small><sub><small>Codeowners: @AlexanderLanin, @dcalavrezo-qorix, @nradakovic, @antonkri</small></sub></small> | 3 | 1 | 2 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.0.3 | 🟢 0 | 0 | 2 |
-| [rules_rust](https://github.com/eclipse-score/rules_rust) | <small><sub><small>Maintainers In Bazel Registry: @dcalavrezo-qorix, @pawelrutkaq</small></sub></small> | 1 | 1 | 4 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | 0.68.1-score | 🟡 1 | 0 | 2 |
-| [sbom-tool](https://github.com/eclipse-score/sbom-tool) | - | 1 | 0 | 1 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 0 | 3 |
-| [score_cpp_policies](https://github.com/eclipse-score/score_cpp_policies) | - | 0 | 0 | 2 | 0 | - | - | - | 0 | 3 |
-| [score_rust_policies](https://github.com/eclipse-score/score_rust_policies) | - | 0 | 0 | 1 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | 0.0.5 | 🟡 1 | 0 | 5 |
-| [testing_tools](https://github.com/eclipse-score/testing_tools) | <small><sub><small>Maintainers In Bazel Registry: @arkjedrz, @PiotrKorkus</small></sub></small> | 0 | 0 | 1 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.4.0 | 🟢 0 | 1 | 6 |
-| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | <small><sub><small>Maintainers In Bazel Registry: @nradakovic, @ltekieli</small></sub></small> | 0 | 3 | 1 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.0.7 | 🟡 1 | 4 | 14 |
-| [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | - | 0 | 0 | 0 | 1 | - | - | - | 0 | 8 |
-| [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | <small><sub><small>Maintainers In Bazel Registry: @nradakovic, @ltekieli</small></sub></small> | 0 | 7 | 0 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.0.7 | 🟡 2 | 5 | 10 |
-| [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | <small><sub><small>Maintainers In Bazel Registry: @dcalavrezo-qorix</small></sub></small> | 3 | 2 | 1 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.8.0 | 🟡 1 | 1 | 9 |
-| [tooling](https://github.com/eclipse-score/tooling) | - | 🔥 20 | 8 | 🔴 20 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v1.2.0 | 🟡 10 | 6 | 20 |
-| [tools](https://github.com/eclipse-score/tools) | - | 0 | 0 | 0 | 1 | - | - | - | 1 | 2 |
+| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |
+|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|
+| [.github](https://github.com/eclipse-score/.github) | - | 4 | 1 / 2+0 | - | - | 0 | 9 |
+| [apt-install](https://github.com/eclipse-score/apt-install) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix</small></sub></small> | 1 | 0 / 0+0 | - | - | 3 | 3 |
+| [bazel-tools-cc](https://github.com/eclipse-score/bazel-tools-cc) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 0 / 2+1 | v0.1.0 | 🟢 0 | 1 | 5 |
+| [bazel_cpp_toolchains](https://github.com/eclipse-score/bazel_cpp_toolchains) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @AlexanderLanin, @dcalavrezo-qorix, @nradakovic, @antonkri<br><br>Maintainers In Bazel Registry: @nradakovic</small></sub></small> | 8 | 4 / 0+2 | v0.5.1 | 🟢 0 | 2 | 9 |
+| [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @nradakovic</small></sub></small> | 2 | 0 / 0+0 | v0.1.2 | 🟢 0 | 1 | 10 |
+| [bazel_registry](https://github.com/eclipse-score/bazel_registry) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic</small></sub></small> | 🔥 43 | 4 / 0+2 | v0.5.0-beta | 🔴 137 | 2 | 18 |
+| [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 1 / 3+0 | - | - | 0 | 3 |
+| [cicd-actions](https://github.com/eclipse-score/cicd-actions) | - | 0 | 0 / 0+0 | - | - | 0 | 3 |
+| [cicd-workflows](https://github.com/eclipse-score/cicd-workflows) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic, @pawelrutkaq, @PiotrKorkus, @kgraeper, @opajonk, @lurtz</small></sub></small> | 🔥 16 | 10 / 3+2 | - | - | 0 | 12 |
+| [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic</small></sub></small> | 0 | 2 / 0+1 | v0.0.1a1 | 🟢 0 | 1 | 3 |
+| [devcontainer](https://github.com/eclipse-score/devcontainer) | <small><sub><small>Codeowners: @opajonk, @lurtz</small></sub></small> | 6 | 4 / 0+0 | v1.4.1 | 🟢 0 | 2 | 8 |
+| [docs-as-code](https://github.com/eclipse-score/docs-as-code) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @AlexanderLanin, @MaximilianSoerenPollak, @dcalavrezo-qorix, @nradakovic<br><br>Maintainers In Bazel Registry: @MaximilianSoerenPollak, @a-zw</small></sub></small> | 🔥 30 | 29 / 5+6 | v4.0.1 | 🟡 2 | 6 | 24 |
+| [ferrocene_toolchain_builder](https://github.com/eclipse-score/ferrocene_toolchain_builder) | - | 1 | 0 / 0+0 | 1.2.0 | 🟡 3 | 0 | 2 |
+| [infrastructure](https://github.com/eclipse-score/infrastructure) | - | 0 | 0 / 0+1 | - | - | 0 | 4 |
+| [itf](https://github.com/eclipse-score/itf) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 🔥 14 | 3 / 2+2 | 0.2.0 | 🟡 18 | 0 | 16 |
+| [module_template](https://github.com/eclipse-score/module_template) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 3 | 3 / 🔴 13+2 | - | - | 2 | 15 |
+| [more-disk-space](https://github.com/eclipse-score/more-disk-space) | - | 0 | 0 / 0+0 | - | - | 0 | 2 |
+| [os_images](https://github.com/eclipse-score/os_images) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 4 / 5+0 | - | - | 0 | 5 |
+| [qnx_unit_tests](https://github.com/eclipse-score/qnx_unit_tests) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 🔥 23 | 0 / 0+0 | 0.1.0 | 🟢 0 | 0 | 3 |
+| [reference_integration](https://github.com/eclipse-score/reference_integration) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @pawelrutkaq, @PiotrKorkus, @kgraeper, @nradakovic, @dcalavrezo-qorix, @AlexanderLanin, @MaximilianSoerenPollak, @opajonk, @lurtz, @antonkri, @FScholPer</small></sub></small> | 8 | 21 / 3+3 | v0.5.0-beta | 🔴 63 | 4 | 24 |
+| [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @AlexanderLanin, @dcalavrezo-qorix, @nradakovic, @antonkri</small></sub></small> | 3 | 1 / 2+0 | v0.0.3 | 🟢 0 | 0 | 2 |
+| [rules_rust](https://github.com/eclipse-score/rules_rust) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @dcalavrezo-qorix, @pawelrutkaq</small></sub></small> | 1 | 1 / 4+0 | 0.68.1-score | 🟡 1 | 0 | 2 |
+| [sbom-tool](https://github.com/eclipse-score/sbom-tool) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 1 | 0 / 1+0 | - | - | 0 | 3 |
+| [score_cpp_policies](https://github.com/eclipse-score/score_cpp_policies) | - | 0 | 0 / 2+0 | - | - | 0 | 3 |
+| [score_rust_policies](https://github.com/eclipse-score/score_rust_policies) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 0 / 1+0 | 0.0.5 | 🟡 1 | 0 | 5 |
+| [testing_tools](https://github.com/eclipse-score/testing_tools) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @arkjedrz, @PiotrKorkus</small></sub></small> | 0 | 0 / 1+0 | v0.4.0 | 🟢 0 | 1 | 6 |
+| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @nradakovic, @ltekieli</small></sub></small> | 0 | 3 / 1+1 | v0.0.7 | 🟡 1 | 4 | 14 |
+| [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | - | 0 | 0 / 0+1 | - | - | 0 | 8 |
+| [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @nradakovic, @ltekieli</small></sub></small> | 0 | 7 / 0+1 | v0.0.7 | 🟡 2 | 5 | 10 |
+| [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @dcalavrezo-qorix</small></sub></small> | 3 | 2 / 1+0 | v0.8.0 | 🟡 1 | 1 | 9 |
+| [tooling](https://github.com/eclipse-score/tooling) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 🔥 20 | 8 / 🔴 20+1 | v1.2.0 | 🟡 10 | 6 | 20 |
+| [tools](https://github.com/eclipse-score/tools) | - | 0 | 0 / 0+1 | - | - | 1 | 2 |
 
 ### modules
 
-| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |
-|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|
-| [baselibs](https://github.com/eclipse-score/baselibs) | <small><sub><small>Codeowners: @castler, @hoe-jo, @LittleHuba, @ramceb, @nradakovic, @4og<br><br>Maintainers In Bazel Registry: @4og</small></sub></small> | 0 | 39 | 🔴 16 | 8 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.2.5 | 🔴 66 | 24 | 54 |
-| [baselibs_rust](https://github.com/eclipse-score/baselibs_rust) | <small><sub><small>Maintainers In Bazel Registry: @pawelrutkaq, @arkjedrz</small></sub></small> | 6 | 6 | 2 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.1 | 🟡 3 | 1 | 7 |
-| [communication](https://github.com/eclipse-score/communication) | <small><sub><small>Codeowners: @castler, @hoe-jo, @LittleHuba, @crimson11, @bemerybmw, @limdor<br><br>Maintainers In Bazel Registry: @castler, @LittleHuba</small></sub></small> | 🔥 65 | 43 | 🔴 15 | 21 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.4 | 🔴 345 | 44 | 77 |
-| [config_management](https://github.com/eclipse-score/config_management) | <small><sub><small>Codeowners: @antonkri, @castler, @LittleHuba, @ramceb, @luizcordeiro, @michaelsaborov</small></sub></small> | 1 | 0 | 2 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 1 | 5 |
-| [feo](https://github.com/eclipse-score/feo) | <small><sub><small>Codeowners: @armin-acn, @johannes-esr, @masc2023<br><br>Maintainers In Bazel Registry: @masc2023, @armin-acn, @johannes-esr</small></sub></small> | 8 | 28 | 0 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v1.0.5 | 🟡 15 | 4 | 17 |
-| [inc_daal](https://github.com/eclipse-score/inc_daal) | <small><sub><small>Codeowners: @FScholPer, @thilo-schmitt, @alexmohr, @theswiftfox, @MarkSchmitt</small></sub></small> | 1 | 0 | 5 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 4 | 7 |
-| [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) | - | 0 | 0 | 2 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 0 | 4 |
-| [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) | - | 5 | 0 | 2 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 0 | 8 |
-| [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | - | 🔥 22 | 10 | 🔴 9 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 3 | 7 |
-| [inc_time](https://github.com/eclipse-score/inc_time) | - | 0 | 6 | 4 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 1 | 5 |
-| [kyron](https://github.com/eclipse-score/kyron) | <small><sub><small>Maintainers In Bazel Registry: @pawelrutkaq, @vinodreddy-g</small></sub></small> | 0 | 16 | 4 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.1 | 🟡 5 | 2 | 7 |
-| [lifecycle](https://github.com/eclipse-score/lifecycle) | - | 🔥 13 | 39 | 4 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.0 | 🔴 90 | 3 | 17 |
-| [logging](https://github.com/eclipse-score/logging) | <small><sub><small>Codeowners: @antonkri, @pawelrutkaq, @arsibo<br><br>Maintainers In Bazel Registry: @antonkri, @pawelrutkaq</small></sub></small> | 2 | 14 | 🔴 9 | 3 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.0 | 🟡 17 | 2 | 19 |
-| [orchestrator](https://github.com/eclipse-score/orchestrator) | <small><sub><small>Codeowners: @qor-lb, @vinodreddy-g, @PandaeDo<br><br>Maintainers In Bazel Registry: @vinodreddy-g, @PandaeDo</small></sub></small> | 1 | 17 | 2 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.0 | 🟡 7 | 5 | 16 |
-| [persistency](https://github.com/eclipse-score/persistency) | <small><sub><small>Codeowners: @vinodreddy-g, @PandaeDo<br><br>Maintainers In Bazel Registry: @vinodreddy-g, @arkjedrz</small></sub></small> | 5 | 32 | 🔴 8 | 5 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.3.0 | 🟡 20 | 2 | 27 |
-| [scrample](https://github.com/eclipse-score/scrample) | - | 0 | 3 | 3 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.1 | 🟡 2 | 3 | 11 |
+| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |
+|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|
+| [baselibs](https://github.com/eclipse-score/baselibs) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @castler, @hoe-jo, @LittleHuba, @ramceb, @nradakovic, @4og<br><br>Maintainers In Bazel Registry: @4og</small></sub></small> | 0 | 39 / 🔴 16+8 | v0.2.5 | 🔴 66 | 24 | 54 |
+| [baselibs_rust](https://github.com/eclipse-score/baselibs_rust) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @pawelrutkaq, @arkjedrz</small></sub></small> | 6 | 6 / 2+1 | v0.1.1 | 🟡 3 | 1 | 7 |
+| [communication](https://github.com/eclipse-score/communication) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @castler, @hoe-jo, @LittleHuba, @crimson11, @bemerybmw, @limdor<br><br>Maintainers In Bazel Registry: @castler, @LittleHuba</small></sub></small> | 🔥 65 | 43 / 🔴 15+21 | v0.1.4 | 🔴 345 | 44 | 77 |
+| [config_management](https://github.com/eclipse-score/config_management) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @antonkri, @castler, @LittleHuba, @ramceb, @luizcordeiro, @michaelsaborov</small></sub></small> | 1 | 0 / 2+0 | - | - | 1 | 5 |
+| [feo](https://github.com/eclipse-score/feo) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @armin-acn, @johannes-esr, @masc2023<br><br>Maintainers In Bazel Registry: @masc2023, @armin-acn, @johannes-esr</small></sub></small> | 8 | 28 / 0+0 | v1.0.5 | 🟡 15 | 4 | 17 |
+| [inc_daal](https://github.com/eclipse-score/inc_daal) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @FScholPer, @thilo-schmitt, @alexmohr, @theswiftfox, @MarkSchmitt</small></sub></small> | 1 | 0 / 5+0 | - | - | 4 | 7 |
+| [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 0 / 2+1 | - | - | 0 | 4 |
+| [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 5 | 0 / 2+0 | - | - | 0 | 8 |
+| [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 🔥 22 | 10 / 🔴 9+1 | - | - | 3 | 7 |
+| [inc_time](https://github.com/eclipse-score/inc_time) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 6 / 4+0 | - | - | 1 | 5 |
+| [kyron](https://github.com/eclipse-score/kyron) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Maintainers In Bazel Registry: @pawelrutkaq, @vinodreddy-g</small></sub></small> | 0 | 16 / 4+0 | v0.1.1 | 🟡 5 | 2 | 7 |
+| [lifecycle](https://github.com/eclipse-score/lifecycle) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 🔥 13 | 39 / 4+0 | v0.1.0 | 🔴 90 | 3 | 17 |
+| [logging](https://github.com/eclipse-score/logging) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @antonkri, @pawelrutkaq, @arsibo<br><br>Maintainers In Bazel Registry: @antonkri, @pawelrutkaq</small></sub></small> | 2 | 14 / 🔴 9+3 | v0.1.0 | 🟡 17 | 2 | 19 |
+| [orchestrator](https://github.com/eclipse-score/orchestrator) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @qor-lb, @vinodreddy-g, @PandaeDo<br><br>Maintainers In Bazel Registry: @vinodreddy-g, @PandaeDo</small></sub></small> | 1 | 17 / 2+0 | v0.1.0 | 🟡 7 | 5 | 16 |
+| [persistency](https://github.com/eclipse-score/persistency) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @vinodreddy-g, @PandaeDo<br><br>Maintainers In Bazel Registry: @vinodreddy-g, @arkjedrz</small></sub></small> | 5 | 32 / 🔴 8+5 | v0.3.0 | 🟡 20 | 2 | 27 |
+| [scrample](https://github.com/eclipse-score/scrample) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 3 / 3+1 | v0.1.1 | 🟡 2 | 3 | 11 |
 
 ### Uncategorized
 
-| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |
-|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|
-| [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | <small><sub><small>Codeowners: @eclipse-score/eclipsefdn-releng</small></sub></small> | 🔥 13 | 1 | 1 | 1 | - | - | - | 0 | 34 |
-| [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | - | 0 | 1 | 1 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.1.3 | 🟡 3 | 0 | 4 |
-| [dev_playground](https://github.com/eclipse-score/dev_playground) | - | 0 | 0 | 0 | 0 | - | - | - | 1 | 3 |
-| [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | <small><sub><small>Codeowners: @4og, @masc2023, @aschemmel-tech</small></sub></small> | 5 | 1 | 1 | 2 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 3 | 6 |
-| [score-crates](https://github.com/eclipse-score/score-crates) | - | 2 | 0 | 2 | 1 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | v0.0.9 | 🟡 1 | 1 | 13 |
+| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |
+|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|
+| [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | <small><sub><small>Codeowners: @eclipse-score/eclipsefdn-releng</small></sub></small> | 🔥 13 | 1 / 1+1 | - | - | 0 | 34 |
+| [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 1 / 1+1 | v0.1.3 | 🟡 3 | 0 | 4 |
+| [dev_playground](https://github.com/eclipse-score/dev_playground) | - | 0 | 0 / 0+0 | - | - | 1 | 3 |
+| [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | <small><sub><small>Codeowners: @4og, @masc2023, @aschemmel-tech</small></sub></small> | 5 | 1 / 1+2 | - | - | 3 | 6 |
+| [score-crates](https://github.com/eclipse-score/score-crates) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 2 | 0 / 2+1 | v0.0.9 | 🟡 1 | 1 | 13 |
 
 ### website
 
-| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |
-|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|
-| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | - | 3 | 12 | 0 | 0 | - | - | - | 0 | 10 |
-| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | - | 0 | 0 | 0 | 0 | - | - | - | 0 | 2 |
-| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | - | 0 | 2 | 0 | 0 | - | - | - | 0 | 2 |
-| [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) | - | 0 | 3 | 4 | 0 | <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | - | 8 | 16 |
+| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |
+|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|
+| [eclipse-score-website](https://github.com/eclipse-score/eclipse-score-website) | - | 3 | 12 / 0+0 | - | - | 0 | 10 |
+| [eclipse-score-website-preview](https://github.com/eclipse-score/eclipse-score-website-preview) | - | 0 | 0 / 0+0 | - | - | 0 | 2 |
+| [eclipse-score-website-published](https://github.com/eclipse-score/eclipse-score-website-published) | - | 0 | 2 / 0+0 | - | - | 0 | 2 |
+| [eclipse-score.github.io](https://github.com/eclipse-score/eclipse-score.github.io) <img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | - | 0 | 3 / 4+0 | - | - | 8 | 16 |
 
 ## Versions
 

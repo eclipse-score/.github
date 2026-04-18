@@ -951,16 +951,20 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "`⚙ GitHub Actions`: shown when `.github/workflows` exists." in markdown
     assert "## Repository Overview" in markdown
     assert "## Versions" in markdown
-    assert "| Repository | Ownership | Merged PRs (30d) |" in markdown
+    assert (
+        "| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) |"
+        in markdown
+    )
     assert "## Ownership" not in markdown
     assert "## Ownership With Versions" not in markdown
     assert "## Delivery And Automation" in markdown
     assert "### Infrastructure" in markdown
     assert (
-        "| [tools](https://github.com/eclipse-score/tools) | "
+        "| [tools](https://github.com/eclipse-score/tools) "
+        "<img src=\"https://bazel.build/_pwa/bazel/icons/icon-72x72.png\" alt=\"Bazel\" width=\"16\" height=\"16\"> | "
         "<small><sub><small>Codeowners: @docs-team, @platform-team, @infra-team, @qa-team<br><br>"
         "Maintainers In Bazel Registry: @4og, @nradakovic, @pawelrutkaq</small></sub></small> | "
-        "🔥 11 | 2 | 1 | 1 | <img src=\"https://bazel.build/_pwa/bazel/icons/icon-72x72.png\" alt=\"Bazel\" width=\"16\" height=\"16\"> | v1.2.3 | 🟡 7 | 3 | 4 |"
+        "🔥 11 | 2 / 1+1 | v1.2.3 | 🟡 7 | 3 | 4 |"
         in markdown
     )
     assert (
@@ -993,7 +997,7 @@ def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
 
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | - "
-        "| 0 | 0 | 0 | 0 | - | - | - | 0 | 0 |"
+        "| 0 | 0 / 0+0 | - | - | 0 | 0 |"
         in markdown
     )
 

@@ -50,10 +50,9 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
     lines = [
         "## Repository Overview",
         "",
-        "- `Open Issues`: open issues only. Pull requests are excluded.",
+        "- `Open Issues / PRs`: open issues only and open pull requests as `issues / ready+draft`.",
         "- `Merged PRs (30d)`: pull requests merged into each repository's default branch within the last 30 days (`>= 10` is marked `🔥`).",
-        "- `Open PRs` and `Open Draft PRs`: open pull requests split by draft status (`Open PRs > 5` is marked `🔴`).",
-        "- `Bazel Repo`: Bazel icon if the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.",
+        "- `Bazel`: icon shown next to the repository name when the repo contains `.bazelversion`, `MODULE.bazel`, `WORKSPACE`, or `WORKSPACE.bazel`.",
         "- `Latest Release`: release tag name, falling back to the release name when needed.",
         "- `Commits Since Release`: compare the latest release tag to current default branch head.",
         "- Icons: `🟢` healthy, `🟡` caution, `🔴` alert.",
@@ -65,8 +64,8 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
         render_category_tables(
             repos,
             org_name=org_name,
-            header="| Repository | Ownership | Merged PRs (30d) | Open Issues | Open PRs | Open Draft PRs | Bazel Repo | Latest Release | Commits Since Release | Stars | Forks |",
-            divider="|------------|-----------|------------------|-------------|---------|----------------|------------|----------------|-----------------------|-------|-------|",
+            header="| Repository | Ownership | Merged PRs (30d) | Open Issues / PRs (ready+draft) | Latest Release | Commits Since Release | Stars | Forks |",
+            divider="|------------|-----------|------------------|-------------------------------|----------------|-----------------------|-------|-------|",
             row_renderer=render_overview_row,
         )
     )
@@ -170,14 +169,24 @@ def group_repos_by_category(repos: list[RepoEntry]) -> list[tuple[str, list[Repo
 def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| [{entry.name}]({url}) | {render_ownership_cell(entry)} | "
+        f"| {render_repo_link_with_bazel_icon(entry, url)} | {render_ownership_cell(entry)} | "
         f"{render_merged_pr_count(entry.volatile.merged_prs_30_days)} | "
-        f"{entry.volatile.open_issues} | {render_ready_pr_count(entry.volatile.open_ready_prs)} | {entry.volatile.open_draft_prs} | "
-        f"{render_bazel_repo_presence(entry.content.is_bazel_repo)} | "
+        f"{render_open_issues_and_prs(entry.volatile.open_issues, entry.volatile.open_ready_prs, entry.volatile.open_draft_prs)} | "
         f"{render_plain_value(entry.volatile.latest_release_version)} | "
         f"{render_commits_since_release(entry.volatile.commits_since_latest_release)} | "
         f"{entry.stars} | {entry.forks} |"
     )
+
+
+def render_repo_link_with_bazel_icon(entry: RepoEntry, url: str) -> str:
+    repo_link = f"[{entry.name}]({url})"
+    if entry.content.is_bazel_repo:
+        return f"{repo_link} {render_bazel_icon()}"
+    return repo_link
+
+
+def render_open_issues_and_prs(open_issues: int, open_ready_prs: int, open_draft_prs: int) -> str:
+    return f"{open_issues} / {render_ready_pr_count(open_ready_prs)}+{open_draft_prs}"
 
 
 def render_versions_row(
@@ -236,12 +245,6 @@ def render_commits_since_release(value: int | None) -> str:
     if value <= 20:
         return f"🟡 {value}"
     return f"🔴 {value}"
-
-
-def render_bazel_repo_presence(value: bool) -> str:
-    if not value:
-        return "-"
-    return render_bazel_icon()
 
 
 def render_bazel_version_column_header() -> str:
