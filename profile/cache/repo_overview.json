@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-17T23:50:42.901767+00:00",
+  "generated_at": "2026-04-23T15:10:38.498342+00:00",
   "org_name": "eclipse-score",
   "repos": [
     {
@@ -20,7 +20,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "496bf687a02690bbcd1fb5a40ddf1cd1fbdf4f8a",
+      "default_branch_sha": "326d4e15ba163007cb9c74300dccc891eb7c7a7c",
       "description": "Repository to host configurations related to the Eclipse Foundation.",
       "forks": 34,
       "name": ".eclipsefdn",
@@ -32,15 +32,15 @@
       "subcategory": "General",
       "volatile": {
         "commits_since_latest_release": null,
-        "last_push_date": "2026-04-10",
+        "last_push_date": "2026-04-23",
         "latest_release_date": null,
         "latest_release_version": null,
-        "merged_prs_30_days": 13,
+        "merged_prs_30_days": 12,
         "open_draft_prs": 1,
         "open_issues": 1,
         "open_prs": 2,
         "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:21.799301+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:43.254812+00:00"
       }
     },
     {
@@ -79,7 +79,7 @@
         "open_issues": 1,
         "open_prs": 2,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:21.545791+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:40.784473+00:00"
       }
     },
     {
@@ -122,7 +122,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:21.411490+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:40.599869+00:00"
       }
     },
     {
@@ -137,7 +137,7 @@
           "@nradakovic",
           "@4og"
         ],
-        "docs_as_code_version": "3.0.0",
+        "docs_as_code_version": "4.0.1",
         "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": false,
@@ -148,12 +148,12 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "a93a5b3b0a465593703834d84d6d6a64567b0307",
+      "default_branch_sha": "4de0029b909ae039e159c73d17511926cf476d19",
       "description": "base libraries including common functionality",
       "forks": 54,
       "name": "baselibs",
       "registry": {
-        "latest_bazel_registry_version": "0.2.5",
+        "latest_bazel_registry_version": "0.2.6",
         "maintainers_in_bazel_registry": [
           "Andrey Babanin (@4og)"
         ]
@@ -161,16 +161,16 @@
       "stars": 24,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 66,
-        "last_push_date": "2026-04-16",
-        "latest_release_date": "2026-04-10",
-        "latest_release_version": "v0.2.5",
+        "commits_since_latest_release": 7,
+        "last_push_date": "2026-04-22",
+        "latest_release_date": "2026-04-21",
+        "latest_release_version": "v0.2.6",
         "merged_prs_30_days": 0,
-        "open_draft_prs": 8,
-        "open_issues": 39,
+        "open_draft_prs": 9,
+        "open_issues": 40,
         "open_prs": 24,
-        "open_ready_prs": 16,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:19.360560+00:00"
+        "open_ready_prs": 15,
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:46.162839+00:00"
       }
     },
     {
@@ -189,7 +189,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "91b0b604aee141bf64028bd40c14ff7dd8e0c51e",
+      "default_branch_sha": "e839926863ce71e8d92ebc97e24960a6b68c684e",
       "description": "Repository for the Rust baselibs",
       "forks": 7,
       "name": "baselibs_rust",
@@ -203,16 +203,16 @@
       "stars": 1,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 3,
-        "last_push_date": "2026-04-15",
+        "commits_since_latest_release": 4,
+        "last_push_date": "2026-04-22",
         "latest_release_date": "2026-03-24",
         "latest_release_version": "v0.1.1",
-        "merged_prs_30_days": 6,
+        "merged_prs_30_days": 4,
         "open_draft_prs": 1,
         "open_issues": 6,
         "open_prs": 3,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:18.533933+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:47.853786+00:00"
       }
     },
     {
@@ -251,7 +251,7 @@
         "open_issues": 0,
         "open_prs": 3,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:18.126142+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:37.441947+00:00"
       }
     },
     {
@@ -290,7 +290,7 @@
         "open_issues": 1,
         "open_prs": 2,
         "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:18.919381+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:37.966232+00:00"
       }
     },
     {
@@ -331,12 +331,12 @@
         "last_push_date": "2026-04-15",
         "latest_release_date": "2026-04-15",
         "latest_release_version": "v0.5.1",
-        "merged_prs_30_days": 8,
+        "merged_prs_30_days": 6,
         "open_draft_prs": 2,
         "open_issues": 4,
         "open_prs": 2,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:18.344392+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:37.653683+00:00"
       }
     },
     {
@@ -377,7 +377,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:21.668876+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:40.942476+00:00"
       }
     },
     {
@@ -401,7 +401,7 @@
         "uses_cicd_daily_workflow": true
       },
       "default_branch": "main",
-      "default_branch_sha": "1c057811c3ce5381e2122697acd98a9fe5742a8d",
+      "default_branch_sha": "8f27220c248eb623b87e7e8cc29afec16f3e4e01",
       "description": "Score project bazel modules registry",
       "forks": 18,
       "name": "bazel_registry",
@@ -412,16 +412,16 @@
       "stars": 2,
       "subcategory": "tooling",
       "volatile": {
-        "commits_since_latest_release": 137,
-        "last_push_date": "2026-04-16",
+        "commits_since_latest_release": 145,
+        "last_push_date": "2026-04-23",
         "latest_release_date": "2025-12-22",
         "latest_release_version": "v0.5.0-beta",
-        "merged_prs_30_days": 43,
-        "open_draft_prs": 2,
+        "merged_prs_30_days": 45,
+        "open_draft_prs": 0,
         "open_issues": 4,
-        "open_prs": 2,
+        "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:23.989383+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:46.719432+00:00"
       }
     },
     {
@@ -460,26 +460,33 @@
         "open_issues": 1,
         "open_prs": 3,
         "open_ready_prs": 3,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:25.246685+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:45.031827+00:00"
       }
     },
     {
       "category": "infrastructure",
       "content": {
         "bazel_version": null,
-        "codeowners": [],
+        "codeowners": [
+          "@AlexanderLanin",
+          "@MaximilianSoerenPollak",
+          "@dcalavrezo-qorix",
+          "@pawelrutkaq",
+          "@PiotrKorkus",
+          "@lurtz"
+        ],
         "docs_as_code_version": null,
-        "has_ci": false,
+        "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": false,
-        "has_lint_config": false,
-        "has_pre_commit_config": false,
+        "has_lint_config": true,
+        "has_pre_commit_config": true,
         "has_pyproject_toml": false,
         "is_bazel_repo": false,
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "827c6f57540f881502b32171636b65a4301a36b1",
+      "default_branch_sha": "51883d9cd772bee5b7d139a2e6ffd8aeabca4224",
       "description": "Reusable GitHub Actions for CI/CD automation",
       "forks": 3,
       "name": "cicd-actions",
@@ -491,15 +498,15 @@
       "subcategory": "automation",
       "volatile": {
         "commits_since_latest_release": null,
-        "last_push_date": "2026-03-10",
+        "last_push_date": "2026-04-23",
         "latest_release_date": null,
         "latest_release_version": null,
-        "merged_prs_30_days": 0,
+        "merged_prs_30_days": 1,
         "open_draft_prs": 0,
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:25.418743+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:50.158480+00:00"
       }
     },
     {
@@ -528,9 +535,9 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "97ae51fa5f00e9a5d6ad05d3a542f339f627aacb",
+      "default_branch_sha": "89a04e651b3223eb30b9071eb31f428f380bf47d",
       "description": "Reusable GitHub Workflows for CI/CD automation",
-      "forks": 12,
+      "forks": 13,
       "name": "cicd-workflows",
       "registry": {
         "latest_bazel_registry_version": null,
@@ -540,15 +547,15 @@
       "subcategory": "automation",
       "volatile": {
         "commits_since_latest_release": null,
-        "last_push_date": "2026-04-09",
+        "last_push_date": "2026-04-23",
         "latest_release_date": null,
         "latest_release_version": null,
-        "merged_prs_30_days": 16,
-        "open_draft_prs": 2,
-        "open_issues": 10,
-        "open_prs": 5,
-        "open_ready_prs": 3,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:26.218016+00:00"
+        "merged_prs_30_days": 17,
+        "open_draft_prs": 3,
+        "open_issues": 9,
+        "open_prs": 4,
+        "open_ready_prs": 1,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:00.287301+00:00"
       }
     },
     {
@@ -574,12 +581,12 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "f56fe7d1425f7d60fb09495797a1740de576b350",
+      "default_branch_sha": "6fb70a3ee1942b696c77a29217da9a9fb0971549",
       "description": "Repository for the communication module LoLa",
-      "forks": 77,
+      "forks": 78,
       "name": "communication",
       "registry": {
-        "latest_bazel_registry_version": "0.1.4",
+        "latest_bazel_registry_version": "0.2.0",
         "maintainers_in_bazel_registry": [
           "Jan Schlosser (@castler)",
           "Ulrich Huber (@LittleHuba)"
@@ -588,16 +595,16 @@
       "stars": 44,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 345,
-        "last_push_date": "2026-04-17",
-        "latest_release_date": "2026-03-09",
-        "latest_release_version": "v0.1.4",
-        "merged_prs_30_days": 65,
-        "open_draft_prs": 21,
-        "open_issues": 43,
-        "open_prs": 36,
-        "open_ready_prs": 15,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:29.338794+00:00"
+        "commits_since_latest_release": 33,
+        "last_push_date": "2026-04-23",
+        "latest_release_date": "2026-04-21",
+        "latest_release_version": "v0.2.0",
+        "merged_prs_30_days": 67,
+        "open_draft_prs": 19,
+        "open_issues": 47,
+        "open_prs": 35,
+        "open_ready_prs": 16,
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:55.754738+00:00"
       }
     },
     {
@@ -638,12 +645,12 @@
         "last_push_date": "2026-03-23",
         "latest_release_date": null,
         "latest_release_version": null,
-        "merged_prs_30_days": 1,
+        "merged_prs_30_days": 0,
         "open_draft_prs": 0,
         "open_issues": 0,
         "open_prs": 2,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:28.246090+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:50.173714+00:00"
       }
     },
     {
@@ -687,7 +694,7 @@
         "open_issues": 2,
         "open_prs": 1,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:25.058753+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:48.810740+00:00"
       }
     },
     {
@@ -726,7 +733,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:28.207654+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:53.011953+00:00"
       }
     },
     {
@@ -765,10 +772,10 @@
         "latest_release_version": "v1.4.1",
         "merged_prs_30_days": 6,
         "open_draft_prs": 0,
-        "open_issues": 4,
+        "open_issues": 5,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:27.436006+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:50.567061+00:00"
       }
     },
     {
@@ -792,12 +799,12 @@
         "uses_cicd_daily_workflow": true
       },
       "default_branch": "main",
-      "default_branch_sha": "8dc7fa8f5ea4db28d1eb937b25835923973f17dc",
+      "default_branch_sha": "1939bde2a3a3e023bcba726085be40471fd93fd4",
       "description": "Docs-as-code tooling for Eclipse S-CORE",
       "forks": 24,
       "name": "docs-as-code",
       "registry": {
-        "latest_bazel_registry_version": "4.0.1",
+        "latest_bazel_registry_version": "4.0.3",
         "maintainers_in_bazel_registry": [
           "Maximilian Soeren Pollak (@MaximilianSoerenPollak)",
           "Andreas Zwinkau (@a-zw)"
@@ -806,16 +813,16 @@
       "stars": 6,
       "subcategory": "tooling",
       "volatile": {
-        "commits_since_latest_release": 2,
-        "last_push_date": "2026-04-17",
-        "latest_release_date": "2026-04-15",
-        "latest_release_version": "v4.0.1",
-        "merged_prs_30_days": 30,
-        "open_draft_prs": 6,
-        "open_issues": 29,
-        "open_prs": 11,
+        "commits_since_latest_release": 0,
+        "last_push_date": "2026-04-23",
+        "latest_release_date": "2026-04-23",
+        "latest_release_version": "v4.0.3",
+        "merged_prs_30_days": 34,
+        "open_draft_prs": 7,
+        "open_issues": 30,
+        "open_prs": 12,
         "open_ready_prs": 5,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:29.829895+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:57.493849+00:00"
       }
     },
     {
@@ -854,7 +861,7 @@
         "open_issues": 12,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:32.280023+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:56.304337+00:00"
       }
     },
     {
@@ -893,7 +900,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:31.995646+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:57.056849+00:00"
       }
     },
     {
@@ -932,7 +939,7 @@
         "open_issues": 2,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:32.969317+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:56.964165+00:00"
       }
     },
     {
@@ -971,7 +978,7 @@
         "open_issues": 3,
         "open_prs": 4,
         "open_ready_prs": 4,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:34.383799+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:57.764879+00:00"
       }
     },
     {
@@ -1006,19 +1013,19 @@
           "Johannes Glamsch (@johannes-esr)"
         ]
       },
-      "stars": 4,
+      "stars": 5,
       "subcategory": "General",
       "volatile": {
         "commits_since_latest_release": 15,
         "last_push_date": "2026-04-16",
         "latest_release_date": "2026-02-19",
         "latest_release_version": "v1.0.5",
-        "merged_prs_30_days": 8,
-        "open_draft_prs": 0,
+        "merged_prs_30_days": 7,
+        "open_draft_prs": 1,
         "open_issues": 28,
-        "open_prs": 0,
+        "open_prs": 1,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:32.335254+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:57.848022+00:00"
       }
     },
     {
@@ -1057,7 +1064,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:32.009460+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:09:59.607528+00:00"
       }
     },
     {
@@ -1102,7 +1109,7 @@
         "open_issues": 0,
         "open_prs": 5,
         "open_ready_prs": 5,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:36.359060+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:03.613643+00:00"
       }
     },
     {
@@ -1141,7 +1148,7 @@
         "open_issues": 0,
         "open_prs": 3,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:36.422499+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:03.984453+00:00"
       }
     },
     {
@@ -1175,12 +1182,51 @@
         "last_push_date": "2026-03-24",
         "latest_release_date": null,
         "latest_release_version": null,
-        "merged_prs_30_days": 5,
+        "merged_prs_30_days": 1,
         "open_draft_prs": 0,
         "open_issues": 0,
         "open_prs": 2,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:38.750276+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:04.195949+00:00"
+      }
+    },
+    {
+      "category": "modules",
+      "content": {
+        "bazel_version": "8.3.0",
+        "codeowners": [],
+        "docs_as_code_version": "2.3.0",
+        "has_ci": true,
+        "has_coverage_config": false,
+        "has_gitlint_config": false,
+        "has_lint_config": false,
+        "has_pre_commit_config": false,
+        "has_pyproject_toml": true,
+        "is_bazel_repo": true,
+        "uses_cicd_daily_workflow": false
+      },
+      "default_branch": "main",
+      "default_branch_sha": "fac9e29722b6d41fb919dc25d6982170105b8133",
+      "description": "Incubation repository for Security & Cryptography feature",
+      "forks": 3,
+      "name": "inc_security_crypto",
+      "registry": {
+        "latest_bazel_registry_version": null,
+        "maintainers_in_bazel_registry": []
+      },
+      "stars": 0,
+      "subcategory": "General",
+      "volatile": {
+        "commits_since_latest_release": null,
+        "last_push_date": "2026-01-22",
+        "latest_release_date": null,
+        "latest_release_version": null,
+        "merged_prs_30_days": 0,
+        "open_draft_prs": 0,
+        "open_issues": 0,
+        "open_prs": 0,
+        "open_ready_prs": 0,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:09.973250+00:00"
       }
     },
     {
@@ -1199,7 +1245,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "f51b3f418f9cda6b2cccc4f3b49fee0a2c5c75df",
+      "default_branch_sha": "4bd21f397bfba79e9c8cd89a4d7a03cc4448d015",
       "description": "Incubation repository for SOME/IP gateway feature",
       "forks": 7,
       "name": "inc_someip_gateway",
@@ -1211,15 +1257,15 @@
       "subcategory": "incubation",
       "volatile": {
         "commits_since_latest_release": null,
-        "last_push_date": "2026-04-17",
+        "last_push_date": "2026-04-23",
         "latest_release_date": null,
         "latest_release_version": null,
-        "merged_prs_30_days": 22,
-        "open_draft_prs": 1,
+        "merged_prs_30_days": 26,
+        "open_draft_prs": 2,
         "open_issues": 10,
-        "open_prs": 10,
-        "open_ready_prs": 9,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:39.920862+00:00"
+        "open_prs": 9,
+        "open_ready_prs": 7,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:15.705301+00:00"
       }
     },
     {
@@ -1258,7 +1304,7 @@
         "open_issues": 6,
         "open_prs": 4,
         "open_ready_prs": 4,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:39.086372+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:04.942977+00:00"
       }
     },
     {
@@ -1297,7 +1343,7 @@
         "open_issues": 0,
         "open_prs": 1,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:38.970015+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:06.782923+00:00"
       }
     },
     {
@@ -1316,35 +1362,35 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "8a2c034fc23ff3b4ff831ca11b66b39f6364273a",
+      "default_branch_sha": "7f4af93bde1e0def1a7a1d4d392be888f944df9c",
       "description": "Integration Testing Framework repository",
-      "forks": 16,
+      "forks": 17,
       "name": "itf",
       "registry": {
-        "latest_bazel_registry_version": "0.2.0",
+        "latest_bazel_registry_version": "0.3.0",
         "maintainers_in_bazel_registry": []
       },
-      "stars": 0,
+      "stars": 1,
       "subcategory": "integration",
       "volatile": {
-        "commits_since_latest_release": 18,
-        "last_push_date": "2026-04-17",
-        "latest_release_date": "2026-04-08",
-        "latest_release_version": "0.2.0",
-        "merged_prs_30_days": 14,
-        "open_draft_prs": 2,
+        "commits_since_latest_release": 2,
+        "last_push_date": "2026-04-23",
+        "latest_release_date": "2026-04-22",
+        "latest_release_version": "0.3.0",
+        "merged_prs_30_days": 16,
+        "open_draft_prs": 0,
         "open_issues": 3,
         "open_prs": 4,
-        "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:37.067902+00:00"
+        "open_ready_prs": 4,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:08.137820+00:00"
       }
     },
     {
       "category": "modules",
       "content": {
-        "bazel_version": "8.3.0",
+        "bazel_version": "8.4.2",
         "codeowners": [],
-        "docs_as_code_version": "3.0.0",
+        "docs_as_code_version": "4.0.1",
         "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": false,
@@ -1355,7 +1401,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "f540427b987a2f19065650ea6f697d635c00cf6d",
+      "default_branch_sha": "430d1a81f8c5bdfc63522c2ba6d52e509e74b4f9",
       "description": "Safe async runtime for Rust",
       "forks": 7,
       "name": "kyron",
@@ -1369,16 +1415,16 @@
       "stars": 2,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 5,
-        "last_push_date": "2026-03-18",
+        "commits_since_latest_release": 6,
+        "last_push_date": "2026-04-22",
         "latest_release_date": "2026-02-17",
         "latest_release_version": "v0.1.1",
-        "merged_prs_30_days": 0,
+        "merged_prs_30_days": 1,
         "open_draft_prs": 0,
         "open_issues": 16,
         "open_prs": 4,
         "open_ready_prs": 4,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:38.177666+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:19.454146+00:00"
       }
     },
     {
@@ -1399,25 +1445,25 @@
       "default_branch": "main",
       "default_branch_sha": "7fc47fb672cf04c17b6317ebee48f2dcf10e8d41",
       "description": "Repository for the lifecycle feature",
-      "forks": 17,
+      "forks": 18,
       "name": "lifecycle",
       "registry": {
         "latest_bazel_registry_version": "0.1.0",
         "maintainers_in_bazel_registry": []
       },
-      "stars": 3,
+      "stars": 4,
       "subcategory": "General",
       "volatile": {
         "commits_since_latest_release": 90,
         "last_push_date": "2026-04-15",
         "latest_release_date": "2026-02-17",
         "latest_release_version": "v0.1.0",
-        "merged_prs_30_days": 13,
-        "open_draft_prs": 0,
-        "open_issues": 39,
-        "open_prs": 4,
+        "merged_prs_30_days": 10,
+        "open_draft_prs": 1,
+        "open_issues": 38,
+        "open_prs": 5,
         "open_ready_prs": 4,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:40.934497+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:08.614063+00:00"
       }
     },
     {
@@ -1459,11 +1505,11 @@
         "latest_release_date": "2026-02-19",
         "latest_release_version": "v0.1.0",
         "merged_prs_30_days": 2,
-        "open_draft_prs": 3,
+        "open_draft_prs": 4,
         "open_issues": 14,
-        "open_prs": 12,
-        "open_ready_prs": 9,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:40.507636+00:00"
+        "open_prs": 14,
+        "open_ready_prs": 10,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:08.551487+00:00"
       }
     },
     {
@@ -1471,7 +1517,7 @@
       "content": {
         "bazel_version": "8.3.0",
         "codeowners": [],
-        "docs_as_code_version": "2.3.0",
+        "docs_as_code_version": "3.1.0",
         "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": false,
@@ -1482,7 +1528,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "e4c7dfffca620bfe50b7018711e5f1d29c86b66f",
+      "default_branch_sha": "158bd577b12a80ba2880bc38dc133f2517987d81",
       "description": "C++ & Rust Bazel Template Repository",
       "forks": 15,
       "name": "module_template",
@@ -1494,15 +1540,15 @@
       "subcategory": "General",
       "volatile": {
         "commits_since_latest_release": null,
-        "last_push_date": "2026-03-31",
+        "last_push_date": "2026-04-23",
         "latest_release_date": null,
         "latest_release_version": null,
         "merged_prs_30_days": 3,
         "open_draft_prs": 2,
         "open_issues": 3,
-        "open_prs": 15,
-        "open_ready_prs": 13,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:44.183039+00:00"
+        "open_prs": 14,
+        "open_ready_prs": 12,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:20.085663+00:00"
       }
     },
     {
@@ -1541,7 +1587,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:44.652229+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:13.815153+00:00"
       }
     },
     {
@@ -1584,7 +1630,7 @@
         "open_issues": 1,
         "open_prs": 3,
         "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:45.916312+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:15.385467+00:00"
       }
     },
     {
@@ -1596,7 +1642,7 @@
           "@vinodreddy-g",
           "@PandaeDo"
         ],
-        "docs_as_code_version": "3.0.0",
+        "docs_as_code_version": "4.0.1",
         "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": false,
@@ -1607,7 +1653,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "afa85c9975585a22962f43d900ba20d8cd6a05f0",
+      "default_branch_sha": "d9a9f194fa4662b79fcb0ba213b94dd6dc0095ae",
       "description": "Orchestration framework & Safe async runtime for Rust",
       "forks": 16,
       "name": "orchestrator",
@@ -1621,16 +1667,16 @@
       "stars": 5,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 7,
-        "last_push_date": "2026-04-09",
+        "commits_since_latest_release": 14,
+        "last_push_date": "2026-04-23",
         "latest_release_date": "2026-02-17",
         "latest_release_version": "v0.1.0",
-        "merged_prs_30_days": 1,
+        "merged_prs_30_days": 3,
         "open_draft_prs": 0,
         "open_issues": 17,
-        "open_prs": 2,
-        "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:42.721768+00:00"
+        "open_prs": 1,
+        "open_ready_prs": 1,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:23.167054+00:00"
       }
     },
     {
@@ -1667,9 +1713,9 @@
         "merged_prs_30_days": 0,
         "open_draft_prs": 0,
         "open_issues": 4,
-        "open_prs": 5,
-        "open_ready_prs": 5,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:46.008677+00:00"
+        "open_prs": 6,
+        "open_ready_prs": 6,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:15.558853+00:00"
       }
     },
     {
@@ -1691,12 +1737,12 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "970b8291d184df913654c69d5209717b6a030c4d",
+      "default_branch_sha": "7212dd287bbcef6706c52e83daba4e7ef9a184b9",
       "description": "Repository for persistency framework",
       "forks": 27,
       "name": "persistency",
       "registry": {
-        "latest_bazel_registry_version": "0.3.0",
+        "latest_bazel_registry_version": "0.3.1",
         "maintainers_in_bazel_registry": [
           "VinodReddy GopiReddy (@vinodreddy-g)",
           "Arkadiusz Jedrzejewski (@arkjedrz)"
@@ -1705,16 +1751,16 @@
       "stars": 2,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 20,
-        "last_push_date": "2026-04-17",
-        "latest_release_date": "2026-02-17",
-        "latest_release_version": "v0.3.0",
-        "merged_prs_30_days": 5,
+        "commits_since_latest_release": 1,
+        "last_push_date": "2026-04-21",
+        "latest_release_date": "2026-04-21",
+        "latest_release_version": "v0.3.1",
+        "merged_prs_30_days": 4,
         "open_draft_prs": 5,
         "open_issues": 32,
-        "open_prs": 13,
-        "open_ready_prs": 8,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:44.109030+00:00"
+        "open_prs": 12,
+        "open_ready_prs": 7,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:24.364912+00:00"
       }
     },
     {
@@ -1738,12 +1784,12 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "42cfa87d5650fe4b70fcb8dce1cc0e24b658d687",
+      "default_branch_sha": "ee9c4e242e136f2890b8ae5246f9dccdfcb086a2",
       "description": "Score project process description",
       "forks": 22,
       "name": "process_description",
       "registry": {
-        "latest_bazel_registry_version": "1.5.3",
+        "latest_bazel_registry_version": "1.5.4",
         "maintainers_in_bazel_registry": [
           "Markus Schu (@masc2023)",
           "Alexander Schemmel (@aschemmel-tech)",
@@ -1754,16 +1800,16 @@
       "stars": 2,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 3,
-        "last_push_date": "2026-04-17",
-        "latest_release_date": "2026-04-13",
-        "latest_release_version": "v1.5.3",
-        "merged_prs_30_days": 33,
-        "open_draft_prs": 3,
+        "commits_since_latest_release": 5,
+        "last_push_date": "2026-04-23",
+        "latest_release_date": "2026-04-23",
+        "latest_release_version": "v1.5.4",
+        "merged_prs_30_days": 34,
+        "open_draft_prs": 2,
         "open_issues": 64,
-        "open_prs": 6,
-        "open_ready_prs": 3,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:45.349006+00:00"
+        "open_prs": 4,
+        "open_ready_prs": 2,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:22.719589+00:00"
       }
     },
     {
@@ -1802,7 +1848,7 @@
         "open_issues": 0,
         "open_prs": 0,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:44.409683+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:18.957208+00:00"
       }
     },
     {
@@ -1833,7 +1879,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "213cc8cb49b7ac6c5cd629a7624692eca762e41e",
+      "default_branch_sha": "43c8aa4edae3bcfd04be1d587d5b03b2b7351a19",
       "description": "Score project integration repository",
       "forks": 24,
       "name": "reference_integration",
@@ -1844,16 +1890,16 @@
       "stars": 4,
       "subcategory": "integration",
       "volatile": {
-        "commits_since_latest_release": 63,
-        "last_push_date": "2026-04-16",
+        "commits_since_latest_release": 64,
+        "last_push_date": "2026-04-21",
         "latest_release_date": "2025-12-22",
         "latest_release_version": "v0.5.0-beta",
-        "merged_prs_30_days": 8,
+        "merged_prs_30_days": 6,
         "open_draft_prs": 3,
         "open_issues": 21,
-        "open_prs": 6,
-        "open_ready_prs": 3,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:47.710826+00:00"
+        "open_prs": 7,
+        "open_ready_prs": 4,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:31.405824+00:00"
       }
     },
     {
@@ -1897,7 +1943,7 @@
         "open_issues": 1,
         "open_prs": 2,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:47.548797+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:19.275072+00:00"
       }
     },
     {
@@ -1937,9 +1983,9 @@
         "merged_prs_30_days": 1,
         "open_draft_prs": 0,
         "open_issues": 1,
-        "open_prs": 4,
-        "open_ready_prs": 4,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:47.880166+00:00"
+        "open_prs": 10,
+        "open_ready_prs": 10,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:22.835604+00:00"
       }
     },
     {
@@ -1978,7 +2024,7 @@
         "open_issues": 0,
         "open_prs": 1,
         "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:51.275447+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:26.649475+00:00"
       }
     },
     {
@@ -1991,7 +2037,7 @@
           "@qor-lb",
           "@johannes-esr"
         ],
-        "docs_as_code_version": "4.0.0",
+        "docs_as_code_version": "4.0.1",
         "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": true,
@@ -2002,7 +2048,7 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "deb1f6a24e096c59bd857ee90e04435a9e539dae",
+      "default_branch_sha": "5b8a1e34c417384d919bb8c08d32213896ffe5aa",
       "description": "Score project main repository",
       "forks": 94,
       "name": "score",
@@ -2013,16 +2059,16 @@
       "stars": 93,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 117,
-        "last_push_date": "2026-04-17",
+        "commits_since_latest_release": 120,
+        "last_push_date": "2026-04-22",
         "latest_release_date": "2026-02-20",
         "latest_release_version": "v0.5.4",
-        "merged_prs_30_days": 49,
-        "open_draft_prs": 4,
-        "open_issues": 494,
-        "open_prs": 16,
-        "open_ready_prs": 12,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:51.519171+00:00"
+        "merged_prs_30_days": 44,
+        "open_draft_prs": 5,
+        "open_issues": 493,
+        "open_prs": 20,
+        "open_ready_prs": 15,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:31.348634+00:00"
       }
     },
     {
@@ -2056,12 +2102,12 @@
         "last_push_date": "2026-04-15",
         "latest_release_date": "2026-03-25",
         "latest_release_version": "v0.0.9",
-        "merged_prs_30_days": 2,
+        "merged_prs_30_days": 1,
         "open_draft_prs": 1,
         "open_issues": 0,
         "open_prs": 3,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:49.154782+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:24.247750+00:00"
       }
     },
     {
@@ -2100,7 +2146,7 @@
         "open_issues": 0,
         "open_prs": 2,
         "open_ready_prs": 2,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:52.897578+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:29.854224+00:00"
       }
     },
     {
@@ -2137,9 +2183,9 @@
         "merged_prs_30_days": 0,
         "open_draft_prs": 0,
         "open_issues": 0,
-        "open_prs": 1,
-        "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:49.480196+00:00"
+        "open_prs": 2,
+        "open_ready_prs": 2,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:26.711244+00:00"
       }
     },
     {
@@ -2176,9 +2222,9 @@
         "merged_prs_30_days": 0,
         "open_draft_prs": 1,
         "open_issues": 3,
-        "open_prs": 4,
-        "open_ready_prs": 3,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:51.141138+00:00"
+        "open_prs": 5,
+        "open_ready_prs": 4,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:27.089920+00:00"
       }
     },
     {
@@ -2218,9 +2264,9 @@
         "merged_prs_30_days": 0,
         "open_draft_prs": 0,
         "open_issues": 0,
-        "open_prs": 1,
-        "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:51.299167+00:00"
+        "open_prs": 2,
+        "open_ready_prs": 2,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:27.974868+00:00"
       }
     },
     {
@@ -2260,9 +2306,9 @@
         "merged_prs_30_days": 0,
         "open_draft_prs": 1,
         "open_issues": 3,
-        "open_prs": 2,
-        "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:51.378306+00:00"
+        "open_prs": 3,
+        "open_ready_prs": 2,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:28.149515+00:00"
       }
     },
     {
@@ -2301,7 +2347,7 @@
         "open_issues": 0,
         "open_prs": 1,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:55.734553+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:33.618404+00:00"
       }
     },
     {
@@ -2341,9 +2387,9 @@
         "merged_prs_30_days": 0,
         "open_draft_prs": 1,
         "open_issues": 7,
-        "open_prs": 1,
-        "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:53.186803+00:00"
+        "open_prs": 2,
+        "open_ready_prs": 1,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:30.651966+00:00"
       }
     },
     {
@@ -2379,12 +2425,12 @@
         "last_push_date": "2026-04-15",
         "latest_release_date": "2026-03-23",
         "latest_release_version": "v0.8.0",
-        "merged_prs_30_days": 3,
+        "merged_prs_30_days": 1,
         "open_draft_prs": 0,
-        "open_issues": 2,
+        "open_issues": 3,
         "open_prs": 1,
         "open_ready_prs": 1,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:54.885138+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:31.098734+00:00"
       }
     },
     {
@@ -2392,7 +2438,7 @@
       "content": {
         "bazel_version": "8.3.1",
         "codeowners": [],
-        "docs_as_code_version": "3.0.1",
+        "docs_as_code_version": null,
         "has_ci": true,
         "has_coverage_config": false,
         "has_gitlint_config": false,
@@ -2403,9 +2449,9 @@
         "uses_cicd_daily_workflow": false
       },
       "default_branch": "main",
-      "default_branch_sha": "80c3a0a258961157f05a4ffe176a6f1c4c48728a",
+      "default_branch_sha": "0c5e4bbbe9a09bada8bf21902e838870c5f09226",
       "description": "Tooling for Eclipse S-CORE",
-      "forks": 20,
+      "forks": 21,
       "name": "tooling",
       "registry": {
         "latest_bazel_registry_version": "0.1.0",
@@ -2414,16 +2460,16 @@
       "stars": 6,
       "subcategory": "General",
       "volatile": {
-        "commits_since_latest_release": 10,
-        "last_push_date": "2026-04-16",
+        "commits_since_latest_release": 17,
+        "last_push_date": "2026-04-23",
         "latest_release_date": "2026-04-02",
         "latest_release_version": "v1.2.0",
-        "merged_prs_30_days": 20,
-        "open_draft_prs": 1,
+        "merged_prs_30_days": 27,
+        "open_draft_prs": 2,
         "open_issues": 8,
-        "open_prs": 21,
-        "open_ready_prs": 20,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:55.732402+00:00"
+        "open_prs": 26,
+        "open_ready_prs": 24,
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:38.496615+00:00"
       }
     },
     {
@@ -2462,7 +2508,7 @@
         "open_issues": 0,
         "open_prs": 1,
         "open_ready_prs": 0,
-        "volatile_metrics_fetched_at": "2026-04-17T23:15:57.689354+00:00"
+        "volatile_metrics_fetched_at": "2026-04-23T15:10:35.006570+00:00"
       }
     }
   ],

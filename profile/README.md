@@ -32,6 +32,7 @@ Core S-CORE modules, libraries, and APIs.
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
+| [inc_security_crypto](https://github.com/eclipse-score/inc_security_crypto) | Incubation repository for Security & Cryptography feature |
 | [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
 | [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
