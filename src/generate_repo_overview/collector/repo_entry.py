@@ -303,6 +303,7 @@ def cached_signals_for_repository(
         "has_ci": cached_entry.content.has_ci,
         "uses_cicd_daily_workflow": cached_entry.content.uses_cicd_daily_workflow,
         "has_coverage_config": cached_entry.content.has_coverage_config,
+        "top_languages": cached_entry.content.top_languages,
     }
 
 
@@ -407,6 +408,7 @@ def build_repo_entry(
             has_ci=content_signals["has_ci"],
             uses_cicd_daily_workflow=content_signals["uses_cicd_daily_workflow"],
             has_coverage_config=content_signals["has_coverage_config"],
+            top_languages=content_signals.get("top_languages", ()),
         ),
         registry=registry_signals,
         volatile=VolatileMetricsSnapshot(

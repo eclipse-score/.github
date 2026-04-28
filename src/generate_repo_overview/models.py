@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 11
+SNAPSHOT_SCHEMA_VERSION = 13
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +27,7 @@ class DeepContentSignals:
     has_ci: bool = False
     uses_cicd_daily_workflow: bool = False
     has_coverage_config: bool = False
+    top_languages: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
@@ -45,6 +46,7 @@ class DeepContentSignals:
             has_ci=bool(data.get("has_ci", False)),
             uses_cicd_daily_workflow=bool(data.get("uses_cicd_daily_workflow", False)),
             has_coverage_config=bool(data.get("has_coverage_config", False)),
+            top_languages=normalize_string_tuple(data.get("top_languages")),
         )
 
 

@@ -6,7 +6,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
     document.querySelectorAll('.section').forEach(s => {
       const matchTab = s.dataset.tab === activeTab;
-      const matchCat = activeCategory === 'all' || s.dataset.category === activeCategory;
+      const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
       s.classList.toggle('hidden', !(matchTab && matchCat));
     });
   });
@@ -27,7 +27,7 @@ function renderFilters() {
       renderFilters();
       document.querySelectorAll('.section').forEach(s => {
         const matchTab = s.dataset.tab === activeTab;
-        const matchCat = activeCategory === 'all' || s.dataset.category === activeCategory;
+        const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
         s.classList.toggle('hidden', !(matchTab && matchCat));
       });
     });

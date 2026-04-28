@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ._html_common import BAZEL_ICON, CSS, GITHUB_ICON, e, version_badge
+from ._html_common import BAZEL_ICON, CSS, GITHUB_ICON, e, language_badge, version_badge
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot
@@ -43,6 +43,8 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
     chips = f'<span class="badge muted">{e(entry.category)}</span>'
     if entry.subcategory and entry.subcategory != entry.category:
         chips += f' <span class="badge muted">{e(entry.subcategory)}</span>'
+    for lang in entry.content.top_languages:
+        chips += f" {language_badge(lang)}"
 
     desc = e(entry.description) if entry.description else ""
 

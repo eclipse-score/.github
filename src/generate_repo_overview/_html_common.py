@@ -32,8 +32,35 @@ GITHUB_ICON = (
 )
 
 
+_LANGUAGE_COLORS: dict[str, str] = {
+    "Python": "#3572A5",
+    "C++": "#f34b7d",
+    "C": "#555555",
+    "Go": "#00ADD8",
+    "Rust": "#dea584",
+    "Java": "#b07219",
+    "Kotlin": "#A97BFF",
+    "TypeScript": "#3178c6",
+    "JavaScript": "#f1e05a",
+    "Starlark": "#76d275",
+    "Shell": "#89e051",
+    "CMake": "#DA3434",
+    "Makefile": "#427819",
+}
+
+
 def e(text: str) -> str:
     return html.escape(text, quote=True)
+
+
+def language_badge(lang: str | None) -> str:
+    if not lang:
+        return '<span class="text-muted">—</span>'
+    color = _LANGUAGE_COLORS.get(lang, "#888888")
+    return (
+        f'<span class="lang-badge" style="--lang-color:{color}">'
+        f"{e(lang)}</span>"
+    )
 
 
 def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) -> str:

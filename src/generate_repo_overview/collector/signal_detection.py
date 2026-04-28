@@ -18,6 +18,7 @@ class DeepContentPayload(TypedDict):
     has_ci: bool
     uses_cicd_daily_workflow: bool
     has_coverage_config: bool
+    top_languages: tuple[str, ...]
 
 
 GITLINT_PATHS = (".gitlint",)
@@ -96,6 +97,7 @@ def inspect_repository_content_slow(
         "has_coverage_config": any(
             tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
         ),
+        "top_languages": detect_top_languages(repository, n=3),
     }
 
 
@@ -113,7 +115,19 @@ def default_content_signals() -> DeepContentPayload:
         "has_ci": False,
         "uses_cicd_daily_workflow": False,
         "has_coverage_config": False,
+        "top_languages": (),
     }
+
+
+def detect_top_languages(repository: Any, *, n: int = 3) -> tuple[str, ...]:
+    try:
+        langs: object = repository.get_languages()
+    except Exception:
+        return ()
+    if not isinstance(langs, dict):
+        return ()
+    sorted_langs = sorted(langs.items(), key=lambda x: x[1], reverse=True)
+    return tuple(lang for lang, _ in sorted_langs[:n] if isinstance(lang, str))
 
 
 def fetch_repository_tree_paths(repository: Any, *, ref: str | None) -> set[str]:
