@@ -103,7 +103,7 @@ def _render_tab_bar() -> str:
         '<div class="tab-bar">\n'
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
-        '  <button class="tab-btn" data-tab="automation">Tech Stack</button>\n'
+        '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
         '  <button class="tab-btn" data-tab="timeline">Releases</button>\n'
         "</div>\n\n"
     )
@@ -346,7 +346,7 @@ def _render_automation_sections(
     for category, cat_repos in categories:
         rows = "\n".join(_automation_row(r, org_name) for r in cat_repos)
         parts.append(
-            f'<div class="section hidden" data-tab="automation" data-category="{e(category)}">\n'
+            f'<div class="section hidden" data-tab="tech-stack" data-category="{e(category)}">\n'
             f'  <div class="section-header">\n'
             f'    <span class="section-title">{e(category)}</span>\n'
             f'    <span class="section-count">{len(cat_repos)}</span>\n'
