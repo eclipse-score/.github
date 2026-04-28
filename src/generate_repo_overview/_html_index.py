@@ -339,7 +339,7 @@ def _render_automation_sections(
 
 
 def _automation_row(entry: RepoEntry, org_name: str) -> str:
-    name_cell = repo_name_cell(entry, org_name)
+    name_cell = repo_name_cell(entry, org_name, bazel_icon=False)
     c = entry.content
 
     def _presence(val: bool, icon: str) -> str:
@@ -365,7 +365,7 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
     return (
         f"    <tr>\n"
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_yesno(c.is_bazel_repo)}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'

@@ -36,11 +36,11 @@ def e(text: str) -> str:
     return html.escape(text, quote=True)
 
 
-def repo_name_cell(entry: RepoEntry, org_name: str) -> str:
+def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) -> str:
     detail_url = f"{e(entry.name)}/"
     github_url = f"https://github.com/{org_name}/{entry.name}"
     cell = f'<a href="{detail_url}">{e(entry.name)}</a>'
-    if entry.content.is_bazel_repo:
+    if bazel_icon and entry.content.is_bazel_repo:
         cell += f" {BAZEL_ICON}"
     cell += (
         f' <a href="{e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
