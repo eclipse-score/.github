@@ -92,7 +92,9 @@ class VolatileMetricsSnapshot:
             open_prs=cast("int", data.get("open_prs", 0)),
             open_ready_prs=cast("int", data.get("open_ready_prs", 0)),
             open_draft_prs=cast("int", data.get("open_draft_prs", 0)),
-            latest_release_version=cast("str | None", data.get("latest_release_version")),
+            latest_release_version=cast(
+                "str | None", data.get("latest_release_version")
+            ),
             latest_release_date=cast("str | None", data.get("latest_release_date")),
             commits_since_latest_release=cast(
                 "int | None",
@@ -196,7 +198,9 @@ class RepoSnapshot:
         if not isinstance(org_name, str) or not org_name:
             raise ValueError("Snapshot payload must contain a non-empty 'org_name'.")
         if not isinstance(generated_at, str) or not generated_at:
-            raise ValueError("Snapshot payload must contain a non-empty 'generated_at'.")
+            raise ValueError(
+                "Snapshot payload must contain a non-empty 'generated_at'."
+            )
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
 

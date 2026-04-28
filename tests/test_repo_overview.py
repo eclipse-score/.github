@@ -216,13 +216,19 @@ def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None
             return SimpleNamespace(commit=SimpleNamespace(sha="abc123"))
 
         def get_git_tree(self, ref: str, recursive: bool = True) -> SimpleNamespace:
-            raise AssertionError("get_git_tree should not be called in cache-aware fast mode")
+            raise AssertionError(
+                "get_git_tree should not be called in cache-aware fast mode"
+            )
 
         def get_pulls(self, *args: Any, **kwargs: Any) -> list[SimpleNamespace]:
-            raise AssertionError("get_pulls should not be called in cache-aware fast mode")
+            raise AssertionError(
+                "get_pulls should not be called in cache-aware fast mode"
+            )
 
         def get_latest_release(self) -> SimpleNamespace:
-            raise AssertionError("get_latest_release should not be called in cache-aware fast mode")
+            raise AssertionError(
+                "get_latest_release should not be called in cache-aware fast mode"
+            )
 
     repo = FakeRepo()
     cached_entry = RepoEntry(
@@ -321,7 +327,9 @@ def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None
     )
 
 
-def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_missing() -> None:
+def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_missing() -> (
+    None
+):
     class FakeRepo:
         default_branch = "main"
         description = "Tooling"
@@ -333,13 +341,19 @@ def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_m
             return SimpleNamespace(commit=SimpleNamespace(sha="abc123"))
 
         def get_git_tree(self, ref: str, recursive: bool = True) -> SimpleNamespace:
-            raise AssertionError("get_git_tree should not be called in cache-aware fast mode")
+            raise AssertionError(
+                "get_git_tree should not be called in cache-aware fast mode"
+            )
 
         def get_pulls(self, *args: Any, **kwargs: Any) -> list[SimpleNamespace]:
-            raise AssertionError("get_pulls should not be called in cache-aware fast mode")
+            raise AssertionError(
+                "get_pulls should not be called in cache-aware fast mode"
+            )
 
         def get_latest_release(self) -> SimpleNamespace:
-            raise AssertionError("get_latest_release should not be called in cache-aware fast mode")
+            raise AssertionError(
+                "get_latest_release should not be called in cache-aware fast mode"
+            )
 
     cached_entry = RepoEntry(
         name="tools",
@@ -397,7 +411,9 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
             return SimpleNamespace(
                 commit=SimpleNamespace(
                     sha="abc123",
-                    commit=SimpleNamespace(committer=SimpleNamespace(date=self.pushed_at)),
+                    commit=SimpleNamespace(
+                        committer=SimpleNamespace(date=self.pushed_at)
+                    ),
                 )
             )
 
@@ -411,7 +427,9 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
             return []
 
         def get_latest_release(self) -> SimpleNamespace:
-            return SimpleNamespace(raw_data={"tag_name": "v1.0.0"}, published_at=self.pushed_at)
+            return SimpleNamespace(
+                raw_data={"tag_name": "v1.0.0"}, published_at=self.pushed_at
+            )
 
         def compare(self, base: str, head: str) -> SimpleNamespace:
             assert base == "v1.0.0"
@@ -481,10 +499,13 @@ def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
         "draft": 1,
         "total": 3,
     }
-    assert repo_entry.get_open_issue_count(
-        SimpleNamespace(open_issues_count=5),
-        open_pull_request_total=3,
-    ) == 2
+    assert (
+        repo_entry.get_open_issue_count(
+            SimpleNamespace(open_issues_count=5),
+            open_pull_request_total=3,
+        )
+        == 2
+    )
 
 
 def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window(
@@ -500,7 +521,9 @@ def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window
 
     monkeypatch.setattr(repo_entry, "datetime", FixedDatetime)
 
-    def get_pulls(*, state: str, sort: str, direction: str, base: str) -> list[SimpleNamespace]:
+    def get_pulls(
+        *, state: str, sort: str, direction: str, base: str
+    ) -> list[SimpleNamespace]:
         assert state == "closed"
         assert sort == "updated"
         assert direction == "desc"
@@ -530,19 +553,27 @@ def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window
 
     repository = SimpleNamespace(get_pulls=get_pulls)
 
-    assert repo_entry.get_merged_pull_request_count_last_30_days(
-        repository,
-        default_branch="main",
-    ) == 1
+    assert (
+        repo_entry.get_merged_pull_request_count_last_30_days(
+            repository,
+            default_branch="main",
+        )
+        == 1
+    )
 
 
-def test_get_merged_pull_request_count_last_30_days_returns_zero_without_default_branch() -> None:
+def test_get_merged_pull_request_count_last_30_days_returns_zero_without_default_branch() -> (
+    None
+):
     repository = SimpleNamespace(get_pulls=lambda **kwargs: [])
 
-    assert repo_entry.get_merged_pull_request_count_last_30_days(
-        repository,
-        default_branch=None,
-    ) == 0
+    assert (
+        repo_entry.get_merged_pull_request_count_last_30_days(
+            repository,
+            default_branch=None,
+        )
+        == 0
+    )
 
 
 def test_get_latest_release_details_returns_none_when_release_lookup_is_lazy() -> None:
@@ -710,7 +741,9 @@ def test_get_codeowners_for_path_normalizes_comma_separated_owners() -> None:
     ) == ("@armin-acn", "@johannes-esr", "@masc2023")
 
 
-def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version() -> None:
+def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version() -> (
+    None
+):
     metadata = registry_metadata.parse_bazel_registry_metadata(
         """
 {
@@ -738,7 +771,9 @@ def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version
     }
 
 
-def test_merge_bazel_registry_metadata_combines_owners_and_keeps_latest_version() -> None:
+def test_merge_bazel_registry_metadata_combines_owners_and_keeps_latest_version() -> (
+    None
+):
     assert registry_metadata.merge_bazel_registry_metadata(
         {
             "maintainers_in_bazel_registry": ("Andrey Babanin (@4og)",),
@@ -849,13 +884,11 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
     assert snapshot.repos == ()
     assert (
         "GitHub REST API rate limit before collection: remaining 4999/5000, "
-        "used 1, resets at 2026-04-14T12:00:00+00:00"
-        in captured.err
+        "used 1, resets at 2026-04-14T12:00:00+00:00" in captured.err
     )
     assert (
         "GitHub REST API rate limit after collection: remaining 4998/5000, "
-        "used 2, resets at 2026-04-14T12:00:00+00:00"
-        in captured.err
+        "used 2, resets at 2026-04-14T12:00:00+00:00" in captured.err
     )
 
 
@@ -935,6 +968,7 @@ def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -
                 custom_properties={},
             ),
         }
+
         def fake_collect_repository_entry(**kwargs: Any) -> RepoEntry:
             if kwargs["repository_name"] == "alpha":
                 time.sleep(0.03)
@@ -1047,16 +1081,14 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "### Infrastructure" in markdown
     assert (
         "| [tools](https://github.com/eclipse-score/tools) "
-        "<img src=\"https://bazel.build/_pwa/bazel/icons/icon-72x72.png\" alt=\"Bazel\" width=\"16\" height=\"16\"> | "
+        '<img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png" alt="Bazel" width="16" height="16"> | '
         "<small><sub><small>Codeowners: @docs-team, @platform-team, @infra-team, @qa-team<br><br>"
         "Maintainers In Bazel Registry: @4og, @nradakovic, @pawelrutkaq</small></sub></small> | "
-        "🔥 11 | 2 / 1+1 | v1.2.3 + 🟡 7 | 3 / 4 |"
-        in markdown
+        "🔥 11 | 2 / 1+1 | v1.2.3 + 🟡 7 | 3 / 4 |" in markdown
     )
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | "
-        "🟢 8.4.2 | ⚪ - | yes |"
-        in markdown
+        "🟢 8.4.2 | ⚪ - | yes |" in markdown
     )
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | - | - | - | ⚙ | yes | no |"
@@ -1083,8 +1115,7 @@ def test_metrics_report_uses_no_for_non_bazel_repo_in_overview() -> None:
 
     assert (
         "| [tools](https://github.com/eclipse-score/tools) | - "
-        "| 0 | 0 / 0+0 | - | 0 / 0 |"
-        in markdown
+        "| 0 | 0 / 0+0 | - | 0 / 0 |" in markdown
     )
 
 
@@ -1133,14 +1164,13 @@ def test_metrics_report_ownership_cell_skips_maintainers_for_non_bazel_repo() ->
 
     markdown = render_metrics_report(snapshot)
 
-    assert (
-        "<small><sub><small>Codeowners: @docs-team</small></sub></small>"
-        in markdown
-    )
+    assert "<small><sub><small>Codeowners: @docs-team</small></sub></small>" in markdown
     assert "Maintainers In Bazel Registry:" not in markdown
 
 
-def test_metrics_report_ownership_cell_marks_missing_maintainers_for_bazel_repo() -> None:
+def test_metrics_report_ownership_cell_marks_missing_maintainers_for_bazel_repo() -> (
+    None
+):
     snapshot = RepoSnapshot(
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
@@ -1203,8 +1233,7 @@ def test_metrics_report_renders_versions_table() -> None:
     assert "🔴 6" in markdown
     assert (
         "| [process_description](https://github.com/eclipse-score/process_description) | "
-        "🟢 8.4.2 | ⚪ 4.0.0 | yes |"
-        in markdown
+        "🟢 8.4.2 | ⚪ 4.0.0 | yes |" in markdown
     )
 
 
@@ -1267,11 +1296,26 @@ def test_versions_table_docs_as_code_color_rules() -> None:
 
     markdown = render_metrics_report(snapshot)
 
-    assert "| [docs-as-code](https://github.com/eclipse-score/docs-as-code) | 🟢 8.6.0 | ⚪ - | no |" in markdown
-    assert "| [same-release](https://github.com/eclipse-score/same-release) | 🔴 8.5.0 | 🟢 4.1.3 | no |" in markdown
-    assert "| [same-minor](https://github.com/eclipse-score/same-minor) | 🔴 8.4.0 | 🟡 4.1.1 | no |" in markdown
-    assert "| [older](https://github.com/eclipse-score/older) | 🔴 8.3.0 | 🔴 3.9.9 | no |" in markdown
-    assert "| [none](https://github.com/eclipse-score/none) | ⚪ - | ⚪ - | no |" in markdown
+    assert (
+        "| [docs-as-code](https://github.com/eclipse-score/docs-as-code) | 🟢 8.6.0 | ⚪ - | no |"
+        in markdown
+    )
+    assert (
+        "| [same-release](https://github.com/eclipse-score/same-release) | 🔴 8.5.0 | 🟢 4.1.3 | no |"
+        in markdown
+    )
+    assert (
+        "| [same-minor](https://github.com/eclipse-score/same-minor) | 🔴 8.4.0 | 🟡 4.1.1 | no |"
+        in markdown
+    )
+    assert (
+        "| [older](https://github.com/eclipse-score/older) | 🔴 8.3.0 | 🔴 3.9.9 | no |"
+        in markdown
+    )
+    assert (
+        "| [none](https://github.com/eclipse-score/none) | ⚪ - | ⚪ - | no |"
+        in markdown
+    )
 
 
 def test_load_snapshot_if_present_ignores_mismatched_schema(tmp_path: Path) -> None:

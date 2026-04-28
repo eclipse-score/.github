@@ -25,8 +25,12 @@ def fetch_bazel_registry_metadata_by_repo(
     if bazel_registry_repository is None:
         return {}
 
-    default_branch = cast("str | None", getattr(bazel_registry_repository, "default_branch", None))
-    clone_url = cast("str | None", getattr(bazel_registry_repository, "clone_url", None))
+    default_branch = cast(
+        "str | None", getattr(bazel_registry_repository, "default_branch", None)
+    )
+    clone_url = cast(
+        "str | None", getattr(bazel_registry_repository, "clone_url", None)
+    )
     if default_branch is None or clone_url is None:
         return {}
 

@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import quote, urlsplit, urlunsplit
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def sync_repository_checkout(
@@ -105,4 +108,6 @@ def build_authenticated_clone_url(clone_url: str, github_token: str | None) -> s
     parsed = urlsplit(clone_url)
     auth = f"x-access-token:{quote(github_token, safe='')}"
     netloc = f"{auth}@{parsed.netloc}"
-    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+    return urlunsplit(
+        (parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment)
+    )

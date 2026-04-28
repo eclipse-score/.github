@@ -145,9 +145,7 @@ def parse_category_config(raw_category: object, config_source: str) -> CategoryC
 
     raw_subcategories = category.get("subcategories", [])
     if not isinstance(raw_subcategories, list):
-        message = (
-            f"Invalid config in {config_source}: category subcategories must be a list of tables."
-        )
+        message = f"Invalid config in {config_source}: category subcategories must be a list of tables."
         raise ValueError(message)
 
     raw_subcategory_entries = cast("list[object]", raw_subcategories)
@@ -167,9 +165,7 @@ def parse_subcategory_config(
     config_source: str,
 ) -> SubcategoryConfig:
     if not isinstance(raw_subcategory, dict):
-        message = (
-            f"Invalid config in {config_source}: each subcategory entry must be a table."
-        )
+        message = f"Invalid config in {config_source}: each subcategory entry must be a table."
         raise ValueError(message)
 
     subcategory = cast("Mapping[str, object]", raw_subcategory)

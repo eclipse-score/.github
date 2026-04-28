@@ -4,23 +4,23 @@
 
 - Collect GitHub organization data once and reuse it across multiple reports.
 - Keep local iteration fast by rendering from a cached snapshot instead of re-querying GitHub on every run.
-- Separate GitHub collection, content enrichment, and Markdown rendering so new views are easy to add.
+- Separate GitHub collection, content enrichment, and rendering so new views are easy to add.
 - Preserve the existing profile README workflow while folding the old metrics script into the same toolchain.
 
 ## Architecture
 
 The tool is split into three layers:
 
-1. `collector.py`
+1. `collector/`
    - Connects to GitHub.
    - Loads active repositories and custom properties.
    - Derives content-based signals such as `has_ci`, `has_lint_config`, `has_coverage_config`, `bazel_version`, and `referenced_by_reference_integration`.
    - Writes and reads a local JSON snapshot cache.
-2. `profile_readme.py` and `metrics_report.py`
-   - Render different Markdown views from the same normalized data model.
+2. `profile_readme.py`, `metrics_report.py`, and `metrics_html.py`
+   - Render different views from the same normalized data model.
    - Keep presentation decisions out of the collection layer.
 3. `cli.py`
-   - Orchestrates cache-aware commands such as `collect`, `render`, `generate-profile-readme`, and `generate-metrics`.
+   - Orchestrates cache-aware commands: `collect`, `render-overview`, and `render-details`.
 
 ## Data Model
 
@@ -80,21 +80,20 @@ Built-in commands:
 
 - `collect`
   - Sync the cached snapshot from GitHub and write it to disk.
-- `render`
-  - Render both built-in Markdown reports from an existing snapshot.
-- `generate-profile-readme`
-  - Reuse the cache when possible, otherwise collect and render the README.
-- `generate-metrics`
-  - Reuse the cache when possible, otherwise collect and render the metrics report.
+  - Use `--deep` to force a full refresh for every repository instead of reusing cached signals for unchanged ones.
+- `render-overview`
+  - Render the profile README from an existing snapshot.
+- `render-details`
+  - Render the HTML metrics page from an existing snapshot.
 
-Only the `generate-*` commands expose `--refresh`, because they can either reuse an existing snapshot or force a new collection first. The `collect` command always performs a sync.
+The `collect` command always performs a sync. The render commands never contact GitHub.
 
 ## Extension Points
 
 To add a new view:
 
 1. Extend `RepoEntry` only if the new view needs new normalized data.
-2. Add or update detectors in `collector.py` if new collection logic is required.
+2. Add or update detectors in `collector/` if new collection logic is required.
 3. Create a new renderer that accepts `RepoSnapshot` or `list[RepoEntry]`.
 4. Add a CLI command that reads the cached snapshot and calls the renderer.
 
@@ -103,4 +102,4 @@ To add a new detector, prefer:
 - tree-based file existence checks for simple presence signals
 - targeted small-file reads for version or config parsing
 
-Avoid coupling detectors directly to Markdown output. The collector should produce plain data; the renderer should decide how that data is displayed.
+Avoid coupling detectors directly to output format. The collector should produce plain data; the renderer should decide how that data is displayed.

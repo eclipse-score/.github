@@ -40,7 +40,9 @@ def fetch_reference_integration_repository_names(
         "str | None",
         getattr(reference_integration_repository, "default_branch", None),
     )
-    clone_url = cast("str | None", getattr(reference_integration_repository, "clone_url", None))
+    clone_url = cast(
+        "str | None", getattr(reference_integration_repository, "clone_url", None)
+    )
     if default_branch is None or clone_url is None:
         return set()
 
@@ -198,7 +200,9 @@ def get_git_override_repositories_from_text(
         remote_match = REMOTE_PATTERN.search(body)
         if module_name_match is None or remote_match is None:
             continue
-        repository_name = parse_github_remote_repository_name(remote_match.group("value"))
+        repository_name = parse_github_remote_repository_name(
+            remote_match.group("value")
+        )
         if repository_name is None or repository_name not in active_repository_names:
             continue
         module_name = module_name_match.group("value").strip()
@@ -228,7 +232,9 @@ def get_bazel_registry_repositories_by_module(
     active_repository_names: set[str],
 ) -> dict[str, str]:
     repositories_by_module: dict[str, str] = {}
-    for metadata_path in sorted(BAZEL_REGISTRY_LOCAL_CHECKOUT.glob("modules/*/metadata.json")):
+    for metadata_path in sorted(
+        BAZEL_REGISTRY_LOCAL_CHECKOUT.glob("modules/*/metadata.json")
+    ):
         try:
             content = metadata_path.read_text(encoding="utf-8")
         except OSError:

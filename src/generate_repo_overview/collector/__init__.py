@@ -244,12 +244,16 @@ def fetch_repositories(
     )
     print_status("Loading maintainers in bazel_registry", prefix=status_prefix)
     bazel_registry_data = active_repositories.get("bazel_registry")
-    bazel_registry_metadata_by_repo = registry_metadata.fetch_bazel_registry_metadata_by_repo(
-        bazel_registry_repository=(
-            bazel_registry_data.repository if bazel_registry_data is not None else None
-        ),
-        active_repository_names=set(active_repositories),
-        github_token=github_token,
+    bazel_registry_metadata_by_repo = (
+        registry_metadata.fetch_bazel_registry_metadata_by_repo(
+            bazel_registry_repository=(
+                bazel_registry_data.repository
+                if bazel_registry_data is not None
+                else None
+            ),
+            active_repository_names=set(active_repositories),
+            github_token=github_token,
+        )
     )
     print_status(
         "Loaded bazel_registry metadata for "
@@ -382,7 +386,9 @@ def fetch_active_repositories_via_rest(
             completed=True,
         )
         repository_name = cast("str | None", getattr(repository, "name", None))
-        if repository_name is None or cast("bool", getattr(repository, "archived", False)):
+        if repository_name is None or cast(
+            "bool", getattr(repository, "archived", False)
+        ):
             continue
         active_repositories[repository_name] = ActiveRepositoryData(
             repository=repository,
@@ -410,9 +416,13 @@ def paginate_github_rest_list(
             parameters=page_parameters,
         )
         if not isinstance(data, list):
-            raise RuntimeError(f"GitHub API call to {path} returned a non-list payload.")
+            raise RuntimeError(
+                f"GitHub API call to {path} returned a non-list payload."
+            )
         page_items = [item for item in data if isinstance(item, dict)]
-        items.extend((cast("dict[str, Any]", response_headers), item) for item in page_items)
+        items.extend(
+            (cast("dict[str, Any]", response_headers), item) for item in page_items
+        )
         if len(data) < per_page:
             break
         page += 1
@@ -423,7 +433,9 @@ def fetch_repository_descriptions(
     organization: OrganizationLike,
 ) -> dict[str, str | None]:
     return {
-        name: cast("str | None", getattr(repository_data.repository, "description", None))
+        name: cast(
+            "str | None", getattr(repository_data.repository, "description", None)
+        )
         for name, repository_data in fetch_active_repositories(organization).items()
     }
 

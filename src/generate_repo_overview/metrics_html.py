@@ -366,9 +366,7 @@ def _render_ownership(entry: RepoEntry) -> str:
         handles = ", ".join(_e(h) for h in entry.content.codeowners)
         parts.append(f'<span class="ownership-label">Codeowners:</span> {handles}')
     if entry.content.is_bazel_repo and entry.registry.maintainers_in_bazel_registry:
-        handles = ", ".join(
-            _e(h) for h in entry.registry.maintainers_in_bazel_registry
-        )
+        handles = ", ".join(_e(h) for h in entry.registry.maintainers_in_bazel_registry)
         parts.append(
             f'<span class="ownership-label">Registry maintainers:</span> {handles}'
         )
@@ -394,7 +392,9 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
     ver = _e(version) if version else "—"
     if commits_since is None:
         return f'<span class="mono">{ver}</span>'
-    badge_class = "green" if commits_since == 0 else ("yellow" if commits_since <= 20 else "red")
+    badge_class = (
+        "green" if commits_since == 0 else ("yellow" if commits_since <= 20 else "red")
+    )
     icon = "✓" if commits_since == 0 else str(commits_since)
     return (
         f'<span class="mono">{ver}</span> '
@@ -571,13 +571,15 @@ def _render_footer(snapshot: RepoSnapshot) -> str:
 def _build_repos_json(repos: list[RepoEntry], org_name: str) -> str:
     data = []
     for r in repos:
-        data.append({
-            "name": r.name,
-            "category": r.category,
-            "stars": r.stars,
-            "merged": r.volatile.merged_prs_30_days,
-            "issues": r.volatile.open_issues,
-        })
+        data.append(
+            {
+                "name": r.name,
+                "category": r.category,
+                "stars": r.stars,
+                "merged": r.volatile.merged_prs_30_days,
+                "issues": r.volatile.open_issues,
+            }
+        )
     return json.dumps(data)
 
 

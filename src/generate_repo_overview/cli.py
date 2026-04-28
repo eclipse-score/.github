@@ -87,7 +87,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Render the profile README from a cached snapshot.",
     )
     overview_parser.add_argument(
-        "--input", type=Path, default=DEFAULT_CACHE, help="JSON snapshot file to render from"
+        "--input",
+        type=Path,
+        default=DEFAULT_CACHE,
+        help="JSON snapshot file to render from",
     )
     overview_parser.add_argument(
         "--output", type=Path, default=DEFAULT_OUTPUT, help="Markdown file to write"
@@ -108,7 +111,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Render the HTML metrics page from a cached snapshot.",
     )
     details_parser.add_argument(
-        "--input", type=Path, default=DEFAULT_CACHE, help="JSON snapshot file to render from"
+        "--input",
+        type=Path,
+        default=DEFAULT_CACHE,
+        help="JSON snapshot file to render from",
     )
     details_parser.add_argument(
         "--output",
@@ -163,7 +169,9 @@ def run_render_overview(args: argparse.Namespace) -> int:
 def run_render_details(args: argparse.Namespace) -> int:
     snapshot = load_snapshot(args.input)
     html_content = render_metrics_html(snapshot)
-    write_text_file(path=args.output, content=html_content, status_prefix="repo-overview")
+    write_text_file(
+        path=args.output, content=html_content, status_prefix="repo-overview"
+    )
     return 0
 
 

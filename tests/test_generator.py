@@ -8,18 +8,22 @@ import generate_repo_overview.collector as collector
 import generate_repo_overview.collector.repo_entry as repo_entry
 import generate_repo_overview.collector.signal_detection as signal_detection
 import generate_repo_overview.profile_readme as profile_readme
-from generate_repo_overview.collector import fetch_repositories, fetch_repository_descriptions
+from generate_repo_overview.collector import (
+    fetch_repositories,
+    fetch_repository_descriptions,
+    get_gh_auth_token,
+    resolve_github_token,
+)
 from generate_repo_overview.collector.repo_entry import (
     build_repo_entry,
     normalize_group_name,
 )
-from generate_repo_overview.collector import get_gh_auth_token, resolve_github_token
 from generate_repo_overview.console import print_status
 from generate_repo_overview.models import (
     CategoryConfig,
     ReadmeConfig,
-    RepoEntry,
     RegistrySignals,
+    RepoEntry,
     SubcategoryConfig,
 )
 from generate_repo_overview.profile_readme import (
@@ -78,7 +82,9 @@ def test_group_repositories_prefers_configured_category_order() -> None:
     assert list(grouped) == ["Modules", "Infrastructure", "Website", "Uncategorized"]
 
 
-def test_group_repositories_matches_configured_category_order_case_insensitively() -> None:
+def test_group_repositories_matches_configured_category_order_case_insensitively() -> (
+    None
+):
     repos = [
         RepoEntry("website", "desc", "website", "General"),
         RepoEntry("tools", "desc", "infrastructure", "General"),
@@ -127,29 +133,33 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
     )
 
 
-def test_fetch_repository_descriptions_skips_archived_repositories() -> None:
+def test_fetch_repository_descriptions_skips_archived_repositories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     active_repo = SimpleNamespace(name="active-repo", description="Active")
 
-    original_fetch_active_repositories = collector.fetch_active_repositories
-    try:
-        collector.fetch_active_repositories = lambda organization: {
+    monkeypatch.setattr(
+        collector,
+        "fetch_active_repositories",
+        lambda organization: {
             "active-repo": collector.ActiveRepositoryData(
                 repository=active_repo,
                 custom_properties={},
             )
-        }
-        assert fetch_repository_descriptions(cast("Any", object())) == {
-            "active-repo": "Active"
-        }
-    finally:
-        collector.fetch_active_repositories = original_fetch_active_repositories
+        },
+    )
+    assert fetch_repository_descriptions(cast("Any", object())) == {
+        "active-repo": "Active"
+    }
 
 
-def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None:
+def test_fetch_repositories_does_not_reintroduce_archived_repositories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FakeRequester:
         is_not_lazy = False
 
-        def requestJsonAndCheck(
+        def requestJsonAndCheck(  # noqa: N802
             self,
             verb: str,
             url: str,
@@ -191,17 +201,17 @@ def test_fetch_repositories_does_not_reintroduce_archived_repositories() -> None
         requester=FakeRequester(),
     )
 
-    original_collect_repository_entry = repo_entry.collect_repository_entry
-    try:
-        repo_entry.collect_repository_entry = lambda **kwargs: RepoEntry(
+    monkeypatch.setattr(
+        repo_entry,
+        "collect_repository_entry",
+        lambda **kwargs: RepoEntry(
             name=kwargs["repository_name"],
             description=kwargs["repository"].description,
             category=kwargs["custom_properties"].get("category", "Uncategorized"),
             subcategory=kwargs["custom_properties"].get("subcategory", "General"),
-        )
-        repos = fetch_repositories(cast("Any", organization))
-    finally:
-        repo_entry.collect_repository_entry = original_collect_repository_entry
+        ),
+    )
+    repos = fetch_repositories(cast("Any", organization))
 
     assert len(repos) == 1
     assert repos[0].name == "active-repo"
@@ -259,7 +269,9 @@ def test_render_readme_omits_general_subheading_for_single_subcategory() -> None
     assert "### Infrastructure" in markdown
     assert "#### General" not in markdown
     assert "| Repository | Description |" in markdown
-    assert "| [infra](https://github.com/eclipse-score/infra) | Infra repo |" in markdown
+    assert (
+        "| [infra](https://github.com/eclipse-score/infra) | Infra repo |" in markdown
+    )
 
 
 def test_render_readme_uses_category_descriptions_from_config() -> None:
@@ -477,7 +489,9 @@ def test_describe_config_source_uses_package_default_label() -> None:
     assert describe_config_source(Path("config.toml")) == "config.toml"
 
 
-def test_resolve_github_token_prefers_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_github_token_prefers_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TEST_GITHUB_TOKEN", "env-token")
     monkeypatch.setattr(collector, "get_gh_auth_token", lambda: "gh-token")
 

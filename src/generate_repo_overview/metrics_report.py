@@ -156,14 +156,18 @@ def render_category_tables(
     return lines
 
 
-def group_repos_by_category(repos: list[RepoEntry]) -> list[tuple[str, list[RepoEntry]]]:
+def group_repos_by_category(
+    repos: list[RepoEntry],
+) -> list[tuple[str, list[RepoEntry]]]:
     grouped: dict[str, list[RepoEntry]] = {}
     for repo in repos:
         grouped.setdefault(repo.category, []).append(repo)
 
     return [
         (category, sorted(category_repos, key=lambda repo: repo.name.casefold()))
-        for category, category_repos in sorted(grouped.items(), key=lambda item: item[0].casefold())
+        for category, category_repos in sorted(
+            grouped.items(), key=lambda item: item[0].casefold()
+        )
     ]
 
 
@@ -185,11 +189,15 @@ def render_repo_link_with_bazel_icon(entry: RepoEntry, url: str) -> str:
     return repo_link
 
 
-def render_open_issues_and_prs(open_issues: int, open_ready_prs: int, open_draft_prs: int) -> str:
+def render_open_issues_and_prs(
+    open_issues: int, open_ready_prs: int, open_draft_prs: int
+) -> str:
     return f"{open_issues} / {render_ready_pr_count(open_ready_prs)}+{open_draft_prs}"
 
 
-def render_release_and_commits(latest_release_version: str | None, commits_since_release: int | None) -> str:
+def render_release_and_commits(
+    latest_release_version: str | None, commits_since_release: int | None
+) -> str:
     latest_release = render_plain_value(latest_release_version)
     commits = render_commits_since_release(commits_since_release)
     if latest_release == "-" and commits == "-":
@@ -351,7 +359,11 @@ def render_bazel_version_status(
 
     cleaned = bazel_version.strip()
     parsed = parse_version_key(cleaned)
-    if parsed is not None and max_bazel_version is not None and parsed == max_bazel_version:
+    if (
+        parsed is not None
+        and max_bazel_version is not None
+        and parsed == max_bazel_version
+    ):
         return f"🟢 {escape_markdown_table_cell(cleaned)}"
     return f"🔴 {escape_markdown_table_cell(cleaned)}"
 
