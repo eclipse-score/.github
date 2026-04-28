@@ -34,7 +34,7 @@ packages = ["src/generate_repo_overview"]
 package = true
 
 [tool.ruff]
-src = ["src", "tests", "scripts"]
+src = ["src", "tests"]
 target-version = "py312"
 
 [tool.ruff.lint]
@@ -91,7 +91,6 @@ reportUnknownVariableType = "warning"
 reportUnusedVariable = "warning"
 include = [
   "src",
-  "scripts",
   "tests",
 ]
 exclude = [
