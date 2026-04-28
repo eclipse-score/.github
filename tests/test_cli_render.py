@@ -66,7 +66,7 @@ def test_render_overview_writes_readme(tmp_path: Path) -> None:
 
 def test_render_details_writes_html(tmp_path: Path) -> None:
     snapshot_path = tmp_path / "repo_overview.json"
-    html_output = tmp_path / "index.html"
+    output_dir = tmp_path / "_site"
     write_snapshot(_make_snapshot(), snapshot_path)
 
     exit_code = cli.main(
@@ -75,12 +75,55 @@ def test_render_details_writes_html(tmp_path: Path) -> None:
             "--input",
             str(snapshot_path),
             "--output",
-            str(html_output),
+            str(output_dir),
         ]
     )
 
     assert exit_code == 0
-    assert html_output.exists()
-    content = html_output.read_text(encoding="utf-8")
+    index = output_dir / "index.html"
+    assert index.exists()
+    content = index.read_text(encoding="utf-8")
     assert "Cross-Repo Metrics" in content
     assert "<!DOCTYPE html>" in content
+
+
+def test_render_details_writes_repo_detail_pages(tmp_path: Path) -> None:
+    snapshot_path = tmp_path / "repo_overview.json"
+    output_dir = tmp_path / "_site"
+    write_snapshot(_make_snapshot(), snapshot_path)
+
+    cli.main(
+        [
+            "render-details",
+            "--input",
+            str(snapshot_path),
+            "--output",
+            str(output_dir),
+        ]
+    )
+
+    detail = output_dir / "tools" / "index.html"
+    assert detail.exists()
+    detail_content = detail.read_text(encoding="utf-8")
+    assert "tools" in detail_content
+    assert "../" in detail_content
+    assert "<!DOCTYPE html>" in detail_content
+
+
+def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:
+    snapshot_path = tmp_path / "repo_overview.json"
+    output_dir = tmp_path / "_site"
+    write_snapshot(_make_snapshot(), snapshot_path)
+
+    cli.main(
+        [
+            "render-details",
+            "--input",
+            str(snapshot_path),
+            "--output",
+            str(output_dir),
+        ]
+    )
+
+    index_content = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert 'href="tools/"' in index_content

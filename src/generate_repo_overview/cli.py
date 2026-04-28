@@ -14,7 +14,7 @@ from .constants import (
     DEFAULT_OUTPUT,
     DEFAULT_TOKEN_ENV,
 )
-from .metrics_html import render_metrics_html
+from .metrics_html import render_all_pages
 from .profile_readme import load_config, load_template, render_readme
 
 if TYPE_CHECKING:
@@ -120,7 +120,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=DEFAULT_METRICS_HTML_OUTPUT,
-        help="HTML file to write",
+        help="Output directory for HTML pages",
     )
 
     return parser
@@ -168,10 +168,14 @@ def run_render_overview(args: argparse.Namespace) -> int:
 
 def run_render_details(args: argparse.Namespace) -> int:
     snapshot = load_snapshot(args.input)
-    html_content = render_metrics_html(snapshot)
-    write_text_file(
-        path=args.output, content=html_content, status_prefix="repo-overview"
-    )
+    pages = render_all_pages(snapshot)
+    output_dir: Path = args.output
+    for relative_path, content in pages.items():
+        write_text_file(
+            path=output_dir / relative_path,
+            content=content,
+            status_prefix="repo-overview",
+        )
     return 0
 
 
