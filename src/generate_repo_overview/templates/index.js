@@ -1,15 +1,36 @@
-// Tab switching
-let activeTab = 'overview';
+// Tab switching with URL hash
+const TAB_IDS = ['overview', 'versions', 'automation', 'timeline'];
+
+function getHashTab() {
+  const h = location.hash.slice(1);
+  return TAB_IDS.includes(h) ? h : 'overview';
+}
+
+function applyVisibility() {
+  document.querySelectorAll('.section').forEach(s => {
+    const matchTab = s.dataset.tab === activeTab;
+    const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
+    s.classList.toggle('hidden', !(matchTab && matchCat));
+  });
+}
+
+function activateTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  applyVisibility();
+}
+
+let activeTab = getHashTab();
+activateTab(activeTab);
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    activeTab = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('.section').forEach(s => {
-      const matchTab = s.dataset.tab === activeTab;
-      const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
-      s.classList.toggle('hidden', !(matchTab && matchCat));
-    });
+    location.hash = btn.dataset.tab;
   });
+});
+
+window.addEventListener('hashchange', () => {
+  activateTab(getHashTab());
 });
 
 // Category filtering
@@ -25,11 +46,7 @@ function renderFilters() {
     btn.addEventListener('click', () => {
       activeCategory = btn.dataset.cat;
       renderFilters();
-      document.querySelectorAll('.section').forEach(s => {
-        const matchTab = s.dataset.tab === activeTab;
-        const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
-        s.classList.toggle('hidden', !(matchTab && matchCat));
-      });
+      applyVisibility();
     });
   });
 }

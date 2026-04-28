@@ -97,17 +97,31 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   max-width: 1400px;
   margin: 0 auto 1.2rem;
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
 }
 .tab-btn {
-  font-size: 0.82rem;
-  padding: 0.38rem 0.85rem;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  color: var(--muted);
+  transition: color .15s, background .15s;
+}
+.tab-btn:hover {
+  background: #ffffff08;
+  border-color: transparent;
+  border-bottom-color: var(--border);
+  color: var(--text);
 }
 .tab-btn.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: #58a6ff11;
+  color: var(--text);
+  background: transparent;
+  border-color: transparent;
+  border-bottom-color: var(--accent);
 }
 
 .section {
