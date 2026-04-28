@@ -126,7 +126,11 @@ def detect_top_languages(repository: Any, *, n: int = 3) -> tuple[str, ...]:
         return ()
     if not isinstance(langs, dict):
         return ()
-    sorted_langs = sorted(langs.items(), key=lambda x: x[1], reverse=True)
+    sorted_langs = sorted(
+        ((lang, count) for lang, count in langs.items() if isinstance(count, int)),
+        key=lambda x: x[1],
+        reverse=True,
+    )
     return tuple(lang for lang, _ in sorted_langs[:n] if isinstance(lang, str))
 
 
