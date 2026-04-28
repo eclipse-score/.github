@@ -274,6 +274,34 @@ footer {
 }
 .info-item { font-size: 0.85rem; }
 .info-label { color: var(--muted); font-size: 0.75rem; margin-bottom: 0.15rem; }
+
+.gh-count { text-decoration: none; }
+.gh-count:hover { text-decoration: none; opacity: 0.8; }
+
+th[data-tooltip] { cursor: help; }
+th[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c2129;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity .15s;
+}
+th[data-tooltip]:hover::after { opacity: 1; }
 """
 
 BAZEL_ICON = (
@@ -379,7 +407,8 @@ def _render_overview_sections(
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="merged" class="text-right" title="Pull requests merged in the last 30 days">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="issues" class="text-right" title="Open issues / open PRs (ready + draft)">Open Issues / PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="issues" class="text-right" data-tooltip="Open issues in this repository">Open Issues <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: ready + draft · red badge = more than 5 ready">Open PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="stars" class="text-right">Stars / Forks <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
@@ -405,12 +434,14 @@ def _repo_name_cell(entry: RepoEntry, org_name: str) -> str:
 
 def _overview_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = _repo_name_cell(entry, org_name)
+    repo_url = f"https://github.com/{org_name}/{entry.name}"
 
     merged = _render_merged_badge(entry.volatile.merged_prs_30_days)
-    issues_prs = _render_issues_prs(
-        entry.volatile.open_issues,
+    issues_cell = _render_issues_cell(entry.volatile.open_issues, repo_url)
+    prs_cell = _render_prs_cell(
         entry.volatile.open_ready_prs,
         entry.volatile.open_draft_prs,
+        repo_url,
     )
     release = _render_release(
         entry.volatile.latest_release_version,
@@ -423,7 +454,8 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
         f'      <td class="text-right">{merged}</td>\n'
-        f'      <td class="text-right">{issues_prs}</td>\n'
+        f'      <td class="text-right">{issues_cell}</td>\n'
+        f'      <td class="text-right">{prs_cell}</td>\n'
         f"      <td>{release}</td>\n"
         f'      <td class="text-right">{stars_forks}</td>\n'
         f"    </tr>"
@@ -436,11 +468,18 @@ def _render_merged_badge(count: int) -> str:
     return str(count)
 
 
-def _render_issues_prs(issues: int, ready_prs: int, draft_prs: int) -> str:
-    prs_part = f"{ready_prs}+{draft_prs}"
+def _render_issues_cell(issues: int, repo_url: str) -> str:
+    url = _e(f"{repo_url}/issues")
+    return f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{issues}</a>'
+
+
+def _render_prs_cell(ready_prs: int, draft_prs: int, repo_url: str) -> str:
+    url = _e(f"{repo_url}/pulls")
     if ready_prs > 5:
-        prs_part = f'<span class="badge red">{ready_prs}</span>+{draft_prs}'
-    return f"{issues} / {prs_part}"
+        content = f'<span class="badge red">{ready_prs}</span>+{draft_prs}'
+    else:
+        content = f"{ready_prs}+{draft_prs}"
+    return f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{content}</a>'
 
 
 def _render_release(version: str | None, commits_since: int | None) -> str:
