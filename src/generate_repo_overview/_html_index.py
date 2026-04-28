@@ -265,6 +265,7 @@ def _render_versions_sections(
             f'      <th data-sort="bazel" title="green = latest known version, red = outdated">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="dac" title="green = latest, yellow = same minor version, red = outdated">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="refint" class="text-center" title="Whether this repo is referenced by the shared reference integration">Reference Integration <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -328,12 +329,28 @@ def _versions_row(
         else "Not referenced by the shared reference integration"
     )
 
+    release = _render_release(
+        entry.volatile.latest_release_version,
+        entry.volatile.commits_since_latest_release,
+    )
+    ver = entry.volatile.latest_release_version
+    commits = entry.volatile.commits_since_latest_release
+    if ver is None:
+        release_tip = "No release tag found"
+    elif commits is None:
+        release_tip = str(ver)
+    elif commits == 0:
+        release_tip = f"{ver} — up to date, no commits since release"
+    else:
+        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} ahead of this release"
+
     return (
         f"    <tr>\n"
         f"      <td>{name_cell}</td>\n"
         f'      <td data-tooltip="{e(bazel_tip)}">{bazel_cell}</td>\n'
         f'      <td data-tooltip="{e(dac_tip)}">{dac_cell}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(refint_tip)}">{refint}</td>\n'
+        f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
         f"    </tr>"
     )
 
