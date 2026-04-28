@@ -208,14 +208,6 @@ a:hover { text-decoration: underline; }
 
 .presence { text-align: center; }
 
-.ownership-cell {
-  font-size: 0.72rem;
-  color: var(--muted);
-  max-width: 280px;
-  line-height: 1.5;
-}
-.ownership-label { color: var(--muted); font-weight: 500; }
-
 footer {
   max-width: 1400px;
   margin: 2.5rem auto 0;
@@ -225,7 +217,7 @@ footer {
   padding-top: 1rem;
 }
 
-.gh-link { color: var(--muted); margin-left: 0.3rem; vertical-align: middle; display: inline-flex; }
+.gh-link { color: var(--muted); margin-left: 0.3rem; vertical-align: middle; display: inline-flex; cursor: alias; }
 .gh-link:hover { color: var(--accent); text-decoration: none; }
 .gh-link svg { width: 13px; height: 13px; }
 
@@ -361,7 +353,7 @@ def _render_tab_bar() -> str:
         '<div class="tab-bar">\n'
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
-        '  <button class="tab-btn" data-tab="automation">Delivery &amp; Automation</button>\n'
+        '  <button class="tab-btn" data-tab="automation">Tech Stack</button>\n'
         "</div>\n\n"
     )
 
@@ -386,10 +378,9 @@ def _render_overview_sections(
             f"  <table>\n"
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="ownership">Ownership <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="merged" class="text-right">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="issues" class="text-right">Open Issues / PRs <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="release">Latest Release <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="merged" class="text-right" title="Pull requests merged in the last 30 days">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="issues" class="text-right" title="Open issues / open PRs (ready + draft)">Open Issues / PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="stars" class="text-right">Stars / Forks <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
@@ -406,7 +397,7 @@ def _repo_name_cell(entry: RepoEntry, org_name: str) -> str:
     if entry.content.is_bazel_repo:
         cell += f" {BAZEL_ICON}"
     cell += (
-        f' <a href="{_e(github_url)}" class="gh-link" title="View on GitHub"'
+        f' <a href="{_e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
         f' target="_blank" rel="noopener">{GITHUB_ICON}</a>'
     )
     return cell
@@ -415,7 +406,6 @@ def _repo_name_cell(entry: RepoEntry, org_name: str) -> str:
 def _overview_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = _repo_name_cell(entry, org_name)
 
-    ownership = _render_ownership(entry)
     merged = _render_merged_badge(entry.volatile.merged_prs_30_days)
     issues_prs = _render_issues_prs(
         entry.volatile.open_issues,
@@ -432,26 +422,12 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
         f'    <tr data-name="{_e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="ownership-cell">{ownership}</td>\n'
         f'      <td class="text-right">{merged}</td>\n'
         f'      <td class="text-right">{issues_prs}</td>\n'
         f"      <td>{release}</td>\n"
         f'      <td class="text-right">{stars_forks}</td>\n'
         f"    </tr>"
     )
-
-
-def _render_ownership(entry: RepoEntry) -> str:
-    parts: list[str] = []
-    if entry.content.codeowners:
-        handles = ", ".join(_e(h) for h in entry.content.codeowners)
-        parts.append(f'<span class="ownership-label">Codeowners:</span> {handles}')
-    if entry.content.is_bazel_repo and entry.registry.maintainers_in_bazel_registry:
-        handles = ", ".join(_e(h) for h in entry.registry.maintainers_in_bazel_registry)
-        parts.append(
-            f'<span class="ownership-label">Registry maintainers:</span> {handles}'
-        )
-    return "<br>".join(parts) if parts else '<span class="text-muted">—</span>'
 
 
 def _render_merged_badge(count: int) -> str:
@@ -504,9 +480,9 @@ def _render_versions_sections(
             f"  <table>\n"
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="bazel">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="dac">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="refint" class="text-center">Reference Integration <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="bazel" title="green = latest known version, red = outdated">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="dac" title="green = latest, yellow = same minor version, red = outdated">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="refint" class="text-center" title="Whether this repo is referenced by the shared reference integration">Reference Integration <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -596,12 +572,13 @@ def _render_automation_sections(
             f"  <table>\n"
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
-            f'      <th class="text-center">Gitlint</th>\n'
-            f'      <th class="text-center">Pyproject</th>\n'
-            f'      <th class="text-center">Pre-commit</th>\n'
-            f'      <th class="text-center">GitHub Actions</th>\n'
-            f'      <th class="text-center">Daily Workflow</th>\n'
-            f'      <th class="text-center">Coverage</th>\n'
+            f'      <th data-sort="bazel" class="text-center" title="Repository uses Bazel as its build system">Bazel <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="gitlint" class="text-center" title="Has a .gitlint configuration file">Gitlint <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="pyproject" class="text-center" title="Has a pyproject.toml (Python project metadata)">Pyproject <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="precommit" class="text-center" title="Has a .pre-commit-config.yaml">Pre-commit <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="ci" class="text-center" title="Has at least one CI workflow under .github/workflows/">GitHub Actions <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="daily" class="text-center" title="Has a scheduled daily CI/CD workflow">Daily Workflow <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="coverage" class="text-center" title="Has a coverage configuration (e.g. .coveragerc)">Coverage <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -626,6 +603,7 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
     return (
         f"    <tr>\n"
         f"      <td>{name_cell}</td>\n"
+        f'      <td class="text-center">{_yesno(entry.content.is_bazel_repo)}</td>\n'
         f'      <td class="text-center">{_presence(entry.content.has_gitlint_config, "\U0001f50d")}</td>\n'
         f'      <td class="text-center">{_presence(entry.content.has_pyproject_toml, "\U0001f40d")}</td>\n'
         f'      <td class="text-center">{_presence(entry.content.has_pre_commit_config, "\U0001fa9d")}</td>\n'
@@ -787,7 +765,7 @@ def _render_detail_hero(entry: RepoEntry, org_name: str) -> str:
         f"{_e(entry.name)}\n"
         "  </nav>\n"
         f"  <h1>{name_html}"
-        f' <a href="{_e(github_url)}" class="gh-link" title="View on GitHub"'
+        f' <a href="{_e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
         f' target="_blank" rel="noopener">{GITHUB_ICON}</a>'
         f"</h1>\n"
         f'  <p class="subtitle">{desc}</p>\n'
