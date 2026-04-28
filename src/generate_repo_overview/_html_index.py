@@ -177,11 +177,15 @@ def _render_merged_badge(count: int) -> str:
 
 
 def _render_issues_cell(issues: int, repo_url: str) -> str:
+    if issues == 0:
+        return '<span class="text-muted">—</span>'
     url = e(f"{repo_url}/issues")
     return f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{issues}</a>'
 
 
 def _render_prs_cell(ready_prs: int, draft_prs: int, repo_url: str) -> str:
+    if ready_prs == 0 and draft_prs == 0:
+        return '<span class="text-muted">—</span>'
     url = e(f"{repo_url}/pulls")
     if ready_prs > 5:
         content = f'<span class="badge red">{ready_prs}</span>+{draft_prs}'
