@@ -21,6 +21,7 @@ function activateTab(tab) {
 }
 
 let activeTab = getHashTab();
+let activeCategory = 'all';
 activateTab(activeTab);
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -34,7 +35,6 @@ window.addEventListener('hashchange', () => {
 });
 
 // Category filtering
-let activeCategory = 'all';
 // `categories` is injected by the preceding <script> block
 const filtersEl = document.getElementById('filters');
 function renderFilters() {
