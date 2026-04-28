@@ -150,6 +150,7 @@ td {
   padding: 0.5rem 0.8rem;
   border-bottom: 1px solid #21262d;
   vertical-align: middle;
+  position: relative;
 }
 tr:last-child td { border-bottom: none; }
 tr:hover td { background: #1c2129; }
@@ -261,27 +262,28 @@ footer {
 .gh-count { text-decoration: none; }
 .gh-count:hover { text-decoration: none; opacity: 0.8; }
 
-th[data-tooltip] { cursor: help; }
-th[data-tooltip]::after {
+th[data-tooltip], td[data-tooltip] { cursor: help; }
+th[data-tooltip]::after, td[data-tooltip]::after {
   content: attr(data-tooltip);
   position: absolute;
-  top: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
   background: #1c2129;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 10px;
   color: var(--text);
   font-size: 0.72rem;
   font-weight: 400;
   text-transform: none;
   letter-spacing: 0;
-  padding: 0.45rem 0.7rem;
+  padding: 0.5rem 0.85rem;
   white-space: nowrap;
   z-index: 100;
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.55);
   opacity: 0;
   transition: opacity .15s;
 }
-th[data-tooltip]:hover::after { opacity: 1; }
+th[data-tooltip]::after { top: calc(100% + 6px); }
+td[data-tooltip]::after { bottom: calc(100% + 6px); }
+th[data-tooltip]:hover::after, td[data-tooltip]:hover::after { opacity: 1; }

@@ -10,6 +10,7 @@ from .metrics_report import (
     get_max_bazel_version,
     group_repos_by_category,
     has_latest_release,
+    parse_version_key,
 )
 
 if TYPE_CHECKING:
@@ -127,15 +128,44 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
     )
     stars_forks = f"{entry.stars} / {entry.forks}"
 
+    cnt = entry.volatile.merged_prs_30_days
+    if cnt == 0:
+        merged_tip = "No pull requests merged in the last 30 days"
+    elif cnt >= 10:
+        merged_tip = f"\U0001f525 {cnt} PRs merged — very active!"
+    else:
+        merged_tip = f"{cnt} pull request{'s' if cnt != 1 else ''} merged in the last 30 days"
+
+    n = entry.volatile.open_issues
+    issues_tip = f"{n} open issue{'s' if n != 1 else ''} in this repository"
+
+    ready = entry.volatile.open_ready_prs
+    draft = entry.volatile.open_draft_prs
+    total_prs = ready + draft
+    prs_tip = f"{ready} ready + {draft} draft — {total_prs} open pull request{'s' if total_prs != 1 else ''}"
+
+    ver = entry.volatile.latest_release_version
+    commits = entry.volatile.commits_since_latest_release
+    if ver is None:
+        release_tip = "No release tag found"
+    elif commits is None:
+        release_tip = str(ver)
+    elif commits == 0:
+        release_tip = f"{ver} — up to date, no commits since release"
+    else:
+        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} ahead of this release"
+
+    stars_tip = f"{entry.stars} star{'s' if entry.stars != 1 else ''} · {entry.forks} fork{'s' if entry.forks != 1 else ''}"
+
     return (
         f'    <tr data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-right">{merged}</td>\n'
-        f'      <td class="text-right">{issues_cell}</td>\n'
-        f'      <td class="text-right">{prs_cell}</td>\n'
-        f"      <td>{release}</td>\n"
-        f'      <td class="text-right">{stars_forks}</td>\n'
+        f'      <td class="text-right" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
+        f'      <td class="text-right" data-tooltip="{e(issues_tip)}">{issues_cell}</td>\n'
+        f'      <td class="text-right" data-tooltip="{e(prs_tip)}">{prs_cell}</td>\n'
+        f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
+        f'      <td class="text-right" data-tooltip="{e(stars_tip)}">{stars_forks}</td>\n'
         f"    </tr>"
     )
 
@@ -228,12 +258,47 @@ def _versions_row(
         else '<span class="text-muted">no</span>'
     )
 
+    bver = entry.content.bazel_version
+    if not bver or not bver.strip():
+        bazel_tip = "No Bazel build files detected"
+    else:
+        bc = bver.strip()
+        parsed = parse_version_key(bc)
+        if parsed is not None and max_bazel is not None and parsed == max_bazel:
+            bazel_tip = f"Bazel {bc} — up to date (latest known)"
+        else:
+            max_str = ".".join(str(x) for x in max_bazel) if max_bazel else "unknown"
+            bazel_tip = f"Bazel {bc} — outdated, latest known: {max_str}"
+
+    dver = entry.content.docs_as_code_version
+    if not dver or not dver.strip():
+        dac_tip = "Docs-As-Code not used in this repo"
+    else:
+        dc = dver.strip()
+        if latest_dac is None:
+            dac_tip = f"Docs-As-Code {dc}"
+        elif dc == latest_dac.strip():
+            dac_tip = f"Docs-As-Code {dc} — up to date"
+        else:
+            dp = parse_version_key(dc)
+            lp = parse_version_key(latest_dac.strip())
+            if dp and lp and len(dp) >= 2 and len(lp) >= 2 and dp[:2] == lp[:2]:
+                dac_tip = f"Docs-As-Code {dc} — patch update available: {latest_dac}"
+            else:
+                dac_tip = f"Docs-As-Code {dc} — outdated, latest: {latest_dac}"
+
+    refint_tip = (
+        "Referenced by the shared reference integration"
+        if entry.content.referenced_by_reference_integration
+        else "Not referenced by the shared reference integration"
+    )
+
     return (
         f"    <tr>\n"
         f"      <td>{name_cell}</td>\n"
-        f"      <td>{bazel_cell}</td>\n"
-        f"      <td>{dac_cell}</td>\n"
-        f'      <td class="text-center">{refint}</td>\n'
+        f'      <td data-tooltip="{e(bazel_tip)}">{bazel_cell}</td>\n'
+        f'      <td data-tooltip="{e(dac_tip)}">{dac_cell}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(refint_tip)}">{refint}</td>\n'
         f"    </tr>"
     )
 
@@ -271,6 +336,7 @@ def _render_automation_sections(
 
 def _automation_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = repo_name_cell(entry, org_name)
+    c = entry.content
 
     def _presence(val: bool, icon: str) -> str:
         if val:
@@ -282,16 +348,26 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
             return '<span class="badge green">yes</span>'
         return '<span class="text-muted">no</span>'
 
+    tips = {
+        "bazel": "Uses Bazel as the build system" if c.is_bazel_repo else "Does not use Bazel",
+        "gitlint": "Has a .gitlint config for commit message checks" if c.has_gitlint_config else "No .gitlint config",
+        "pyproject": "Has a pyproject.toml (Python project metadata)" if c.has_pyproject_toml else "No pyproject.toml",
+        "precommit": "Has .pre-commit-config.yaml — hooks run before each commit" if c.has_pre_commit_config else "No pre-commit hooks configured",
+        "ci": "Has CI/CD workflows in .github/workflows/" if c.has_ci else "No GitHub Actions workflows",
+        "daily": "Has a scheduled daily CI/CD workflow" if c.uses_cicd_daily_workflow else "No scheduled daily workflow",
+        "coverage": "Has a code coverage configuration (e.g. .coveragerc)" if c.has_coverage_config else "No coverage config",
+    }
+
     return (
         f"    <tr>\n"
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-center">{_yesno(entry.content.is_bazel_repo)}</td>\n'
-        f'      <td class="text-center">{_presence(entry.content.has_gitlint_config, "\U0001f50d")}</td>\n'
-        f'      <td class="text-center">{_presence(entry.content.has_pyproject_toml, "\U0001f40d")}</td>\n'
-        f'      <td class="text-center">{_presence(entry.content.has_pre_commit_config, "\U0001fa9d")}</td>\n'
-        f'      <td class="text-center">{_presence(entry.content.has_ci, "⚙️")}</td>\n'
-        f'      <td class="text-center">{_yesno(entry.content.uses_cicd_daily_workflow)}</td>\n'
-        f'      <td class="text-center">{_yesno(entry.content.has_coverage_config)}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_yesno(c.is_bazel_repo)}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["ci"])}">{_presence(c.has_ci, "⚙️")}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["daily"])}">{_yesno(c.uses_cicd_daily_workflow)}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
         f"    </tr>"
     )
 
