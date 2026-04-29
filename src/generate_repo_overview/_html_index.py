@@ -25,7 +25,9 @@ from .metrics_report import (
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot
 
-_INDEX_JS = (Path(__file__).parent / "templates" / "index.js").read_text(encoding="utf-8")
+_INDEX_JS = (Path(__file__).parent / "templates" / "index.js").read_text(
+    encoding="utf-8"
+)
 
 
 def render_index_page(snapshot: RepoSnapshot) -> str:
@@ -165,7 +167,9 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
     elif cnt >= 10:
         merged_tip = f"\U0001f525 {cnt} PRs merged — very active!"
     else:
-        merged_tip = f"{cnt} pull request{'s' if cnt != 1 else ''} merged in the last 30 days"
+        merged_tip = (
+            f"{cnt} pull request{'s' if cnt != 1 else ''} merged in the last 30 days"
+        )
 
     n = entry.volatile.open_issues
     issues_tip = f"{n} open issue{'s' if n != 1 else ''} in this repository"
@@ -211,7 +215,9 @@ def _render_issues_cell(issues: int, repo_url: str) -> str:
     if issues == 0:
         return '<span class="text-muted">—</span>'
     url = e(f"{repo_url}/issues")
-    return f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{issues}</a>'
+    return (
+        f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{issues}</a>'
+    )
 
 
 def _render_prs_cell(ready_prs: int, draft_prs: int, repo_url: str) -> str:
@@ -222,7 +228,9 @@ def _render_prs_cell(ready_prs: int, draft_prs: int, repo_url: str) -> str:
         content = f'<span class="badge red">{ready_prs}</span>+{draft_prs}'
     else:
         content = f"{ready_prs}+{draft_prs}"
-    return f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{content}</a>'
+    return (
+        f'<a href="{url}" class="gh-count" target="_blank" rel="noopener">{content}</a>'
+    )
 
 
 def _render_release(version: str | None, commits_since: int | None) -> str:
@@ -242,6 +250,96 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
 
 
 _DAC_DEP_NAME = "score_docs_as_code"
+
+
+def _build_version_tooltip(
+    *,
+    dependency_version_as_used_on_main_branch: str | None,
+    latest_available_dependency_version: str | None,
+    dependency_version_as_used_in_last_release: str | None,
+    component_name: str,
+    last_release_tag: str | None = None,
+) -> str:
+    """Build a human-readable tooltip for version comparison.
+
+    Generic function to compare a component's current version (on main) with the
+    latest available version and what was used in the last release.
+
+    Args:
+        dependency_version_as_used_on_main_branch: Version currently in use on main branch
+        latest_available_dependency_version: Latest available version globally
+        dependency_version_as_used_in_last_release: Version used in the most recent release
+        component_name: Human-readable component name (e.g., "Bazel", "Docs-As-Code")
+        last_release_tag: Optional release tag for "was X at <tag>" suffix
+
+    Returns:
+        Human-readable tooltip text
+    """
+    if dependency_version_as_used_on_main_branch is not None:
+        assert (
+            dependency_version_as_used_on_main_branch
+            == dependency_version_as_used_on_main_branch.strip()
+        )
+    if latest_available_dependency_version is not None:
+        assert (
+            latest_available_dependency_version
+            == latest_available_dependency_version.strip()
+        )
+
+    # Handle component not in use
+    if not dependency_version_as_used_on_main_branch:
+        if dependency_version_as_used_in_last_release:
+            return (
+                f"{component_name}: not used (removed on main branch since last release)"
+            )
+        else:
+            return f"{component_name}: not used"
+
+    # Handle missing latest version (no comparison possible)
+    if latest_available_dependency_version is None:
+        return f"{component_name}: {dependency_version_as_used_on_main_branch}"
+
+    # Prepend release version history if it differs from current
+    if (
+        dependency_version_as_used_in_last_release
+        and dependency_version_as_used_on_main_branch
+        and last_release_tag
+        and dependency_version_as_used_in_last_release
+        != dependency_version_as_used_on_main_branch
+    ):
+        release_tag_str = f" at {last_release_tag}" if last_release_tag else ""
+        released_prefix = (
+            f"{dependency_version_as_used_in_last_release}{release_tag_str} → "
+        )
+    else:
+        released_prefix = ""
+
+    # Print current
+    tip = f"{component_name}: {released_prefix} {dependency_version_as_used_on_main_branch}"
+
+    if released_prefix:
+        tip += " on main branch"
+
+    # Check if already up to date
+    if dependency_version_as_used_on_main_branch == latest_available_dependency_version:
+        tip += " (up to date)"
+    else:
+        # Check if it's just a patch update (same major.minor version)
+        current_parts = parse_version_key(dependency_version_as_used_on_main_branch)
+        latest_parts = parse_version_key(latest_available_dependency_version)
+        is_patch_only = (
+            current_parts
+            and latest_parts
+            and len(current_parts) >= 2
+            and len(latest_parts) >= 2
+            and current_parts[:2] == latest_parts[:2]
+        )
+        if is_patch_only:
+            tip += f" (patch update available to {latest_available_dependency_version})"
+        else:
+            tip += f" (update available to {latest_available_dependency_version})"
+
+    return tip
 
 
 def _render_dep_changes(
@@ -300,7 +398,7 @@ def _render_versions_sections(
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="bazel" title="green = latest known version, red = outdated">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="dac" title="green = latest, yellow = same minor version, red = outdated">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="dac" title="green = up to date, yellow = patch update available, red = major/minor update available">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="refint" class="text-center" title="Whether this repo is referenced by the shared reference integration">Reference Integration <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="depchanges" title="Other MODULE.bazel dep changes between HEAD and latest release (Bazel tool version and score_docs_as_code shown in their own columns)">Other Dep Changes <span class="sort-arrow"></span></th>\n'
@@ -325,7 +423,9 @@ def _versions_row(
     )
     release_bazel = entry.volatile.release_bazel_version
     if release_bazel and release_bazel != entry.content.bazel_version:
-        bazel_cell = f'<span class="mono text-muted">{e(release_bazel)}</span> → {bazel_cell}'
+        bazel_cell = (
+            f'<span class="mono text-muted">{e(release_bazel)}</span> → {bazel_cell}'
+        )
 
     release_deps = dict(entry.volatile.release_bazel_deps)
     release_dac = release_deps.get(_DAC_DEP_NAME)
@@ -343,38 +443,24 @@ def _versions_row(
         else '<span class="text-muted">no</span>'
     )
 
-    bver = entry.content.bazel_version
-    if not bver or not bver.strip():
-        bazel_tip = "No Bazel build files detected"
-    else:
-        bc = bver.strip()
-        parsed = parse_version_key(bc)
-        if parsed is not None and max_bazel is not None and parsed == max_bazel:
-            bazel_tip = f"Bazel {bc} — up to date (latest known)"
-        else:
-            max_str = ".".join(str(x) for x in max_bazel) if max_bazel else "unknown"
-            bazel_tip = f"Bazel {bc} — outdated, latest known: {max_str}"
-    if release_bazel and release_bazel != bver:
-        bazel_tip += f"; was {release_bazel} at {entry.volatile.latest_release_version}"
+    # Format latest Bazel version as string for generic comparison
+    max_bazel_str = ".".join(str(x) for x in max_bazel) if max_bazel else None
+    bazel_tip = _build_version_tooltip(
+        dependency_version_as_used_on_main_branch=entry.content.bazel_version,
+        latest_available_dependency_version=max_bazel_str,
+        dependency_version_as_used_in_last_release=release_bazel,
+        component_name="Bazel",
+        last_release_tag=entry.volatile.latest_release_version,
+    )
 
-    dver = entry.content.docs_as_code_version
-    if not dver or not dver.strip():
-        dac_tip = "Docs-As-Code not used in this repo"
-    else:
-        dc = dver.strip()
-        if latest_dac is None:
-            dac_tip = f"Docs-As-Code {dc}"
-        elif dc == latest_dac.strip():
-            dac_tip = f"Docs-As-Code {dc} — up to date"
-        else:
-            dp = parse_version_key(dc)
-            lp = parse_version_key(latest_dac.strip())
-            if dp and lp and len(dp) >= 2 and len(lp) >= 2 and dp[:2] == lp[:2]:
-                dac_tip = f"Docs-As-Code {dc} — patch update available: {latest_dac}"
-            else:
-                dac_tip = f"Docs-As-Code {dc} — outdated, latest: {latest_dac}"
-    if release_dac and release_dac != dver:
-        dac_tip += f"; was {release_dac} at {entry.volatile.latest_release_version}"
+    # Generate Docs-As-Code version comparison tooltip
+    dac_tip = _build_version_tooltip(
+        dependency_version_as_used_on_main_branch=entry.content.docs_as_code_version,
+        latest_available_dependency_version=latest_dac,
+        dependency_version_as_used_in_last_release=release_dac,
+        component_name="Docs-As-Code",
+        last_release_tag=entry.volatile.latest_release_version,
+    )
 
     refint_tip = (
         "Referenced by the shared reference integration"
@@ -458,13 +544,27 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
         return '<span class="text-muted">no</span>'
 
     tips = {
-        "bazel": "Uses Bazel as the build system" if c.is_bazel_repo else "Does not use Bazel",
-        "gitlint": "Has a .gitlint config for commit message checks" if c.has_gitlint_config else "No .gitlint config",
-        "pyproject": "Has a pyproject.toml (Python project metadata)" if c.has_pyproject_toml else "No pyproject.toml",
-        "precommit": "Has .pre-commit-config.yaml — hooks run before each commit" if c.has_pre_commit_config else "No pre-commit hooks configured",
-        "ci": "Has CI/CD workflows in .github/workflows/" if c.has_ci else "No GitHub Actions workflows",
-        "daily": "Has a scheduled daily CI/CD workflow" if c.uses_cicd_daily_workflow else "No scheduled daily workflow",
-        "coverage": "Has a code coverage configuration (e.g. .coveragerc)" if c.has_coverage_config else "No coverage config",
+        "bazel": "Uses Bazel as the build system"
+        if c.is_bazel_repo
+        else "Does not use Bazel",
+        "gitlint": "Has a .gitlint config for commit message checks"
+        if c.has_gitlint_config
+        else "No .gitlint config",
+        "pyproject": "Has a pyproject.toml (Python project metadata)"
+        if c.has_pyproject_toml
+        else "No pyproject.toml",
+        "precommit": "Has .pre-commit-config.yaml — hooks run before each commit"
+        if c.has_pre_commit_config
+        else "No pre-commit hooks configured",
+        "ci": "Has CI/CD workflows in .github/workflows/"
+        if c.has_ci
+        else "No GitHub Actions workflows",
+        "daily": "Has a scheduled daily CI/CD workflow"
+        if c.uses_cicd_daily_workflow
+        else "No scheduled daily workflow",
+        "coverage": "Has a code coverage configuration (e.g. .coveragerc)"
+        if c.has_coverage_config
+        else "No coverage config",
     }
 
     langs = entry.content.top_languages
@@ -545,14 +645,18 @@ def _render_timeline_section(repos: list[RepoEntry], org_name: str) -> str:
 
     recent_count = sum(1 for _, d in with_release if (today - d).days <= 30)
     unreleased_count = len(without_release)
-    summary = f"{recent_count} release{'s' if recent_count != 1 else ''} in the last 30 days"
+    summary = (
+        f"{recent_count} release{'s' if recent_count != 1 else ''} in the last 30 days"
+    )
     if unreleased_count:
         summary += f" · {unreleased_count} repo{'s' if unreleased_count != 1 else ''} with no release"
 
     tier_html = _build_timeline_tier_html(with_release, org_name, today)
 
     if without_release:
-        unreleased_rows = "".join(_timeline_row_unreleased(r, org_name) for r in without_release)
+        unreleased_rows = "".join(
+            _timeline_row_unreleased(r, org_name) for r in without_release
+        )
         tier_html += (
             '  <tr class="tier-header"><td colspan="4">No release</td></tr>\n'
             + unreleased_rows
