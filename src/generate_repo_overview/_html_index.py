@@ -244,7 +244,9 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
 _DAC_DEP_NAME = "score_docs_as_code"
 
 
-def _render_dep_changes(entry: RepoEntry) -> tuple[str, str]:
+def _render_dep_changes(
+    entry: RepoEntry, excluded_deps: frozenset[str] = frozenset()
+) -> tuple[str, str]:
     """Return (cell_html, tooltip) for the Other Dep Changes column."""
     if entry.volatile.latest_release_version is None:
         return '<span class="text-muted">—</span>', "No release"
@@ -255,7 +257,7 @@ def _render_dep_changes(entry: RepoEntry) -> tuple[str, str]:
     changes: list[str] = []
     all_names = sorted(set(head_deps) | set(release_deps))
     for name in all_names:
-        if name == _DAC_DEP_NAME:
+        if name in excluded_deps:
             continue
         hv = head_deps.get(name)
         rv = release_deps.get(name)
@@ -325,12 +327,16 @@ def _versions_row(
     if release_bazel and release_bazel != entry.content.bazel_version:
         bazel_cell = f'<span class="mono text-muted">{e(release_bazel)}</span> → {bazel_cell}'
 
-    release_dac = dict(entry.volatile.release_bazel_deps).get(_DAC_DEP_NAME)
+    release_deps = dict(entry.volatile.release_bazel_deps)
+    release_dac = release_deps.get(_DAC_DEP_NAME)
     dac_cell = version_badge(
         entry.content.docs_as_code_version, None, latest_dac=latest_dac, is_bazel=False
     )
     if release_dac and release_dac != entry.content.docs_as_code_version:
         dac_cell = f'<span class="mono text-muted">{e(release_dac)}</span> → {dac_cell}'
+
+    # Deps rendered in their own column — excluded from "Other Dep Changes"
+    dedicated_deps = frozenset({_DAC_DEP_NAME})
     refint = (
         '<span class="badge green">yes</span>'
         if entry.content.referenced_by_reference_integration
@@ -391,7 +397,7 @@ def _versions_row(
     else:
         release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} ahead of this release"
 
-    dep_changes_cell, dep_changes_tip = _render_dep_changes(entry)
+    dep_changes_cell, dep_changes_tip = _render_dep_changes(entry, dedicated_deps)
 
     return (
         f"    <tr>\n"
