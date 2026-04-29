@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 13
+SNAPSHOT_SCHEMA_VERSION = 14
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +28,7 @@ class DeepContentSignals:
     uses_cicd_daily_workflow: bool = False
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
+    bazel_deps: tuple[tuple[str, str], ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
@@ -47,6 +48,7 @@ class DeepContentSignals:
             uses_cicd_daily_workflow=bool(data.get("uses_cicd_daily_workflow", False)),
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
+            bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
         )
 
 
@@ -83,6 +85,8 @@ class VolatileMetricsSnapshot:
     latest_release_version: str | None = None
     latest_release_date: str | None = None
     commits_since_latest_release: int | None = None
+    release_bazel_version: str | None = None
+    release_bazel_deps: tuple[tuple[str, str], ...] = ()
     volatile_metrics_fetched_at: str | None = None
 
     @classmethod
@@ -102,6 +106,11 @@ class VolatileMetricsSnapshot:
                 "int | None",
                 data.get("commits_since_latest_release"),
             ),
+            release_bazel_version=cast(
+                "str | None",
+                data.get("release_bazel_version"),
+            ),
+            release_bazel_deps=normalize_string_pairs(data.get("release_bazel_deps")),
             volatile_metrics_fetched_at=cast(
                 "str | None",
                 data.get("volatile_metrics_fetched_at"),
@@ -223,6 +232,21 @@ class RepoSnapshot:
 
 
 CustomPropertyValue = str | list[str] | None
+
+
+def normalize_string_pairs(value: object) -> tuple[tuple[str, str], ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    items = cast("list[object]", list(value))
+    result: list[tuple[str, str]] = []
+    for raw in items:
+        pair = cast("list[object]", list(raw)) if isinstance(raw, (list, tuple)) else None
+        if pair is None or len(pair) != 2:
+            continue
+        name, ver = pair[0], pair[1]
+        if isinstance(name, str) and isinstance(ver, str):
+            result.append((name, ver))
+    return tuple(result)
 
 
 def normalize_string_tuple(value: object) -> tuple[str, ...]:

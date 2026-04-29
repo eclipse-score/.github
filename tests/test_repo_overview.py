@@ -184,7 +184,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
     finally:
         collector.fetch_active_repositories = original_fetch_active_repositories
 
-    assert fake_repo.tree_calls == 0
+    assert fake_repo.tree_calls == 1
     assert len(repos) == 1
     entry = repos[0]
     assert entry.name == "tools"
@@ -474,7 +474,7 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
         reuse_cached_entry_when_unchanged=True,
     )
 
-    assert repo.tree_calls == 0
+    assert repo.tree_calls == 1
     assert entry.content.is_bazel_repo is True
     assert entry.volatile.open_prs == 2
     assert entry.volatile.open_ready_prs == 1
@@ -592,6 +592,8 @@ def test_get_latest_release_details_returns_none_when_release_lookup_is_lazy() -
         "version": None,
         "date": None,
         "commits_since_release": None,
+        "release_bazel_version": None,
+        "release_bazel_deps": (),
     }
 
 

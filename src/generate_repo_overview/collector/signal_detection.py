@@ -19,6 +19,7 @@ class DeepContentPayload(TypedDict):
     uses_cicd_daily_workflow: bool
     has_coverage_config: bool
     top_languages: tuple[str, ...]
+    bazel_deps: tuple[tuple[str, str], ...]
 
 
 GITLINT_PATHS = (".gitlint",)
@@ -75,6 +76,11 @@ def inspect_repository_content_slow(
             ref=ref,
             module_name="score_docs_as_code",
         ),
+        "bazel_deps": detect_all_bazel_deps(
+            repository,
+            tree_paths=tree_paths,
+            ref=ref,
+        ),
         "referenced_by_reference_integration": False,
         "has_gitlint_config": any(
             tree_contains_path(tree_paths, path) for path in GITLINT_PATHS
@@ -107,6 +113,7 @@ def default_content_signals() -> DeepContentPayload:
         "bazel_version": None,
         "codeowners": (),
         "docs_as_code_version": None,
+        "bazel_deps": (),
         "referenced_by_reference_integration": False,
         "has_gitlint_config": False,
         "has_pyproject_toml": False,
@@ -199,6 +206,20 @@ def detect_dependency_version(
     return None
 
 
+def detect_all_bazel_deps(
+    repository: Any,
+    *,
+    tree_paths: set[str],
+    ref: str | None,
+) -> tuple[tuple[str, str], ...]:
+    for candidate in MODULE_PATHS:
+        if not tree_contains_path(tree_paths, candidate):
+            continue
+        content = fetch_text_file(repository, candidate, ref=ref)
+        return get_all_bazel_dep_versions(content)
+    return ()
+
+
 def detect_codeowners(
     repository: Any,
     *,
@@ -281,6 +302,30 @@ def get_bazel_dep_version(text: str | None, *, module_name: str) -> str | None:
 
     version = version_match.group("version").strip()
     return version or None
+
+
+def get_all_bazel_dep_versions(text: str | None) -> tuple[tuple[str, str], ...]:
+    if not text:
+        return ()
+
+    name_pattern = re.compile(r'\bname\s*=\s*"(?P<name>[^"]+)"')
+    bazel_dep_re = re.compile(
+        r'\bbazel_dep\s*\((?P<body>.*?)\)',
+        re.DOTALL,
+    )
+    result: list[tuple[str, str]] = []
+    for match in bazel_dep_re.finditer(text):
+        body = match.group("body")
+        name_match = name_pattern.search(body)
+        version_match = VERSION_PATTERN.search(body)
+        if name_match is None or version_match is None:
+            continue
+        name = name_match.group("name").strip()
+        version = version_match.group("version").strip()
+        if name and version:
+            result.append((name, version))
+
+    return tuple(sorted(result, key=lambda x: x[0]))
 
 
 def uses_cicd_daily_workflow(

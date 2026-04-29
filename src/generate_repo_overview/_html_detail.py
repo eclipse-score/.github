@@ -26,6 +26,7 @@ def render_detail_page(
         + _render_hero(entry, org_name)
         + _render_stat_grid(entry)
         + _render_release_section(entry)
+        + _render_dep_diff_section(entry)
         + _render_tooling_section(entry)
         + _render_ownership_section(entry)
         + _render_versions_section(entry, max_bazel, latest_dac)
@@ -132,6 +133,102 @@ def _render_release_section(entry: RepoEntry) -> str:
         f'  <div class="detail-body"><div class="info-grid">{"".join(items)}</div></div>\n'
         "</section>\n\n"
     )
+
+
+def _render_dep_diff_section(entry: RepoEntry) -> str:
+    v = entry.volatile
+    if v.latest_release_version is None:
+        return ""
+
+    head_deps = dict(entry.content.bazel_deps)
+    release_deps = dict(v.release_bazel_deps)
+
+    all_names = sorted(set(head_deps) | set(release_deps))
+
+    head_bazel = entry.content.bazel_version
+    release_bazel = v.release_bazel_version
+
+    rows: list[str] = []
+
+    bazel_status, bazel_class = _dep_diff_status(head_bazel, release_bazel)
+    rows.append(
+        f"      <tr>\n"
+        f"        <td><span class='mono'>Bazel</span></td>\n"
+        f"        <td><span class='mono'>{e(head_bazel) if head_bazel else '<span class=\"text-muted\">—</span>'}</span></td>\n"
+        f"        <td><span class='mono'>{e(release_bazel) if release_bazel else '<span class=\"text-muted\">—</span>'}</span></td>\n"
+        f"        <td>{_dep_status_badge(bazel_status, bazel_class)}</td>\n"
+        f"      </tr>"
+    )
+
+    for name in all_names:
+        head_ver = head_deps.get(name)
+        rel_ver = release_deps.get(name)
+        status, css_class = _dep_diff_status(head_ver, rel_ver)
+        rows.append(
+            f"      <tr>\n"
+            f"        <td><span class='mono'>{e(name)}</span></td>\n"
+            f"        <td><span class='mono'>{e(head_ver) if head_ver else '<span class=\"text-muted\">—</span>'}</span></td>\n"
+            f"        <td><span class='mono'>{e(rel_ver) if rel_ver else '<span class=\"text-muted\">—</span>'}</span></td>\n"
+            f"        <td>{_dep_status_badge(status, css_class)}</td>\n"
+            f"      </tr>"
+        )
+
+    changed_count = sum(
+        1
+        for r in rows
+        if "badge yellow" in r or "badge green" in r or "badge red" in r
+    )
+
+    if changed_count == 0 and v.commits_since_latest_release:
+        summary = (
+            f'<p class="text-muted" style="margin:0 0 0.5rem">No dependency changes since '
+            f"{e(v.latest_release_version)}.</p>"
+        )
+    else:
+        summary = ""
+
+    release_label = e(v.latest_release_version)
+    table = (
+        f"  <table>\n"
+        f"    <thead><tr>\n"
+        f"      <th>Dependency</th>\n"
+        f"      <th>HEAD</th>\n"
+        f"      <th>Release ({release_label})</th>\n"
+        f"      <th>Status</th>\n"
+        f"    </tr></thead>\n"
+        f"    <tbody>\n"
+        + "\n".join(rows)
+        + "\n    </tbody>\n  </table>"
+    )
+
+    return (
+        '<section class="detail-section">\n'
+        '  <div class="section-header">'
+        '<span class="section-title">Dependencies: HEAD vs. Release</span>'
+        "</div>\n"
+        f"  <div class=\"detail-body\">{summary}{table}</div>\n"
+        "</section>\n\n"
+    )
+
+
+def _dep_diff_status(
+    head: str | None, release: str | None
+) -> tuple[str, str]:
+    if head is None and release is None:
+        return "—", "muted"
+    if release is None:
+        return "added", "green"
+    if head is None:
+        return "removed", "red"
+    if head == release:
+        return "—", "muted"
+    return "changed", "yellow"
+
+
+def _dep_status_badge(status: str, css_class: str) -> str:
+    if status == "—":
+        return '<span class="text-muted">—</span>'
+    return f'<span class="badge {css_class}">{e(status)}</span>'
 
 
 def _render_tooling_section(entry: RepoEntry) -> str:

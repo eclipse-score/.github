@@ -241,6 +241,41 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
     )
 
 
+def _render_dep_changes(entry: RepoEntry) -> tuple[str, str]:
+    """Return (cell_html, tooltip) for the Dep Changes column."""
+    if entry.volatile.latest_release_version is None:
+        return '<span class="text-muted">—</span>', "No release"
+
+    head_bazel = entry.content.bazel_version
+    release_bazel = entry.volatile.release_bazel_version
+    head_deps = dict(entry.content.bazel_deps)
+    release_deps = dict(entry.volatile.release_bazel_deps)
+
+    changes: list[str] = []
+    if head_bazel != release_bazel:
+        changes.append(f"Bazel: {release_bazel or '—'} → {head_bazel or '—'}")
+
+    all_names = sorted(set(head_deps) | set(release_deps))
+    for name in all_names:
+        hv = head_deps.get(name)
+        rv = release_deps.get(name)
+        if hv != rv:
+            changes.append(f"{name}: {rv or '—'} → {hv or '—'}")
+
+    count = len(changes)
+    if count == 0:
+        tip = f"No dependency changes since {entry.volatile.latest_release_version}"
+        cell = '<span class="badge green">no changes</span>'
+        return cell, tip
+
+    badge_class = "yellow" if count <= 5 else "red"
+    cell = f'<span class="badge {badge_class}">{count} changed</span>'
+    tip = "; ".join(changes[:8])
+    if len(changes) > 8:
+        tip += f" (+{len(changes) - 8} more)"
+    return cell, tip
+
+
 def _render_versions_sections(
     categories: list[tuple[str, list[RepoEntry]]],
     repos: list[RepoEntry],
@@ -266,6 +301,7 @@ def _render_versions_sections(
             f'      <th data-sort="dac" title="green = latest, yellow = same minor version, red = outdated">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="refint" class="text-center" title="Whether this repo is referenced by the shared reference integration">Reference Integration <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="depchanges" title="Number of dependency changes (Bazel + MODULE.bazel deps) between HEAD and latest release">Dep Changes <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -344,6 +380,8 @@ def _versions_row(
     else:
         release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} ahead of this release"
 
+    dep_changes_cell, dep_changes_tip = _render_dep_changes(entry)
+
     return (
         f"    <tr>\n"
         f"      <td>{name_cell}</td>\n"
@@ -351,6 +389,7 @@ def _versions_row(
         f'      <td data-tooltip="{e(dac_tip)}">{dac_cell}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(refint_tip)}">{refint}</td>\n'
         f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
+        f'      <td data-tooltip="{e(dep_changes_tip)}">{dep_changes_cell}</td>\n'
         f"    </tr>"
     )
 

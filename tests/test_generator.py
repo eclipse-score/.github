@@ -122,6 +122,8 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
             "latest_release_version": None,
             "latest_release_date": None,
             "commits_since_latest_release": None,
+            "release_bazel_version": None,
+            "release_bazel_deps": (),
         },
     )
 

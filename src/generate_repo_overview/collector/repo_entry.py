@@ -15,7 +15,13 @@ from generate_repo_overview.models import (
     VolatileMetricsSnapshot,
 )
 
-from .signal_detection import DeepContentPayload, inspect_repository_content_slow
+from .signal_detection import (
+    DeepContentPayload,
+    detect_all_bazel_deps,
+    detect_bazel_version,
+    fetch_repository_tree_paths,
+    inspect_repository_content_slow,
+)
 
 if TYPE_CHECKING:
     from .registry_metadata import RegistrySignalsPayload
@@ -31,6 +37,8 @@ class LatestReleaseDetails(TypedDict):
     version: str | None
     date: str | None
     commits_since_release: int | None
+    release_bazel_version: str | None
+    release_bazel_deps: tuple[tuple[str, str], ...]
 
 
 class VolatileMetricsPayload(TypedDict):
@@ -43,6 +51,8 @@ class VolatileMetricsPayload(TypedDict):
     latest_release_version: str | None
     latest_release_date: str | None
     commits_since_latest_release: int | None
+    release_bazel_version: str | None
+    release_bazel_deps: tuple[tuple[str, str], ...]
 
 
 MERGED_PULL_REQUEST_WINDOW_DAYS = 30
@@ -251,6 +261,8 @@ def collect_volatile_metrics(
         "latest_release_version": latest_release["version"],
         "latest_release_date": latest_release["date"],
         "commits_since_latest_release": latest_release["commits_since_release"],
+        "release_bazel_version": latest_release["release_bazel_version"],
+        "release_bazel_deps": latest_release["release_bazel_deps"],
     }
 
 
@@ -304,6 +316,7 @@ def cached_signals_for_repository(
         "uses_cicd_daily_workflow": cached_entry.content.uses_cicd_daily_workflow,
         "has_coverage_config": cached_entry.content.has_coverage_config,
         "top_languages": cached_entry.content.top_languages,
+        "bazel_deps": cached_entry.content.bazel_deps,
     }
 
 
@@ -409,6 +422,7 @@ def build_repo_entry(
             uses_cicd_daily_workflow=content_signals["uses_cicd_daily_workflow"],
             has_coverage_config=content_signals["has_coverage_config"],
             top_languages=content_signals.get("top_languages", ()),
+            bazel_deps=content_signals.get("bazel_deps", ()),
         ),
         registry=registry_signals,
         volatile=VolatileMetricsSnapshot(
@@ -423,6 +437,8 @@ def build_repo_entry(
             commits_since_latest_release=volatile_metrics[
                 "commits_since_latest_release"
             ],
+            release_bazel_version=volatile_metrics["release_bazel_version"],
+            release_bazel_deps=volatile_metrics["release_bazel_deps"],
             volatile_metrics_fetched_at=volatile_metrics_fetched_at,
         ),
         stars=stars,
@@ -617,14 +633,26 @@ def get_latest_release_details(
     except Exception:
         return default_latest_release_details()
 
+    release_tag = get_latest_release_version(release)
+    release_tree = fetch_repository_tree_paths(repository, ref=release_tag)
     return {
-        "version": get_latest_release_version(release),
+        "version": release_tag,
         "date": get_release_date(release),
         "commits_since_release": get_commits_since_release(
             repository,
             release=release,
             default_branch=default_branch,
             default_branch_sha=default_branch_sha,
+        ),
+        "release_bazel_version": detect_bazel_version(
+            repository,
+            tree_paths=release_tree,
+            ref=release_tag,
+        ),
+        "release_bazel_deps": detect_all_bazel_deps(
+            repository,
+            tree_paths=release_tree,
+            ref=release_tag,
         ),
     }
 
@@ -634,6 +662,8 @@ def default_latest_release_details() -> LatestReleaseDetails:
         "version": None,
         "date": None,
         "commits_since_release": None,
+        "release_bazel_version": None,
+        "release_bazel_deps": (),
     }
 
 
