@@ -241,22 +241,22 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
     )
 
 
+_DAC_DEP_NAME = "score_docs_as_code"
+
+
 def _render_dep_changes(entry: RepoEntry) -> tuple[str, str]:
-    """Return (cell_html, tooltip) for the Dep Changes column."""
+    """Return (cell_html, tooltip) for the Other Dep Changes column."""
     if entry.volatile.latest_release_version is None:
         return '<span class="text-muted">—</span>', "No release"
 
-    head_bazel = entry.content.bazel_version
-    release_bazel = entry.volatile.release_bazel_version
     head_deps = dict(entry.content.bazel_deps)
     release_deps = dict(entry.volatile.release_bazel_deps)
 
     changes: list[str] = []
-    if head_bazel != release_bazel:
-        changes.append(f"Bazel: {release_bazel or '—'} → {head_bazel or '—'}")
-
     all_names = sorted(set(head_deps) | set(release_deps))
     for name in all_names:
+        if name == _DAC_DEP_NAME:
+            continue
         hv = head_deps.get(name)
         rv = release_deps.get(name)
         if hv != rv:
@@ -264,7 +264,7 @@ def _render_dep_changes(entry: RepoEntry) -> tuple[str, str]:
 
     count = len(changes)
     if count == 0:
-        tip = f"No dependency changes since {entry.volatile.latest_release_version}"
+        tip = f"No other dep changes since {entry.volatile.latest_release_version}"
         cell = '<span class="badge green">no changes</span>'
         return cell, tip
 
@@ -301,7 +301,7 @@ def _render_versions_sections(
             f'      <th data-sort="dac" title="green = latest, yellow = same minor version, red = outdated">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="refint" class="text-center" title="Whether this repo is referenced by the shared reference integration">Reference Integration <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="depchanges" title="Number of dependency changes (Bazel + MODULE.bazel deps) between HEAD and latest release">Dep Changes <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="depchanges" title="Other MODULE.bazel dep changes between HEAD and latest release (Bazel tool version and score_docs_as_code shown in their own columns)">Other Dep Changes <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -321,9 +321,16 @@ def _versions_row(
     bazel_cell = version_badge(
         entry.content.bazel_version, max_bazel, latest_dac=None, is_bazel=True
     )
+    release_bazel = entry.volatile.release_bazel_version
+    if release_bazel and release_bazel != entry.content.bazel_version:
+        bazel_cell = f'<span class="mono text-muted">{e(release_bazel)}</span> → {bazel_cell}'
+
+    release_dac = dict(entry.volatile.release_bazel_deps).get(_DAC_DEP_NAME)
     dac_cell = version_badge(
         entry.content.docs_as_code_version, None, latest_dac=latest_dac, is_bazel=False
     )
+    if release_dac and release_dac != entry.content.docs_as_code_version:
+        dac_cell = f'<span class="mono text-muted">{e(release_dac)}</span> → {dac_cell}'
     refint = (
         '<span class="badge green">yes</span>'
         if entry.content.referenced_by_reference_integration
@@ -341,6 +348,8 @@ def _versions_row(
         else:
             max_str = ".".join(str(x) for x in max_bazel) if max_bazel else "unknown"
             bazel_tip = f"Bazel {bc} — outdated, latest known: {max_str}"
+    if release_bazel and release_bazel != bver:
+        bazel_tip += f"; was {release_bazel} at {entry.volatile.latest_release_version}"
 
     dver = entry.content.docs_as_code_version
     if not dver or not dver.strip():
@@ -358,6 +367,8 @@ def _versions_row(
                 dac_tip = f"Docs-As-Code {dc} — patch update available: {latest_dac}"
             else:
                 dac_tip = f"Docs-As-Code {dc} — outdated, latest: {latest_dac}"
+    if release_dac and release_dac != dver:
+        dac_tip += f"; was {release_dac} at {entry.volatile.latest_release_version}"
 
     refint_tip = (
         "Referenced by the shared reference integration"
