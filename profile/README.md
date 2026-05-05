@@ -1,5 +1,7 @@
 # Welcome to eclipse-score
 
+**[Metrics, Status, etc](https://eclipse-score.github.io/.github/)** — for all repositories in this organization.
+
 This Github organization contains artifacts developed by the [Eclipse S-CORE Project](https://projects.eclipse.org/projects/automotive.score).
 
 ## Introduction to Eclipse S-CORE Project
