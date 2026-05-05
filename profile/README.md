@@ -1,5 +1,7 @@
 # Welcome to eclipse-score
 
+**[Metrics, Status, etc](https://eclipse-score.github.io/.github/)** — for all repositories in this organization.
+
 This Github organization contains artifacts developed by the [Eclipse S-CORE Project](https://projects.eclipse.org/projects/automotive.score).
 
 ## Introduction to Eclipse S-CORE Project
@@ -32,6 +34,7 @@ Core S-CORE modules, libraries, and APIs.
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
+| [inc_security_crypto](https://github.com/eclipse-score/inc_security_crypto) | Incubation repository for Security & Cryptography feature |
 | [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
 | [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
@@ -92,6 +95,12 @@ Integration repositories for various systems and components.
 | [reference_integration](https://github.com/eclipse-score/reference_integration) | Score project integration repository |
 | [rules_imagefs](https://github.com/eclipse-score/rules_imagefs) | Repository for Image FileSystem Bazel rules and toolchains definitions |
 | [testing_tools](https://github.com/eclipse-score/testing_tools) | Repository for testing utilities |
+
+#### testing
+
+| Repository | Description |
+|------------|-------------|
+| [qnx_unit_tests](https://github.com/eclipse-score/qnx_unit_tests) | Infrastructure for running unit tests in QNX VMs |
 
 #### Toolchains
 
