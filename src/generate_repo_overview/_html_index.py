@@ -131,10 +131,10 @@ def _render_overview_sections(
             f"  <table>\n"
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="merged" class="text-right" title="Pull requests merged in the last 30 days">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="issues" class="text-right" data-tooltip="Open issues in this repository">Open Issues <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: ready + draft · red badge = more than 5 ready">Open PRs <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="merged" class="text-right" title="Number of pull requests merged into the main branch in the last 30 days. A higher number means more active development.">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="issues" class="text-right" data-tooltip="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="stars" class="text-right">Stars / Forks <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
@@ -163,32 +163,32 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
 
     cnt = entry.volatile.merged_prs_30_days
     if cnt == 0:
-        merged_tip = "No pull requests merged in the last 30 days"
+        merged_tip = "No pull requests were merged in the last 30 days."
     elif cnt >= 10:
-        merged_tip = f"\U0001f525 {cnt} PRs merged — very active!"
+        merged_tip = f"\U0001f525 {cnt} pull requests merged in the last 30 days — very active!"
     else:
         merged_tip = (
-            f"{cnt} pull request{'s' if cnt != 1 else ''} merged in the last 30 days"
+            f"{cnt} pull request{'s' if cnt != 1 else ''} merged in the last 30 days."
         )
 
     n = entry.volatile.open_issues
-    issues_tip = f"{n} open issue{'s' if n != 1 else ''} in this repository"
+    issues_tip = f"{n} open issue{'s' if n != 1 else ''} in this repository."
 
     ready = entry.volatile.open_ready_prs
     draft = entry.volatile.open_draft_prs
     total_prs = ready + draft
-    prs_tip = f"{ready} ready + {draft} draft — {total_prs} open pull request{'s' if total_prs != 1 else ''}"
+    prs_tip = f"{ready} ready for review + {draft} in draft — {total_prs} open pull request{'s' if total_prs != 1 else ''} in total."
 
     ver = entry.volatile.latest_release_version
     commits = entry.volatile.commits_since_latest_release
     if ver is None:
-        release_tip = "No release tag found"
+        release_tip = "No release has been published for this repository."
     elif commits is None:
         release_tip = str(ver)
     elif commits == 0:
-        release_tip = f"{ver} — up to date, no commits since release"
+        release_tip = f"{ver} — the main branch is fully up to date with this release."
     else:
-        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} ahead of this release"
+        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} on the main branch not yet included in a release."
 
     stars_tip = f"{entry.stars} star{'s' if entry.stars != 1 else ''} · {entry.forks} fork{'s' if entry.forks != 1 else ''}"
 
@@ -290,41 +290,36 @@ def _build_version_tooltip(
     if not dependency_version_as_used_on_main_branch:
         if dependency_version_as_used_in_last_release:
             return (
-                f"{component_name}: not used (removed on main branch since last release)"
+                f"{component_name} is not currently used on the main branch,"
+                f" but was used in the last release."
             )
         else:
-            return f"{component_name}: not used"
+            return f"{component_name} is not used in this repository."
 
     # Handle missing latest version (no comparison possible)
     if latest_available_dependency_version is None:
-        return f"{component_name}: {dependency_version_as_used_on_main_branch}"
+        return f"{component_name} {dependency_version_as_used_on_main_branch} is in use."
 
-    # Prepend release version history if it differs from current
-    if (
+    # Build intro: note if version changed between the last release and main
+    version_changed = (
         dependency_version_as_used_in_last_release
-        and dependency_version_as_used_on_main_branch
         and last_release_tag
         and dependency_version_as_used_in_last_release
         != dependency_version_as_used_on_main_branch
-    ):
-        release_tag_str = f" at {last_release_tag}" if last_release_tag else ""
-        released_prefix = (
-            f"{dependency_version_as_used_in_last_release}{release_tag_str} → "
+    )
+    if version_changed:
+        tip = (
+            f"{component_name} was {dependency_version_as_used_in_last_release}"
+            f" at {last_release_tag}, updated to"
+            f" {dependency_version_as_used_on_main_branch} on the main branch"
         )
     else:
-        released_prefix = ""
+        tip = f"{component_name} {dependency_version_as_used_on_main_branch}"
 
-    # Print current
-    tip = f"{component_name}: {released_prefix} {dependency_version_as_used_on_main_branch}"
-
-    if released_prefix:
-        tip += " on main branch"
-
-    # Check if already up to date
+    # Append up-to-date status
     if dependency_version_as_used_on_main_branch == latest_available_dependency_version:
-        tip += " (up to date)"
+        tip += " — now up to date." if version_changed else " — up to date (latest known version)."
     else:
-        # Check if it's just a patch update (same major.minor version)
         current_parts = parse_version_key(dependency_version_as_used_on_main_branch)
         latest_parts = parse_version_key(latest_available_dependency_version)
         is_patch_only = (
@@ -335,9 +330,9 @@ def _build_version_tooltip(
             and current_parts[:2] == latest_parts[:2]
         )
         if is_patch_only:
-            tip += f" (patch update available to {latest_available_dependency_version})"
+            tip += f" — a patch update to {latest_available_dependency_version} is available."
         else:
-            tip += f" (update available to {latest_available_dependency_version})"
+            tip += f" — an update to {latest_available_dependency_version} is available."
 
     return tip
 
@@ -347,7 +342,7 @@ def _render_dep_changes(
 ) -> tuple[str, str]:
     """Return (cell_html, tooltip) for the Other Dep Changes column."""
     if entry.volatile.latest_release_version is None:
-        return '<span class="text-muted">—</span>', "No release"
+        return '<span class="text-muted">—</span>', "No release has been published — nothing to compare against."
 
     head_deps = dict(entry.content.bazel_deps)
     release_deps = dict(entry.volatile.release_bazel_deps)
@@ -364,7 +359,7 @@ def _render_dep_changes(
 
     count = len(changes)
     if count == 0:
-        tip = f"No other dep changes since {entry.volatile.latest_release_version}"
+        tip = f"No dependency changes between {entry.volatile.latest_release_version} and the current main branch."
         cell = '<span class="badge green">no changes</span>'
         return cell, tip
 
@@ -397,11 +392,11 @@ def _render_versions_sections(
             f"  <table>\n"
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="bazel" title="green = latest known version, red = outdated">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="dac" title="green = up to date, yellow = patch update available, red = major/minor update available">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="refint" class="text-center" title="Whether this repo is referenced by the shared reference integration">Reference Integration <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="release" title="Latest release tag · badge: green = up to date, yellow = ≤20 commits behind, red = >20 commits behind">Latest Release <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="depchanges" title="Other MODULE.bazel dep changes between HEAD and latest release (Bazel tool version and score_docs_as_code shown in their own columns)">Other Dep Changes <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="bazel" title="The version of Bazel (the build tool) in use. Green = on the latest known version, red = a newer version is available.">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="dac" title="The version of the Docs-As-Code tooling in use. Green = up to date, yellow = a patch update is available, red = a major or minor update is needed.">Docs-As-Code Version <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="refint" class="text-center" title="Whether this repository is included in the shared reference integration test suite.">Reference Integration <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="depchanges" title="Number of dependency version changes on the main branch since the last release. Bazel and Docs-As-Code versions are shown in their own columns.">Other Dep Changes <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -463,9 +458,9 @@ def _versions_row(
     )
 
     refint_tip = (
-        "Referenced by the shared reference integration"
+        "This repository is included in the shared reference integration."
         if entry.content.referenced_by_reference_integration
-        else "Not referenced by the shared reference integration"
+        else "This repository is not included in the shared reference integration."
     )
 
     release = _render_release(
@@ -475,13 +470,13 @@ def _versions_row(
     ver = entry.volatile.latest_release_version
     commits = entry.volatile.commits_since_latest_release
     if ver is None:
-        release_tip = "No release tag found"
+        release_tip = "No release has been published for this repository."
     elif commits is None:
         release_tip = str(ver)
     elif commits == 0:
-        release_tip = f"{ver} — up to date, no commits since release"
+        release_tip = f"{ver} — the main branch is fully up to date with this release."
     else:
-        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} ahead of this release"
+        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} on the main branch not yet included in a release."
 
     dep_changes_cell, dep_changes_tip = _render_dep_changes(entry, dedicated_deps)
 
@@ -514,13 +509,13 @@ def _render_automation_sections(
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="lang">Language <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="bazel" class="text-center" title="Repository uses Bazel as its build system">Bazel <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="gitlint" class="text-center" title="Has a .gitlint configuration file">Gitlint <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="pyproject" class="text-center" title="Has a pyproject.toml (Python project metadata)">Pyproject <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="precommit" class="text-center" title="Has a .pre-commit-config.yaml">Pre-commit <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="ci" class="text-center" title="Has at least one CI workflow under .github/workflows/">GitHub Actions <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="daily" class="text-center" title="Has a scheduled daily CI/CD workflow">Daily Workflow <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="coverage" class="text-center" title="Has a coverage configuration (e.g. .coveragerc)">Coverage <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="bazel" class="text-center" title="Whether this repository uses Bazel as its build system.">Bazel <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="gitlint" class="text-center" title="Whether this repository enforces commit message formatting rules (gitlint).">Gitlint <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="pyproject" class="text-center" title="Whether this repository has a pyproject.toml — the standard configuration file for Python projects.">Pyproject <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="precommit" class="text-center" title="Whether this repository runs automated checks (formatting, linting, etc.) before each commit is accepted.">Pre-commit <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="ci" class="text-center" title="Whether this repository has automated CI/CD pipelines that run on every push or pull request.">GitHub Actions <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="daily" class="text-center" title="Whether this repository has a scheduled daily job that runs automated tests and checks.">Daily Workflow <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="coverage" class="text-center" title="Whether this repository measures test coverage — tracking how much of the code is exercised by automated tests.">Coverage <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
@@ -544,27 +539,27 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
         return '<span class="text-muted">no</span>'
 
     tips = {
-        "bazel": "Uses Bazel as the build system"
+        "bazel": "This repository uses Bazel as its build system."
         if c.is_bazel_repo
-        else "Does not use Bazel",
-        "gitlint": "Has a .gitlint config for commit message checks"
+        else "This repository does not use Bazel.",
+        "gitlint": "This repository enforces commit message formatting rules (gitlint)."
         if c.has_gitlint_config
-        else "No .gitlint config",
-        "pyproject": "Has a pyproject.toml (Python project metadata)"
+        else "This repository has no commit message formatting rules configured.",
+        "pyproject": "This repository has a pyproject.toml (standard Python project configuration)."
         if c.has_pyproject_toml
-        else "No pyproject.toml",
-        "precommit": "Has .pre-commit-config.yaml — hooks run before each commit"
+        else "This repository does not have a pyproject.toml.",
+        "precommit": "This repository runs automated checks (formatting, linting, etc.) before each commit is accepted."
         if c.has_pre_commit_config
-        else "No pre-commit hooks configured",
-        "ci": "Has CI/CD workflows in .github/workflows/"
+        else "This repository has no automated pre-commit checks configured.",
+        "ci": "This repository has automated CI/CD pipelines that run on every push or pull request."
         if c.has_ci
-        else "No GitHub Actions workflows",
-        "daily": "Has a scheduled daily CI/CD workflow"
+        else "This repository has no automated CI/CD pipelines.",
+        "daily": "This repository has a scheduled daily job that runs automated tests and checks."
         if c.uses_cicd_daily_workflow
-        else "No scheduled daily workflow",
-        "coverage": "Has a code coverage configuration (e.g. .coveragerc)"
+        else "This repository has no scheduled daily automated checks.",
+        "coverage": "This repository measures test coverage — tracking how much of the code is exercised by automated tests."
         if c.has_coverage_config
-        else "No coverage config",
+        else "This repository does not measure test coverage.",
     }
 
     langs = entry.content.top_languages
@@ -673,7 +668,7 @@ def _render_timeline_section(repos: list[RepoEntry], org_name: str) -> str:
         "      <th>Repository</th>\n"
         "      <th>Version</th>\n"
         "      <th>Released</th>\n"
-        '      <th title="Commits on the default branch since this release">Freshness</th>\n'
+        '      <th title="Number of commits on the main branch not yet included in a release. A higher number means the repository has drifted further from its last published version.">Freshness</th>\n'
         "    </tr></thead>\n"
         f"    <tbody>\n{tier_html}    </tbody>\n"
         "  </table>\n"
