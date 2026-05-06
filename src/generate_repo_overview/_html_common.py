@@ -66,7 +66,8 @@ def language_badge(lang: str | None) -> str:
 def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) -> str:
     detail_url = f"{e(entry.name)}/"
     github_url = f"https://github.com/{org_name}/{entry.name}"
-    cell = f'<a href="{detail_url}">{e(entry.name)}</a>'
+    title_attr = f' title="{e(entry.description)}"' if entry.description else ""
+    cell = f'<a href="{detail_url}"{title_attr}>{e(entry.name)}</a>'
     if bazel_icon and entry.content.is_bazel_repo:
         cell += f" {BAZEL_ICON}"
     cell += (
