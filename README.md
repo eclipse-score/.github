@@ -18,10 +18,11 @@ The CLI now has a built-in overview:
 uv run generate-repo-overview
 ```
 
-For a cache-only re-render of both built-in reports:
+For a cache-only re-render of the profile README and the HTML dashboard:
 
 ```sh
-uv run generate-repo-overview render
+uv run generate-repo-overview render-overview
+uv run generate-repo-overview render-details
 ```
 
 For a fresh GitHub pull before rendering, run:
@@ -50,7 +51,7 @@ uv run generate-repo-overview collect --deep
 If you only want the profile README:
 
 ```sh
-uv run generate-repo-overview generate-profile-readme
+uv run generate-repo-overview render-overview
 ```
 
 Category order and category descriptions are configured in
