@@ -18,7 +18,7 @@ type: 'Bug'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Bug Ticket creation</ins>"
+      value: "## <ins>Bug Issue creation</ins>"
   - type: textarea
     attributes:
       label: Description

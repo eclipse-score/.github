@@ -5,7 +5,7 @@ tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'gi
 handoffs:
   - label: Proceed to PR
     agent: release-pr
-    prompt: 'Create a Pull Request and update Jira ticket status to In Review.'
+    prompt: 'Create a Pull Request and update GitHub issue status to In Review.'
     send: true
   - label: Escalate to Human
     agent: release-review
@@ -35,7 +35,7 @@ handoffs:
 
 ## Phase 0 — Initialize
 
-1. Read `.stage/<JIRA-ID>/plan.md` for ticket context and acceptance criteria
+1. Read `.stage/<ISSUE-ID>/plan.md` for issue context and acceptance criteria
 2. Identify the base branch and modified files: `git diff --name-only <base>...HEAD`
 3. Set state:
    - `iteration = 1`
@@ -43,7 +43,7 @@ handoffs:
    - `phase1_failures = 0`
 4. Log:
    ```
-   [Review Loop] Starting autonomous review for <JIRA-ID>
+   [Review Loop] Starting autonomous review for <ISSUE-ID>
    Modified files: <count> | Max iterations: 3
    ```
 
@@ -135,12 +135,12 @@ Verdict: <verdict> | Blockers: <count> | Suggestions: <count> | Nitpicks: <count
 
 1. Verify all 🔴 Blockers are resolved
 2. Verify build/lint/test pass (use `.github/skills/verification-loop/SKILL.md` criteria)
-3. Save iteration log to `.stage/<JIRA-ID>/reviewLoop.md`:
+3. Save iteration log to `.stage/<ISSUE-ID>/reviewLoop.md`:
 
 ```markdown
-## Review Loop Summary — <JIRA-ID>
+## Review Loop Summary — <ISSUE-ID>
 
-Objective: <ticket summary>
+Objective: <issue summary>
 Completed: <date>
 Total Iterations: <N>
 Final Verdict: [Approve | Comment]
@@ -156,7 +156,7 @@ Final Verdict: [Approve | Comment]
 Implementation approved after <N> iteration(s). All blockers resolved.
 ```
 
-4. Add Jira comment: "Autonomous review loop completed — approved after <N> iteration(s)"
+4. Add GitHub Issues comment: "Autonomous review loop completed — approved after <N> iteration(s)"
 5. Stage Update: `[X] RELEASE Phase (Review Loop) -- Completed`
 6. Log:
    ```
@@ -167,10 +167,10 @@ Implementation approved after <N> iteration(s). All blockers resolved.
 
 ## Phase 5 — Stalled (Escalate)
 
-1. Save stall report to `.stage/<JIRA-ID>/reviewLoop.md`:
+1. Save stall report to `.stage/<ISSUE-ID>/reviewLoop.md`:
 
 ```markdown
-## Review Loop Summary — <JIRA-ID> (STALLED)
+## Review Loop Summary — <ISSUE-ID> (STALLED)
 
 Date: <date>
 Reason: <max iterations reached | verification retries exceeded>
@@ -188,7 +188,7 @@ Last verdict: Request Changes
 Autonomous loop could not resolve all issues. Human review required.
 ```
 
-2. Add Jira comment: "Review loop stalled after <N> iterations — human review required"
+2. Add GitHub Issues comment: "Review loop stalled after <N> iterations — human review required"
 3. Log:
    ```
    [Review Loop] STALLED. <reason>. Human intervention required.
@@ -207,8 +207,8 @@ Autonomous loop could not resolve all issues. Human review required.
 
 ### If `atlassian/*` is unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to Jira. I'll skip the Jira comment but continue with the review loop."
-2. Skip Jira comment steps, proceed with all other tasks.
+   > "I'm unable to connect to GitHub Issues. I'll skip the GitHub Issues comment but continue with the review loop."
+2. Skip GitHub Issues comment steps, proceed with all other tasks.
 
 **Continue the SDLC flow** with locally available information. The pipeline never stops.
 
@@ -228,5 +228,5 @@ Autonomous loop could not resolve all issues. Human review required.
 - Re-scan modified files after every fix iteration
 - Commit after each iteration with structured message: `review(iter-N): <slug>`
 - Log every loop decision with verdict and finding counts
-- Save the full iteration log to `.stage/<JIRA-ID>/reviewLoop.md`
+- Save the full iteration log to `.stage/<ISSUE-ID>/reviewLoop.md`
 - Present the iteration summary table on completion or stall

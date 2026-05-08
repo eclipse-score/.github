@@ -62,4 +62,4 @@ Before marking work complete:
 - [ ] No hardcoded values (use constants or config)
 - [ ] No mutation (immutable patterns used)
 - [ ] No `console.log` / `System.out.println` in production code
-- [ ] No TODO/FIXME without a linked Jira ticket
+- [ ] No TODO/FIXME without a linked issue

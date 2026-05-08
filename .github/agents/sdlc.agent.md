@@ -12,11 +12,11 @@ handoffs:
     send: true
   - label: Start PLAN
     agent: plan-requirements
-    prompt: 'Ask the user whether they want to create a new Jira ticket or fetch an existing one.'
+    prompt: 'Ask the user whether they want to create a new GitHub issue or fetch an existing one.'
     send: true
   - label: Start CODE (PoC / Spike)
     agent: code-design
-    prompt: 'Begin solution design for a PoC/Spike -- no ticket needed.'
+    prompt: 'Begin solution design for a PoC/Spike -- no issue needed.'
     send: true
 ---
 
@@ -46,7 +46,7 @@ Ask: **"What is your role?"**
   Then show only relevant questions.
 
 - **Developer** → Show ALL options:
-  > 1. "I have a story/ticket to implement"
+  > 1. "I have a story/issue to implement"
   > 2. "Quick prototype / spike"
   > 3. "Bug fix"
   Then proceed to the full Decision Tree (Question 0 onward).
@@ -59,7 +59,7 @@ Determine the correct path by asking the user. **Verify each answer before proce
 0. **"What brings you here today?"**
    - "I have a new feature idea or Epic to define" → **Epic Planning** path: Click **Start Epic Planning**
    - "I have an Epic and need technical analysis / story slicing" → Ask for the Epic ID. Use `atlassian/*` to fetch it. **Verify issue type = Epic.** If it's a Story/Task → "That's a Story, not an Epic. Did you mean to implement it instead?" → **Technical Analysis** path: Click **Start Technical Analysis**
-   - "I have a story/ticket to implement" → Ask for the Jira ticket ID. Use `atlassian/*` to fetch it. **Verify issue type:**
+   - "I have a story/issue to implement" → Ask for the GitHub issue ID. Use `atlassian/*` to fetch it. **Verify issue type:**
      - If type = Epic → "That's an Epic, not a Story. Would you like to run **Start Technical Analysis** to break it into stories first?"
      - If type = Story/Task/Bug → Continue to question 1
    - "Quick prototype / spike" → Continue to question 1 (PoC check)
@@ -79,16 +79,16 @@ Determine the correct path by asking the user. **Verify each answer before proce
    - User says "No repo yet" → **Full Greenfield** path
 
 3. **"What is the urgency?"**
-   - ⚠️ **Guardrail — cross-check Jira priority if ticket was fetched:**
-     - If Jira ticket has priority P1/Critical but user says "Normal" → "The Jira ticket is marked **P1/Critical** but you said Normal. Which is correct?"
-     - If Jira ticket has priority P3/P4 but user says "Urgent" → "The Jira ticket is marked **P3** but you said Urgent. Which is correct?"
+   - ⚠️ **Guardrail — cross-check GitHub Issues priority if issue was fetched:**
+     - If GitHub issue has priority P1/Critical but user says "Normal" → "The GitHub issue is marked **P1/Critical** but you said Normal. Which is correct?"
+     - If GitHub issue has priority P3/P4 but user says "Urgent" → "The GitHub issue is marked **P3** but you said Urgent. Which is correct?"
    - Urgent / P1 / Critical → **Hotfix** path: PLAN (lite) → RCA → CODE → BUILD → TEST → RELEASE (PR only)
    - Normal → Continue to question 4.
 
 4. **"What type of change?"**
-   - ⚠️ **Guardrail — cross-check Jira issue type if ticket was fetched:**
-     - If Jira says "Bug" but user says "New Feature" → "The Jira ticket is typed as **Bug** but you said New Feature. Which is correct?"
-     - If Jira says "Story" but user says "Bug Fix" → "The Jira ticket is typed as **Story** but you said Bug Fix. Which is correct?"
+   - ⚠️ **Guardrail — cross-check GitHub issue type if issue was fetched:**
+     - If GitHub Issues says "Bug" but user says "New Feature" → "The GitHub issue is typed as **Bug** but you said New Feature. Which is correct?"
+     - If GitHub Issues says "Story" but user says "Bug Fix" → "The GitHub issue is typed as **Story** but you said Bug Fix. Which is correct?"
    - Bug Fix / Enhancement → **Bug Fix** path: PLAN → RCA → CODE (Architect [optional] → Design → Implement) → BUILD → TEST → RELEASE (Review Loop → PR)
    - New Feature → **Standard Feature** path: PLAN → CODE (Architect → Design → Implement) → BUILD → TEST → RELEASE (Review Loop → PR)
 
@@ -98,7 +98,7 @@ After determining the path, inform the user which path was selected and present 
 Based on the determined path, ask the user to click the appropriate button:
 - **Start Epic Planning** — for new feature ideas / Epic creation
 - **Start Technical Analysis** — for breaking an Epic into stories
-- **Start PLAN** — for implementing an existing Jira ticket (Story, Bug, Task)
+- **Start PLAN** — for implementing an existing GitHub issue (Story, Bug, Task)
 - **Start CODE (PoC / Spike)** — for prototypes (confirmed non-production)
 
 ## Rules

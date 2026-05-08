@@ -8,18 +8,23 @@ Diagnose and fix build failures incrementally.
 
 ## Step 1: Detect Build System
 - Identify the project's build tool from project files:
-  - **Java**: Maven (`pom.xml`) or Gradle (`build.gradle`)
-  - **TypeScript/JS**: npm/yarn (`package.json`), CRA (`react-scripts`)
+  - **C++**: Bazel (`BUILD` files, `MODULE.bazel`, `.bazelversion`) as the primary build system; CMake only if the repo explicitly uses it without Bazel
   - **Python**: pip (`requirements.txt`), poetry (`pyproject.toml`)
-  - **Angular**: Angular CLI (`angular.json`)
+  - **Rust**: Cargo (`Cargo.toml`)
+  - **Go**: Go modules (`go.mod`)
+- If a devcontainer exists, prefer reproducing failures there before applying fixes.
 
 ## Step 2: Run Build and Capture Errors
 - Execute the appropriate build command:
-  - Java: `mvn compile` or `./gradlew build`
-  - TypeScript/JS: `npm run build` or `npx tsc --noEmit`
+  - C++: `bazel build //...` by default; use `cmake --build build` only if the repo has no Bazel build entry point
   - Python: `python -m py_compile <file>` or `mypy src/`
-  - Angular: `ng build`
+  - Rust: `cargo build`
+  - Go: `go build ./...`
 - Capture full error output
+
+## Step 2b: Handle Docs-As-Code Failures (if applicable)
+- If the failure comes from documentation or traceability assets, run the repository's documented docs verification command or Bazel docs target.
+- For SCORE-style repositories, assume Sphinx and sphinx-needs are the primary docs stack unless the repo proves otherwise.
 
 ## Step 3: Parse and Fix ONE Error
 - Extract the **first** error from the build output
@@ -27,7 +32,7 @@ Diagnose and fix build failures incrementally.
   - **Compilation** — Syntax, type mismatch, missing imports
   - **Dependency** — Missing packages, version conflicts
   - **Configuration** — Invalid config, missing environment variables
-  - **Lint** — ESLint, Checkstyle, Pylint violations
+  - **Lint** — clippy, ruff, go vet, clang-format violations
   - **Test** — Failing tests blocking build
 - Read the failing file and surrounding context
 - Apply the **minimal fix** — prefer single-line changes

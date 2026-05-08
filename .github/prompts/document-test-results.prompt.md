@@ -15,4 +15,4 @@ Tasks:
   - Common failure pattern analysis
   - Recommendations for code improvements or further testing
 - Format with tables or charts for readability.
-- Save at: `.stage/<JIRA-ID>/testResults.md`
+- Save at: `.stage/<ISSUE-ID>/testResults.md`

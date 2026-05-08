@@ -11,7 +11,7 @@ Evaluate the PLAN phase and produce a quantitative score.
 | Criterion | Weight | What to Check |
 |-----------|--------|---------------|
 | Requirements clarity | 50% | SMART requirements extracted, acceptance criteria defined |
-| Ticket completeness | 50% | All required fields populated (summary, description, priority, acceptance criteria) |
+| Issue completeness | 50% | All required fields populated (summary, description, priority, acceptance criteria) |
 
 ## Score Thresholds
 
@@ -25,14 +25,14 @@ Evaluate the PLAN phase and produce a quantitative score.
 
 ### 0. Artifact Existence Verification (MANDATORY FIRST STEP)
 Attempt to read each file below. Log existence status (Y/N). Do NOT assume content.
-- `.stage/<JIRA-ID>/plan.md`
+- `.stage/<ISSUE-ID>/plan.md`
 If the artifact is missing → score ALL criteria as 0.
 
 ### 1. Read Phase Artifacts
-- Read `.stage/<JIRA-ID>/plan.md`
+- Read `.stage/<ISSUE-ID>/plan.md`
 
 ### 1b. Cross-Validation
-- Does the Jira ticket ID in plan.md match the actual Jira ticket?
+- Does the GitHub issue ID in plan.md match the actual GitHub issue?
 - Are acceptance criteria testable (each has a verifiable condition)?
 - Are requirements SMART (Specific, Measurable, Achievable, Relevant, Time-bound)?
 - If parent Epic exists, do the requirements align with Epic scope?
@@ -44,12 +44,12 @@ Flag inconsistencies in the Gaps section.
 - Calculate the weighted average for the final score
 
 ### 3. Create Phase Score File
-Save to `.stage/<JIRA-ID>/plan-score.md`:
+Save to `.stage/<ISSUE-ID>/plan-score.md`:
 
 ```markdown
 # PLAN Phase — Score Report
 
-**JIRA:** <JIRA-ID>
+**ISSUE:** <ISSUE-ID>
 **Phase:** PLAN
 **Score:** <X> / 10 (<Rating>)
 **Evaluated at:** <timestamp>
@@ -59,7 +59,7 @@ Save to `.stage/<JIRA-ID>/plan-score.md`:
 | Criterion | Weight | Score | Notes |
 |-----------|--------|-------|-------|
 | Requirements clarity | 50% | <X>/10 | <observation> |
-| Ticket completeness | 50% | <X>/10 | <observation> |
+| Issue completeness | 50% | <X>/10 | <observation> |
 
 ## Strengths
 - <what went well>

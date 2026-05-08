@@ -6,11 +6,11 @@ applyTo: '**'
 
 ## Commit Message Format
 ```
-<type>(<scope>): <description>
+<prefix>: <summary>
 
 <optional body>
 
-<optional footer: JIRA-ID>
+<optional footer: Also-by: Name <email>>
 ```
 
 ### Types
@@ -19,16 +19,16 @@ applyTo: '**'
 ### Rules
 - Use imperative mood: "add feature" not "added feature"
 - Keep subject line under 72 characters
-- Reference Jira ticket in footer when applicable
 - One logical change per commit
+- Run `gitlint` locally before pushing
 
 ## Branch Naming
-Format: `<type>/<JIRA-ID>-<short-description>`
+Format: `<type>/<short-description>`
 
 Examples:
-- `feature/JIRA-123-add-login`
-- `bugfix/JIRA-456-fix-null-pointer`
-- `hotfix/JIRA-789-patch-auth`
+- `feature/add-login`
+- `bugfix/fix-null-pointer`
+- `hotfix/auth-patch`
 
 ## Pull Request Workflow
 1. Analyze full commit history: `git diff <base-branch>...HEAD`
@@ -41,11 +41,11 @@ Examples:
 - [ ] All tests pass locally
 - [ ] No lint errors or warnings
 - [ ] No `console.log` / `System.out.println` left in production code
-- [ ] No TODO/FIXME without a linked ticket
+- [ ] No TODO/FIXME without a linked issue
 - [ ] Commit message follows format above
 - [ ] Branch is rebased on latest base branch
 
 ## Merge Strategy
-- Squash merge for feature branches (clean history)
-- Merge commit for release branches (preserve full history)
-- Fast-forward for hotfixes when possible
+- Use squash merge when all commits are from the same author and represent one topic
+- Use rebase/merge commit when commits represent distinct topics or multiple authors
+- Preserve clear history and avoid merge commits from `main` into feature branches

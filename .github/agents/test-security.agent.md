@@ -65,7 +65,7 @@ After all issues reviewed, produce:
 - Total findings by severity
 - Fixed vs skipped vs deferred counts
 - Remaining risk assessment
-- Save to: `.stage/<JIRA-ID>/security-review.md` (if Jira context exists)
+- Save to: `.stage/<ISSUE-ID>/security-review.md` (if GitHub Issues context exists)
 
 ## Rules
 - Never approve code with Critical severity findings unresolved

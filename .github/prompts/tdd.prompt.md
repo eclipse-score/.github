@@ -9,7 +9,7 @@ Enforce Test-Driven Development (TDD) for the current implementation.
 ## TDD Cycle: RED → GREEN → REFACTOR
 
 ### Phase 1: RED — Write Failing Tests First
-- Review `.stage/<JIRA-ID>/plan.md` for requirements and acceptance criteria
+- Review `.stage/<ISSUE-ID>/plan.md` for requirements and acceptance criteria
 - Identify the first testable behavior from the requirements
 - Write a **minimal failing test** that captures the expected behavior:
   - Use Arrange-Act-Assert (AAA) pattern

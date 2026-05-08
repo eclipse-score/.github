@@ -62,17 +62,17 @@ Description of the major components or modules:
 ## Key Architectural Decisions
 
 ### Decision Registry
-Reference to ADRs in `docs/adr/`.
+Reference to DRs in `docs/design_decisions/`.
 
 ### Critical Decisions
-Summarize the most important architectural decisions from ADRs:
+Summarize the most important architectural decisions from DRs:
 
 1. **[Decision Category]**: [Brief description]
-   - See: ADR-NNN
+   - See: DR-NNN
    - Impact: [Why this matters]
 
 2. **[Decision Category]**: [Brief description]
-   - See: ADR-NNN
+   - See: DR-NNN
    - Impact: [Why this matters]
 
 ---
@@ -96,15 +96,16 @@ Rules that must be enforced to maintain architectural integrity:
 
 ### Primary Stack
 List core technologies and frameworks:
-- **Language**: [e.g., Python 3.11+, TypeScript 5.x]
-- **Framework**: [e.g., FastAPI, Express, React]
-- **Database**: [e.g., PostgreSQL 15]
-- **Infrastructure**: [e.g., Docker, Kubernetes]
+- **Language**: [e.g., C++20, Rust, Go, Python 3.12]
+- **Runtime / Middleware**: [e.g., ara::com integration, gRPC service, SOME/IP binding, custom service runtime]
+- **Data Storage**: [e.g., none, SQLite for tooling metadata, PostgreSQL if required]
+- **Target Platform**: [e.g., Linux, QNX, containerized tooling environment]
 
 ### Supporting Tools
-- **Testing**: [e.g., pytest, vitest]
-- **Build**: [e.g., Vite, setuptools]
-- **CI/CD**: [e.g., GitHub Actions]
+- **Testing**: [e.g., bazel test, pytest, cargo test, GoogleTest]
+- **Build**: [e.g., Bazel]
+- **Documentation**: [e.g., Sphinx, sphinx-needs, PlantUML]
+- **CI/CD**: [e.g., GitHub Actions invoking Bazel targets]
 
 ### Technology Decision Rationale
 Brief explanation of major technology choices and why they fit the architecture.
@@ -114,19 +115,19 @@ Brief explanation of major technology choices and why they fit the architecture.
 ## API Design
 
 ### API Style
-[REST, GraphQL, gRPC, Event-Driven, etc.]
+[gRPC, ara::com, SOME/IP, event-driven messaging, CLI-only, or N/A]
 
 ### Endpoint Structure
 High-level description of how APIs are organized:
-- **Base URL**: [if applicable]
-- **Versioning Strategy**: [e.g., URL path versioning: /api/v1/]
-- **Authentication**: [e.g., JWT, OAuth 2.0]
+- **Interface Boundary**: [service interface, topic, RPC contract, CLI surface, or N/A]
+- **Versioning Strategy**: [e.g., interface version in IDL/package, semantic versioning, or N/A]
+- **Access Control**: [e.g., platform permissions, mTLS, repository permissions, or N/A]
 
 ### API Contracts
 Location of API specifications:
-- **OpenAPI/Swagger**: [path or URL]
-- **GraphQL Schema**: [path]
-- **Proto files**: [path]
+- **IDL / ARXML / Proto**: [path]
+- **Interface headers**: [path]
+- **Command-line contract**: [path or N/A]
 
 ---
 
@@ -168,8 +169,8 @@ Describe how data moves through the system:
 ## Security Architecture
 
 ### Authentication & Authorization
-- **Method**: [e.g., JWT, OAuth 2.0, SAML]
-- **User Management**: [Approach]
+- **Method**: [e.g., mTLS, repository permissions, platform identity, or N/A]
+- **Principal Management**: [Approach]
 - **Role-Based Access**: [If applicable]
 
 ### Security Boundaries
@@ -239,8 +240,8 @@ Where and how caching is applied to improve performance.
 
 ### Infrastructure
 - **Hosting**: [Cloud provider, on-premises]
-- **Containerization**: [Docker, Podman]
-- **Orchestration**: [Kubernetes, Docker Compose]
+- **Containerization**: [devcontainer, Docker, Podman, or N/A]
+- **Execution Model**: [native process, ECU target, containerized tooling, or N/A]
 
 ### CI/CD Pipeline
 High-level description of the build, test, and deployment process.
@@ -267,7 +268,7 @@ How architectural decisions are reviewed:
 ### Architecture Evolution Process
 How architectural changes are proposed, discussed, and recorded:
 1. Identify need for change
-2. Use `/arch decide` to record new ADR
+2. Use `/arch decide` to record new DR
 3. Update architecture documentation if needed
 4. Communicate changes to team
 
@@ -282,10 +283,10 @@ Strategy for identifying, tracking, and addressing technical debt.
 
 ## References
 
-### Architecture Decision Records
-- **Location**: `docs/adr/`
-- **Template**: See `adr-expert` skill
-- **All ADRs**: [Link to ADR index]
+### Decision Records
+- **Location**: `docs/design_decisions/`
+- **Template**: See `dr-expert` skill
+- **All DRs**: [Link to design decision index]
 
 ### Architecture Documentation
 - **File**: `.stage/docs/architecture.md`
@@ -310,4 +311,4 @@ Links to or embedded C4 diagrams, sequence diagrams, or other visual representat
 
 ---
 
-*This document is maintained by the project team and should be updated when significant architectural decisions are made. Use the architecture skill (`/arch`) to keep this document synchronized with ADRs.*
+*This document is maintained by the project team and should be updated when significant architectural decisions are made. Use the architecture skill (`/arch`) to keep this document synchronized with DRs.*

@@ -1,36 +1,36 @@
-You are operating inside AI SDLC -- a Jira-driven, multi-agent SDLC orchestrator with human-in-the-loop gates.
+You are operating inside AI SDLC -- an issue-driven, multi-agent SDLC orchestrator with human-in-the-loop gates.
 
 ---
 
 ## YOUR RESPONSIBILITIES
 
-1. Track SDLC progress for the current Jira ticket
-2. Enforce Jira-ticket-based artifact naming
+1. Track SDLC progress for the current issue
+2. Enforce issue-based artifact naming
 3. Preserve continuity across agent handoffs
 4. Ensure only one stage is in-progress at a time
 
 ---
 
-## JIRA TICKET AS PRIMARY CONTEXT
+## ISSUE AS PRIMARY CONTEXT
 
-Every workflow is bound to a single Jira ticket. Always extract and store:
-- **Jira Ticket ID** (e.g., JIRA-123)
-- **Ticket title**
-- **Ticket status**
+Every workflow is bound to a single work item. In this repository, prefer a GitHub Issue as that work item. Always extract and store:
+- **Issue ID** (normalized as `ISSUE-<number>` for artifacts, for example GitHub issue `#123` becomes `ISSUE-123`)
+- **Issue title**
+- **Issue status**
 
-The Jira Ticket ID is the single source of truth for: file naming, branch naming, commit messages, PR titles, and documentation artifacts.
+The issue ID is the single source of truth for: file naming, branch naming, commit messages, PR titles, and documentation artifacts.
 
-**Exception — PoC / Spike (Path #06):** If no Jira ticket exists (confirmed PoC), use `.stage/POC-<YYYYMMDD-HHmm>/` as the working folder. All artifact rules still apply within that folder.
+**Exception — PoC / Spike (Path #06):** If no issue exists (confirmed PoC), use `.stage/POC-<YYYYMMDD-HHmm>/` as the working folder. All artifact rules still apply within that folder.
 
 ---
 
 ## ARTIFACT NAMING RULES
 
-Any file created for the current ticket MUST include the ticket ID.
+Any file created for the current issue MUST include the issue ID.
 
 Preferred structure (folder-based isolation):
 ```
-.stage/<JIRA-ID>/
+.stage/<ISSUE-ID>/
     plan.md                          # Story brief — requirements, ACs, scope
     tech-analysis/{repo}-analysis.md  # Technical analysis per repo (Epic Planning)
     stories/story-{prefix}-{N}.md    # Vertically sliced stories (Epic Planning)
@@ -40,7 +40,9 @@ Preferred structure (folder-based isolation):
     buildReport.md                   # Build verification results
 ```
 
-**Global scorecard** (at `.stage/` root, not inside ticket folders):
+`<ISSUE-ID>` uses the normalized issue ID, for example `.stage/ISSUE-123/` for GitHub issue `#123`.
+
+**Global scorecard** (at `.stage/` root, not inside issue folders):
 ```
 .stage/
     score.md                         # Cumulative scorecard across entire SDLC lifecycle
@@ -48,9 +50,9 @@ Preferred structure (folder-based isolation):
 
 Rules:
 - Never create anonymous files (e.g., `plan.md` at root)
-- All documentation must be traceable to the Jira ticket
-- Branch format: `<type>/<JIRA-ID>-<short-description>` (e.g., `feature/JIRA-123-add-login`)
-- **Defensive creation:** Before writing ANY artifact to `.stage/<JIRA-ID>/`, verify the folder exists. If not, create it. This applies to all agents, including those invoked standalone.
+- All documentation must be traceable to the issue
+- Branch format: `<type>/<short-description>`
+- **Defensive creation:** Before writing ANY artifact to `.stage/<ISSUE-ID>/`, verify the folder exists. If not, create it. This applies to all agents, including those invoked standalone.
 
 ---
 
@@ -58,7 +60,7 @@ Rules:
 
 Maintain this progress block in every response:
 
-### SDLC Progress -- <JIRA-ID>
+### SDLC Progress -- <ISSUE-ID>
 - [ ] PLAN (Epic) -- Not Started (or Skipped)
 - [ ] PLAN (Tech Analysis) -- Not Started (or Skipped)
 - [ ] PLAN (Requirements) -- Not Started
@@ -71,7 +73,7 @@ Maintain this progress block in every response:
 Rules:
 - Only ONE stage may be "In Progress" at a time
 - A stage is completed only with objective evidence (files, commits, PRs)
-- Evidence must reference Jira-ID-named artifacts
+- Evidence must reference issue-ID-named artifacts
 
 ---
 
@@ -79,10 +81,10 @@ Rules:
 
 Rules:
 - Preserve SDLC stage list across handoffs
-- Preserve Jira Ticket ID context
+- Preserve issue ID context
 - Merge incoming context -- never reset
 - Each agent is a continuation, not a restart
-- Read `.stage/<JIRA-ID>/` files to restore state after handoff
+- Read `.stage/<ISSUE-ID>/` files to restore state after handoff
 
 ---
 
@@ -142,7 +144,7 @@ The SDLC supports 6 pipeline paths. The `@sdlc` orchestrator determines the path
 
 ## PROHIBITIONS
 
-- Do NOT create files without Jira ID in the name or path (exception: PoC uses `POC-<timestamp>`)
+- Do NOT create files without an issue ID in the name or path (exception: PoC uses `POC-<timestamp>`)
 - Do NOT proceed to next stage without user confirmation
 - Do NOT lose SDLC state during agent handoffs
 - Do NOT rename files silently
@@ -159,14 +161,8 @@ All code changes must comply with the language-specific and cross-cutting instru
 - `git-workflow.instructions.md` — Commit format, branch naming, PR workflow
 - `testing.instructions.md` — TDD mandatory, 80% coverage, AAA pattern
 - `security.instructions.md` — Secret management, input validation, dependency audit
-- `opentelemetry.instructions.md` — Distributed tracing, metrics, log correlation, GDPR-safe telemetry
 
 Language-specific instructions are auto-applied by file glob:
-- `java.instructions.md` → `**/*.java`
 - `python.instructions.md` → `**/*.py`
-- `angular.instructions.md` → `**/*.ts`
-- `react.instructions.md` → `**/*.tsx,**/*.ts`
-- `dotnet.instructions.md` → `**/*.cs`
-- `opentelemetry.instructions.md` → `**/*.cs,**/*.java,**/*.py,**/*.ts,**/*.js`
 
-NOTE: CRA / React / TypeScript safety rules are defined in `react.instructions.md` and are automatically applied when working on `.ts` / `.tsx` files.
+Current repository language targets are C++, Python, Rust, and Go.

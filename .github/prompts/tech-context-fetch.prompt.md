@@ -1,7 +1,7 @@
 ---
 agent: plan-tech-analysis
 tools: ['read', 'atlassian/*']
-description: 'Read Epic from Jira or .stage/ artifacts and summarize business requirements for the Tech Lead.'
+description: 'Read Epic from GitHub Issues or .stage/ artifacts and summarize business requirements for the Tech Lead.'
 ---
 
 Fetch and summarize the Epic context for technical analysis.
@@ -12,7 +12,7 @@ Fetch and summarize the Epic context for technical analysis.
 - Check if `.stage/EPIC-XXX/` folder exists (from `@plan-epic-creation` handoff)
 - If yes: read `.stage/EPIC-XXX/functional-spec.md` and `.stage/EPIC-XXX/epic.md`
 - If no: ask the user for the Epic ID, then try:
-  - `atlassian/*` (getJiraIssue) to fetch Epic details from Jira
+  - `atlassian/*` (getIssue) to fetch Epic details from GitHub Issues
   - If MCP unavailable: ask user to paste the Epic summary
 
 ### 2. Summarize for Tech Lead
@@ -30,5 +30,5 @@ Fetch and summarize the Epic context for technical analysis.
 - Present a brief summary: "I've read Epic EPIC-XXX. Here's what I understand: [2-3 sentence summary]. Ready to analyze a repository?"
 
 ## Rules
-- If Epic artifacts are missing AND Jira is unavailable, do NOT proceed without Epic context
+- If Epic artifacts are missing AND GitHub Issues is unavailable, do NOT proceed without Epic context
 - Do NOT modify Epic artifacts -- they belong to `@plan-epic-creation`

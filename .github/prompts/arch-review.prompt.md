@@ -10,9 +10,9 @@ Prerequisites:
 - `.stage/docs/architecture.md` must exist. If not, inform the user to run `/arch init` first.
 
 Tasks:
-- Read `.stage/docs/architecture.md` and all ADRs with status "Accepted"
+- Read `.stage/docs/architecture.md` and all DRs with status "accepted"
 - Determine what to review:
-  - If `.stage/<JIRA-ID>/plan.md` exists → review the implementation plan for violations
+  - If `.stage/<ISSUE-ID>/plan.md` exists → review the implementation plan for violations
   - If the user specifies file paths → review those files
   - If the user specifies a branch or PR → review changes there
   - Default → review staged/unstaged git changes
@@ -25,7 +25,7 @@ Report format -- for each finding:
    File: <path>:<line>
    Rule: <the documented rule>
    Issue: <what the code does wrong>
-   Suggestion: <how to fix it, referencing the relevant ADR>
+  Suggestion: <how to fix it, referencing the relevant DR>
 ```
 
 If no violations:
@@ -34,4 +34,4 @@ If no violations:
 ```
 
 - End with summary: what was reviewed, violations found, boundaries/decisions checked
-- Add Jira comment: "Architecture review completed -- N violations found"
+- Add GitHub Issues comment: "Architecture review completed -- N violations found"

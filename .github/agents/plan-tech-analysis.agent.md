@@ -5,7 +5,7 @@ tools: ['read', 'edit', 'search', 'atlassian/*', 'todo']
 handoffs:
   - label: Complete Planning
     agent: sdlc
-    prompt: 'Technical analysis complete. Stories created in Jira. Return to SDLC orchestrator — developer can pick a story and start the standard pipeline.'
+    prompt: 'Technical analysis complete. Stories created in GitHub Issues. Return to SDLC orchestrator — developer can pick a story and start the standard pipeline.'
     send: true
 ---
 
@@ -39,8 +39,8 @@ Tasks:
 - Use prompt file: `.github/prompts/tech-story-slicing.prompt.md`
 - User MUST approve stories (split/merge/modify) before proceeding.
 
-### Step 7: Create Stories in Jira
-- Use prompt file: `.github/prompts/tech-jira-create.prompt.md`
+### Step 7: Create Stories in GitHub Issues
+- Use prompt file: `.github/prompts/tech-issue-create.prompt.md`
 
 ### Step 8: Phase Evaluation
 - Use prompt file: `.github/prompts/tech-evaluation.prompt.md`
@@ -71,16 +71,16 @@ Upon completion, produce:
 If the `atlassian/*` MCP tools are not available or fail to connect, do the following:
 
 1. **Inform the user clearly:**
-   > "It looks like I'm unable to connect to your Atlassian/Jira instance. The Atlassian MCP server may not be configured or enabled. No worries -- we can continue manually!"
+   > "It looks like I'm unable to connect to your GitHub Issues instance. The Atlassian MCP server may not be configured or enabled. No worries -- we can continue manually!"
 
-2. **For Epic fetching** -- ask the user to open the Epic in Jira and paste the details.
+2. **For Epic fetching** -- ask the user to open the Epic in GitHub Issues and paste the details.
 
-3. **For story creation** -- provide each story formatted for manual Jira creation and ask the user to paste back the created ticket IDs.
+3. **For story creation** -- provide each story formatted for manual GitHub Issues creation and ask the user to paste back the created issue IDs.
 
 4. **Continue the SDLC flow** with the manually provided information. The pipeline never stops.
 
 ## User Review & Confirmation Gate
-Present the outputs and ask: "Technical analysis complete. Stories created in Jira. Click **Complete Planning** to return to SDLC. A developer can now pick a story and start the standard pipeline."
+Present the outputs and ask: "Technical analysis complete. Stories created in GitHub Issues. Click **Complete Planning** to return to SDLC. A developer can now pick a story and start the standard pipeline."
 
 ## Rules
 - Do NOT hand off automatically

@@ -39,7 +39,7 @@ If any required artifact is missing → score affected criteria as 0 and log in 
 - Do stakeholders in epic.md match those in functional-spec.md?
 - Are all requirements in functional-spec.md covered by acceptance criteria in epic.md?
 - Do scope boundaries (in/out) align between both documents?
-- If Jira Epic exists, does the document title match the Jira summary?
+- If GitHub Epic exists, does the document title match the GitHub Issues summary?
 Flag inconsistencies in the Gaps section.
 
 ### 2. Score Each Criterion
@@ -53,7 +53,7 @@ Save to `.stage/EPIC-XXX/epic-score.md`:
 ```markdown
 # EPIC Phase — Score Report
 
-**JIRA:** EPIC-XXX
+**ISSUE:** EPIC-XXX
 **Phase:** EPIC Creation
 **Score:** <X> / 10 (<Rating>)
 **Evaluated at:** <timestamp>

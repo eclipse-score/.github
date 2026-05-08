@@ -10,7 +10,7 @@ project: <string>             # Project name
 # Required — flat key-value map of architectural decisions
 decisions:
   architecture-style: <string>   # e.g. hexagonal, layered, clean, modular-monolith, microservices
-  api-style: <string>            # e.g. rest, graphql, grpc, rest+graphql
+  api-style: <string>            # e.g. grpc, ara-com, some-ip, event-driven, cli-only, n/a
   testing-strategy: <string>     # e.g. testing-trophy, testing-pyramid, ice-cream-cone
   <custom-key>: <string>         # Teams add any decision that matters to them
 
@@ -19,8 +19,8 @@ boundaries:
   - name: <string>               # Human-readable boundary name
     rule: <string>               # Precise rule statement the AI can evaluate
 
-# Optional — path to ADR directory
-adrs: <string>                   # Default: docs/adr/
+# Optional — path to design decision directory
+adrs: <string>                   # Default: docs/design_decisions/
 ```
 
 ## Field Details
@@ -37,11 +37,13 @@ A **flat key-value map**. No nesting. No framework-specific fields. Common keys:
 | Key | Example values |
 |-----|---------------|
 | `architecture-style` | `hexagonal`, `layered`, `clean`, `modular-monolith`, `microservices`, `event-driven` |
-| `api-style` | `rest`, `graphql`, `grpc`, `rest+graphql` |
+| `api-style` | `grpc`, `ara-com`, `some-ip`, `event-driven`, `cli-only`, `n/a` |
 | `testing-strategy` | `testing-trophy`, `testing-pyramid` |
-| `state-management` | `redux`, `zustand`, `context-api` |
+| `build-system` | `bazel`, `bazel+cargo`, `bazel+pytest` |
+| `documentation-stack` | `sphinx`, `sphinx-needs`, `markdown` |
 | `error-handling` | `result-type`, `exceptions`, `error-codes` |
-| `authentication` | `jwt`, `session`, `oauth2` |
+| `transport` | `grpc`, `some-ip`, `ara-com`, `in-process` |
+| `authentication` | `mtls`, `platform-identity`, `repo-permissions`, `n/a` |
 
 Teams may add **any key** that represents a decision worth preserving.
 
@@ -51,7 +53,7 @@ Each boundary has:
 - `rule` — precise statement that can be checked against code (e.g. "Code in `src/domain/` must not import from `src/infrastructure/`")
 
 ### `adrs`
-Path to the ADR directory relative to the project root. Defaults to `docs/adr/`.
+Path to the design decision directory relative to the project root. Defaults to `docs/design_decisions/`.
 
 ## Validation Rules
 

@@ -9,7 +9,7 @@ Design a comprehensive test strategy and derive systematic test cases from requi
 Tasks:
 
 ### 1. Analyze Requirements & Testability
-- Read `.stage/<JIRA-ID>/plan.md` for ticket context and acceptance criteria
+- Read `.stage/<ISSUE-ID>/plan.md` for issue context and acceptance criteria
 - Evaluate each requirement for **testability** (measurable, unambiguous, observable)
 - Flag vague or untestable requirements back to the user
 - Identify the **test scope**: which components, interfaces, and integrations are affected
@@ -55,8 +55,8 @@ Tasks:
 - Produce a **traceability matrix**: requirement → test case mapping
 
 ### 5. Output
-- Save the test design to `.stage/<JIRA-ID>/testDesign.md`
-- Save the traceability matrix to `.stage/<JIRA-ID>/testTraceability.md`
+- Save the test design to `.stage/<ISSUE-ID>/testDesign.md`
+- Save the traceability matrix to `.stage/<ISSUE-ID>/testTraceability.md`
 - Present the test design to the user for review before proceeding to test generation
 
 Reference `.github/instructions/testing.instructions.md` for framework-specific guidance.

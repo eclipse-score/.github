@@ -18,7 +18,7 @@ type: 'Epic'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Epic Ticket creation</ins>"
+      value: "## <ins>Epic Issue creation</ins>"
   - type: textarea
     attributes:
       label: Epic Description

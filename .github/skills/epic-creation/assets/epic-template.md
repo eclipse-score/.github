@@ -5,7 +5,7 @@ Use this template when generating the full Epic document from the functional spe
 ```markdown
 # EPIC: [Epic Title]
 
-**JIRA Epic**: EPIC-DRAFT (will be renamed to EPIC-XXX after Jira creation)
+**ISSUE Epic**: EPIC-DRAFT (will be renamed to EPIC-XXX after GitHub Issues creation)
 **Created**: <date>
 **Author**: AI SDLC — Epic Creation Agent
 

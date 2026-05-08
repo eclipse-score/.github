@@ -38,9 +38,10 @@ Perform a comprehensive security scan on the current codebase or changed files.
 - Request size limits configured
 
 ### 4. Dependency Vulnerability Scan
-- npm: `npm audit --json`
-- pip: `pip-audit --format=json`
-- Maven: OWASP Dependency-Check report
+- Python: `pip-audit --format=json`
+- Rust: `cargo audit --json`
+- Go: `nancy sleuth` or `nancy` CLI
+- C++: OWASP Dependency-Check report
 - Flag: Critical and High CVEs
 
 ## Findings Format
@@ -66,7 +67,7 @@ Present each finding as:
 - PASS: Zero Critical and High findings
 - FAIL: Any Critical or High finding present
 
-Save to: `.stage/<JIRA-ID>/security-scan.md` if Jira context exists.
+Save to: `.stage/<ISSUE-ID>/security-scan.md` if GitHub Issues context exists.
 
 ## Rules
 - Always check for secrets FIRST — they are the most dangerous

@@ -11,7 +11,7 @@ Evaluate the RELEASE phase and produce a quantitative score. As the final phase,
 | Criterion | Weight | What to Check |
 |-----------|--------|---------------|
 | Code review completeness | 50% | All critical/high issues from `release-review` resolved |
-| PR quality | 50% | Clear description, linked JIRA ticket, proper labels, reviewers assigned |
+| PR quality | 50% | Clear description, linked ISSUE issue, proper labels, reviewers assigned |
 
 ## Score Thresholds
 
@@ -25,18 +25,18 @@ Evaluate the RELEASE phase and produce a quantitative score. As the final phase,
 
 ### 0. Artifact Existence Verification (MANDATORY FIRST STEP)
 Attempt to read each file below. Log existence status (Y/N). Do NOT assume content.
-- `.stage/<JIRA-ID>/review-backlog.md` (if review loop was run)
+- `.stage/<ISSUE-ID>/review-backlog.md` (if review loop was run)
 - PR exists and is accessible?
 - `.stage/score.md` (previous phase scores)
 If no PR exists → score PR quality as 0.
 
 ### 1. Read Phase Artifacts
-- Read `.stage/<JIRA-ID>/review-backlog.md` (if exists)
+- Read `.stage/<ISSUE-ID>/review-backlog.md` (if exists)
 - Review PR details (title, description, labels, reviewers)
 - Check commit history format
 
 ### 1b. Cross-Validation
-- Does the PR title contain the Jira ticket ID?
+- Does the PR title contain the GitHub issue ID?
 - Does the PR description reference the requirements from plan.md?
 - Are all critical/high issues from review-backlog.md marked as resolved?
 - Do commit messages follow the `<type>(<scope>): <description>` format?
@@ -48,8 +48,8 @@ Flag inconsistencies in the Gaps section.
 - Calculate the weighted average for the final score
 
 ### 3. Create Phase Score File
-Save to `.stage/<JIRA-ID>/release-score.md` with:
-- JIRA ID, Phase (RELEASE), Score, Timestamp
+Save to `.stage/<ISSUE-ID>/release-score.md` with:
+- ISSUE ID, Phase (RELEASE), Score, Timestamp
 - Evaluation breakdown table
 - Strengths, Gaps, Recommendation
 

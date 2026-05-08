@@ -10,26 +10,24 @@ Perform deep codebase analysis on the confirmed repository.
 
 ### 1. Auto-Detect Tech Stack
 Scan the repo root for build/config files to identify the stack:
-- `pom.xml` / `build.gradle` → Java (Spring Boot, Quarkus, etc.)
-- `package.json` → Node.js / TypeScript (React, Angular, Vue, Express, etc.)
-- `requirements.txt` / `pyproject.toml` / `setup.py` → Python (Django, FastAPI, Flask, etc.)
+- `CMakeLists.txt` / Bazel `BUILD` files → C++
+- `requirements.txt` / `pyproject.toml` / `setup.py` → Python
 - `go.mod` → Go
 - `Cargo.toml` → Rust
-- `*.csproj` / `*.sln` → .NET
 - If multiple found → note as monorepo with multiple modules
 
 ### 2. Analyze Architecture Patterns
 - **Project structure**: directory layout, module boundaries, layering
-- **API patterns**: REST controllers/routes, GraphQL schemas, gRPC protos
+- **Interface patterns**: gRPC protos, ara::com bindings, SOME/IP/service interfaces, CLI commands, event/message contracts
 - **Database**: migration files (detect tool: Flyway, Alembic, Prisma, Knex, etc.), entity/model definitions
-- **Integration points**: HTTP clients, message broker configs, event handlers
+- **Integration points**: transport adapters, IPC/service bindings, message broker configs, event handlers, tooling interfaces
 - **Configuration**: environment files, config classes, secrets references
-- **Security**: auth patterns, role/permission models, middleware
+- **Security**: platform identity, permissions, mTLS, signing, role/permission models
 
 ### 3. Scan Coding Guidelines
 - Read `.github/instructions/` if it exists
 - Read `.editorconfig` if it exists
-- Check for linter configs: `.eslintrc`, `checkstyle.xml`, `pylintrc`, `.rubocop.yml`, etc.
+- Check for linter configs: `pylintrc`, `.flake8`, `rust-clippy.toml`, `rustfmt.toml`, `golangci.yml`, `.clang-format`, etc.
 - Note active guidelines that the stories must follow
 
 ### 4. Find Similar Implementations
@@ -57,8 +55,8 @@ Save to `.stage/EPIC-XXX/tech-analysis/{repo-name}-codebase-notes.md`:
 ## Database
 - [Migration tool, schema patterns, key entities]
 
-## API Patterns
-- [Detected API style, route conventions, auth patterns]
+## Interface Patterns
+- [Detected interface style, contract conventions, transport patterns]
 
 ## Integration Points
 - [HTTP clients, message brokers, external services]

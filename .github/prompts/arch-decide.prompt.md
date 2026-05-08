@@ -10,7 +10,7 @@ Prerequisites:
 - `.stage/docs/architecture.md` must exist. If not, inform the user to run `/arch init` first.
 
 Tasks:
-- Read `.stage/docs/architecture.md` and list existing ADRs in `docs/adr/`
+- Read `.stage/docs/architecture.md` and list existing DRs in `docs/design_decisions/`
 - Ask the user interactively:
   1. "What decision are you recording?"
   2. "What context led to this decision?"
@@ -24,12 +24,12 @@ Tasks:
 | C: Do nothing | ... | ... | When this is acceptable |
 
 - Ask: "What are the consequences or trade-offs of the chosen option?"
-- Determine the next ADR number by scanning `docs/adr/`
-- Invoke the `adr-expert` skill to create `docs/adr/ADR-NNNN-<slug>.md`
+- Determine the next DR number by scanning `docs/design_decisions/`
+- Invoke the `dr-expert` skill to create `docs/design_decisions/DR-NNN-<slug>.md`
 - Update `.stage/docs/architecture.md` if the decision affects any key or boundary:
   - Changed key → update value
   - New category → add key
   - New boundary → append to boundaries
-  - Superseded ADR → update old ADR status to "Superseded by ADR-NNNN"
+  - Superseded DR → update old decision record status to reference the newer DR
 - Present changes for user review before writing
-- Add Jira comment: "Architecture decision recorded: ADR-NNNN"
+- Add GitHub Issues comment: "Architecture decision recorded: DR-NNN"

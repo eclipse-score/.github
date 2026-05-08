@@ -5,7 +5,7 @@ tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'gi
 handoffs:
   - label: Proceed to PR
     agent: release-pr
-    prompt: 'Create a Pull Request and update Jira ticket status to In Review.'
+    prompt: 'Create a Pull Request and update GitHub issue status to In Review.'
     send: true
 ---
 
@@ -31,7 +31,7 @@ Tasks:
    - **Architecture** -- Layer violations, tight coupling, dependency direction
 4. **Present one issue at a time** as an Issue Card:
 
-   **File:** `path/to/File.java:L42-L58`
+   **File:** `path/to/file:L42-L58`
    - **Severity:** Critical | High | Medium | Low
    - **Confidence:** Percentage (only show >80%)
    - **Category:** Security | Correctness | Data Integrity | Code Quality | Architecture
@@ -56,7 +56,7 @@ Tasks:
 - **Refactor now**: Apply fix, update all affected code and tests, verify compilation.
 - **Skip**: Mark as skipped, never show again this session.
 - **Elaborate**: Provide deeper explanation with before/after examples and guideline references.
-- **Backlog**: Save to `.stage/<JIRA-ID>/review-backlog.md` for future sprints.
+- **Backlog**: Save to `.stage/<ISSUE-ID>/review-backlog.md` for future sprints.
 
 ### Final Output
 Upon completion, produce:

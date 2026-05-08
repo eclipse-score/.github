@@ -4,9 +4,9 @@ Use this template when generating a per-repo technical analysis document. This t
 
 ```markdown
 # [Epic Name] — Technical Analysis: [Repo Name]
-**JIRA Epic**: EPIC-XXX
+**ISSUE Epic**: EPIC-XXX
 **Repository**: [repo-name]
-**Tech Stack**: [Auto-detected: e.g., Java/Spring Boot, Python/FastAPI, Angular, React, Go, etc.]
+**Tech Stack**: [Auto-detected: e.g., C++/Bazel, Rust/Cargo+Bazel, Python tooling, Go services, etc.]
 
 ## Goal of the Task
 [1-2 paragraph summary: what this Epic requires from THIS specific repo, and the business value.]
@@ -17,10 +17,10 @@ Use this template when generating a per-repo technical analysis document. This t
 - `module-or-package`: [Brief description of changes needed]
 
 **Key Integration Points**:
-- [Detected integration patterns: HTTP clients, message brokers, event streams, etc.]
+- [Detected integration patterns: service bindings, message brokers, IPC/RPC contracts, tooling interfaces, etc.]
 
 **Interface Impacts**:
-- [API contract changes, schema changes, event schema changes -- only what applies]
+- [IDL/proto changes, interface header changes, CLI contract changes, event schema changes -- only what applies]
 
 ## Dependencies
 

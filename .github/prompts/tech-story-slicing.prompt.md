@@ -57,10 +57,10 @@ Ask: "Review the stories above. You can:
 - **Split** a story (tell me which one and why)
 - **Merge** two stories (tell me which ones)
 - **Modify** a story (tell me what to change)
-- **Proceed** to create these in Jira"
+- **Proceed** to create these in GitHub Issues"
 
 ## Rules
-- Do NOT proceed to Jira creation until user approves the stories
+- Do NOT proceed to GitHub Issues creation until user approves the stories
 - If user requests split/merge/modify, update files and re-present
 - Each story must be self-contained -- a developer should understand it without reading other stories
 - Story points must be realistic: 1 (trivial), 2 (small), 3 (medium), 5 (large), 8 (very large)

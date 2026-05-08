@@ -27,13 +27,13 @@ handoffs:
 Tasks:
 
 ### Phase 0: TDD Check (Optional)
-- Ask the user: "Would you like to follow TDD (Test-Driven Development) for this ticket?"
+- Ask the user: "Would you like to follow TDD (Test-Driven Development) for this issue?"
 - If YES: Use prompt file `.github/prompts/tdd.prompt.md` and follow RED → GREEN → REFACTOR cycle
 - If NO: Proceed with Phase 0.5 (test design)
 
 ### Phase 0.5: Test Design (Systematic)
 - Use prompt file: `.github/prompts/test-design.prompt.md`
-- Analyze requirements from `.stage/<JIRA-ID>/plan.md` for testability
+- Analyze requirements from `.stage/<ISSUE-ID>/plan.md` for testability
 - Select test design techniques per requirement:
   - **Equivalence partitioning** → valid/invalid input classes
   - **Boundary value analysis** → edges of equivalence classes
@@ -42,8 +42,8 @@ Tasks:
   - **Pairwise/combinatorial testing** → multi-parameter interactions
 - Derive systematic test cases (ID, preconditions, input, expected result, priority)
 - Produce **traceability matrix**: requirement → test case mapping
-- Save test design to `.stage/<JIRA-ID>/testDesign.md`
-- Save traceability to `.stage/<JIRA-ID>/testTraceability.md`
+- Save test design to `.stage/<ISSUE-ID>/testDesign.md`
+- Save traceability to `.stage/<ISSUE-ID>/testTraceability.md`
 
 ### Phase 1: Generate Unit Tests (1/3)
 - Use prompt file: `.github/prompts/generate-tests.prompt.md`
@@ -65,15 +65,15 @@ Upon completion, produce:
 - Summary of generated unit tests with coverage percentage
 - Test execution results (passed / failed / skipped)
 - Coverage report: overall % and per-module breakdown
-- Test results saved at: `.stage/<JIRA-ID>/testResults.md`
-- Jira comment added indicating stage completion
+- Test results saved at: `.stage/<ISSUE-ID>/testResults.md`
+- GitHub Issues comment added indicating stage completion
 - Stage Update: `[X] TEST Phase -- Completed`
 
 ## MANDATORY: Phase Evaluation
 > **This step is NON-NEGOTIABLE. You MUST execute it every time this phase completes, including on retries, re-runs, or when the user resumes after asking questions. Do NOT skip this step under any circumstances. Do NOT present the confirmation gate until evaluation is done.**
 
 1. Follow the instructions in `.github/prompts/test-evaluation.prompt.md`
-2. Save evaluation to `.stage/<JIRA-ID>/test-score.md` (overwrite if re-run)
+2. Save evaluation to `.stage/<ISSUE-ID>/test-score.md` (overwrite if re-run)
 3. Create or update `.stage/score.md` with the TEST phase score row
 4. Present the score to the user **before** showing the confirmation gate
 
@@ -86,4 +86,4 @@ If tests fail: "Some tests failed. Click **Back to CODE** to re-plan, or fix man
 - Do NOT proceed without user confirmation
 - If tests fail, recommend the CODE fallback but let user decide
 - **NEVER skip Phase Evaluation** -- it MUST run before the confirmation gate is shown, even if the user asked questions, retried steps, or resumed a previous session
-- If `.stage/<JIRA-ID>/test-score.md` already exists from a previous run, re-evaluate and overwrite it
+- If `.stage/<ISSUE-ID>/test-score.md` already exists from a previous run, re-evaluate and overwrite it

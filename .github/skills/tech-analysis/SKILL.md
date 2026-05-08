@@ -18,13 +18,13 @@ Before asking questions, perform thorough analysis:
 2. Auto-detect tech stack from repo files (pom.xml, package.json, build.gradle, requirements.txt, go.mod, etc.)
 3. Analyze repository structure:
    - Database schemas (migration files -- detect tool automatically)
-   - API patterns (controllers, routes, handlers -- detect framework automatically)
-   - Integration patterns (message brokers, HTTP clients, gRPC -- detect automatically)
+    - Interface patterns (service contracts, handlers, CLI surfaces, RPC bindings -- detect automatically)
+    - Integration patterns (message brokers, transport adapters, gRPC, ara::com, SOME/IP, external tooling -- detect automatically)
    - Configuration and environment patterns
    - Security and authorization patterns
 4. Scan coding guidelines: `.github/instructions/`, `.editorconfig`, linter configs
 5. Find similar implementations in codebase as reference patterns
-6. Identify integration points: dependencies on other services, cloud resources, external systems
+6. Identify integration points: dependencies on other services, target platforms, external systems, or shared tooling
 
 ### Step 2: Gap-Only Questions
 After analysis, identify what you KNOW vs what you DON'T KNOW:

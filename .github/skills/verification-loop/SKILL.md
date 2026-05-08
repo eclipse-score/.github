@@ -18,36 +18,36 @@ This skill provides deep knowledge for running comprehensive pre-PR verification
 Detect build system and run:
 | Build System | Command | Pass Criteria |
 |-------------|---------|---------------|
-| Maven | `mvn compile -q` | Exit code 0 |
-| Gradle | `./gradlew build -q` | Exit code 0 |
-| npm (CRA) | `npm run build` | Exit code 0 |
-| Angular CLI | `ng build` | Exit code 0 |
-| Python | `python -m py_compile src/**/*.py` | Exit code 0 |
+| CMake (C++) | `cmake --build build` | Exit code 0 |
+| Bazel (C++) | `bazel build //:all` | Exit code 0 |
+| pip (Python) | `python -m py_compile src/**/*.py` | Exit code 0 |
+| Poetry (Python) | `poetry build` | Exit code 0 |
+| Cargo (Rust) | `cargo build` | Exit code 0 |
+| Go | `go build ./...` | Exit code 0 |
 
 ### Step 2: Type Checking
 | Language | Command | Pass Criteria |
 |----------|---------|---------------|
-| TypeScript | `npx tsc --noEmit` | Zero type errors |
+| C++ | Compiler flags `-Werror` | Zero errors |
 | Python (mypy) | `mypy src/ --strict` | Zero errors |
-| Java | Covered by Maven/Gradle compile | N/A |
+| Rust | `cargo check` | Zero errors |
+| Go | `go build ./...` | Zero errors |
 
 ### Step 3: Lint Verification
 | Linter | Command | Pass Criteria |
 |--------|---------|---------------|
-| ESLint | `npx eslint . --max-warnings=0` | Zero errors/warnings |
-| Angular lint | `ng lint` | Zero errors |
-| Checkstyle | `mvn checkstyle:check` | Zero violations |
-| Ruff | `ruff check .` | Zero errors |
-| Flake8 | `flake8 .` | Zero errors |
-| Pylint | `pylint src/` | Score ≥ 9.0 |
+| clang-format (C++) | `bazel test //:format.check` | Zero violations |
+| Ruff (Python) | `ruff check .` | Zero errors |
+| clippy (Rust) | `cargo clippy --all-targets` | Zero warnings |
+| go vet (Go) | `go vet ./...` | Zero errors |
 
 ### Step 4: Test Verification
 | Framework | Command | Pass Criteria |
 |-----------|---------|---------------|
-| JUnit 5 | `mvn test jacoco:report` | All pass, coverage ≥ 80% |
-| Jest | `npx jest --coverage` | All pass, coverage ≥ 80% |
-| Karma | `ng test --watch=false --code-coverage` | All pass, coverage ≥ 80% |
-| pytest | `pytest --cov=src --cov-report=term-missing` | All pass, coverage ≥ 80% |
+| GoogleTest (C++) | `bazel test //:all` or `ctest` | All pass, coverage ≥ 80% |
+| pytest (Python) | `pytest --cov=src --cov-report=term-missing` | All pass, coverage ≥ 80% |
+| cargo test (Rust) | `cargo test --verbose` | All pass, coverage ≥ 80% |
+| go test (Go) | `go test -cover ./...` | All pass, coverage ≥ 80% |
 
 Coverage thresholds:
 - 80% minimum for standard code
@@ -56,9 +56,10 @@ Coverage thresholds:
 ### Step 5: Security Verification
 1. **Secrets scan**: Search for hardcoded secrets in changed files
 2. **Dependency audit**:
-   - npm: `npm audit --audit-level=high`
-   - pip: `pip-audit`
-   - Maven: OWASP Dependency-Check (if configured)
+   - Python: `pip-audit`
+   - Rust: `cargo audit`
+   - Go: `nancy` (github.com/sonatype-nexus-community/nancy)
+   - C++: OWASP Dependency-Check (if configured)
 3. **Input validation check**: Verify all API boundaries validate input
 4. Pass criteria: Zero Critical or High findings
 
@@ -71,7 +72,7 @@ Coverage thresholds:
 ## Verification Report Template
 
 ```markdown
-# Verification Report — <JIRA-ID>
+# Verification Report — <ISSUE-ID>
 
 | Check | Status | Details |
 |-------|--------|---------|

@@ -19,7 +19,7 @@ Read every directory and key file. For each analysis area below, extract what ex
 - Identify: project purpose, primary language(s), frameworks, tooling, license, versioning strategy, release process.
 
 ### 1.2 Dependency & Tooling
-- Parse ALL dependency manifests (package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod, build.gradle, pom.xml, Gemfile, *.csproj, etc.).
+- Parse ALL dependency manifests (requirements.txt, pyproject.toml, Cargo.toml, go.mod, CMakeLists.txt, etc.).
 - For each dependency: name, version, purpose (infer from usage if not documented).
 - Identify: dev dependencies, build tools, linters, formatters, test frameworks.
 - Detect monorepo structure, workspaces, or internal/private packages.
@@ -51,12 +51,12 @@ Read every directory and key file. For each analysis area below, extract what ex
 - Document validation, serialization, transformation layers.
 
 ### 1.7 APIs & Interfaces
-- Document ALL public interfaces (REST endpoints, GraphQL schemas, gRPC protos, WebSocket handlers, CLI commands, event handlers).
+- Document ALL public interfaces (gRPC protos, ara::com bindings, SOME/IP/service contracts, CLI commands, event handlers, REST endpoints if they exist).
 - For each: method/verb, path/name, parameters, request/response shapes, auth requirements.
 - Identify API versioning, middleware pipelines, interceptors, filters, guards.
 
 ### 1.8 Authentication & Authorization
-- Identify auth strategy (JWT, OAuth2, session, API keys, SSO, SAML, mTLS, etc.).
+- Identify access-control strategy (platform identity, mTLS, repository permissions, API keys, SSO, SAML, JWT, etc.).
 - Map roles, permissions, RBAC/ABAC mechanisms.
 - Identify WHERE auth checks are enforced (middleware, guards, decorators, annotations).
 

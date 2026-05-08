@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: Use when capturing, reviewing, or enforcing architectural decisions. Manages architecture documentation and ADRs.
+description: Use when capturing, reviewing, or enforcing architectural decisions. Manages architecture documentation and DRs.
 inference_examples:
   - "Initialize architecture documentation"
   - "Review code against architecture decisions"
@@ -18,14 +18,14 @@ Manage architectural decisions, enforce boundaries, and maintain living architec
 
 1. Ask the user about key architectural decisions (interactive, one question at a time):
    - Architecture style (hexagonal, layered, clean, microservices, etc.)
-   - API style (REST, GraphQL, gRPC)
+   - Interface style (gRPC, ara::com, SOME/IP, event-driven, CLI-only)
    - Testing strategy (testing-trophy, testing-pyramid)
    - Any additional decisions the team wants to preserve
 2. Ask about architectural boundaries (rules to enforce):
    - Example: "Domain layer must not import from infrastructure layer"
 3. Generate two files:
    - `.stage/docs/architecture.md` — from the architecture template (see `assets/architecture-template.md`)
-   - `docs/adr/001-initial-architecture.md` — first ADR documenting initial decisions
+   - `docs/design_decisions/DR-001-initial-architecture.md` — first decision record documenting initial decisions
 
 ### `/arch review` — Review Code Against Decisions
 
@@ -39,8 +39,8 @@ Manage architectural decisions, enforce boundaries, and maintain living architec
 
 ### `/arch decide` — Record a New Decision
 
-1. Use the `adr-expert` skill to generate a properly formatted ADR.
-2. Save to `docs/adr/ADR-NNNN-kebab-case-title.md`.
+1. Use the `dr-expert` skill to generate a properly formatted DR.
+2. Save to `docs/design_decisions/DR-NNN-kebab-case-title.md`.
 3. Update `.stage/docs/architecture.md` decisions section if the decision affects architecture-level concerns.
 
 ### `/arch evolve` — Check for Drift

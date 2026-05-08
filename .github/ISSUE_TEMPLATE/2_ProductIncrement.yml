@@ -18,7 +18,7 @@ type: 'Product Increment'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Product Increment Ticket creation</ins>"
+      value: "## <ins>Product Increment Issue creation</ins>"
   - type: textarea
     attributes:
       label: Product Increment Description

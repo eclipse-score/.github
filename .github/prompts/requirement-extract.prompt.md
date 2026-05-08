@@ -1,16 +1,16 @@
 ---
 agent: plan-requirements
 tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'agent', 'todo']
-description: 'Extract clear, testable requirements from Jira ticket details.'
+description: 'Extract clear, testable requirements from GitHub issue details.'
 ---
 
-Generate clear and testable software requirements from the Jira ticket.
+Generate clear and testable software requirements from the GitHub issue.
 
 Tasks:
-- Analyze ticket title, description, and acceptance criteria.
+- Analyze issue title, description, and acceptance criteria.
 - Extract key requirements ensuring they are SMART (Specific, Measurable, Achievable, Relevant, Time-bound).
 - Rewrite requirements in clear, unambiguous language.
 - Identify edge cases and special conditions.
 - Flag missing information or ambiguities needing clarification.
 - Finalize scope to ensure requirements are development-ready.
-- Append refined requirements to: `.stage/<JIRA-ID>/plan.md`
+- Append refined requirements to: `.stage/<ISSUE-ID>/plan.md`

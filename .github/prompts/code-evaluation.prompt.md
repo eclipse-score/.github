@@ -10,7 +10,7 @@ Evaluate the CODE phase and produce a quantitative score.
 
 | Criterion | Weight | What to Check |
 |-----------|--------|---------------|
-| Architecture alignment | 50% | Design follows existing patterns, ADR documented if applicable |
+| Architecture alignment | 50% | Design follows existing patterns, DR documented if applicable |
 | Implementation completeness | 50% | All requirements from `plan.md` addressed, no partial implementations |
 
 ## Score Thresholds
@@ -25,13 +25,13 @@ Evaluate the CODE phase and produce a quantitative score.
 
 ### 0. Artifact Existence Verification (MANDATORY FIRST STEP)
 Attempt to read each file below. Log existence status (Y/N). Do NOT assume content.
-- `.stage/<JIRA-ID>/plan.md`
-- `.stage/<JIRA-ID>/implementationReport.md`
+- `.stage/<ISSUE-ID>/plan.md`
+- `.stage/<ISSUE-ID>/implementationReport.md`
 If any required artifact is missing → score affected criteria as 0 and log in Gaps.
 
 ### 1. Read Phase Artifacts
-- Read `.stage/<JIRA-ID>/plan.md` for requirements
-- Read `.stage/<JIRA-ID>/implementationReport.md`
+- Read `.stage/<ISSUE-ID>/plan.md` for requirements
+- Read `.stage/<ISSUE-ID>/implementationReport.md`
 - Review modified source files
 
 ### 1b. Cross-Validation
@@ -46,8 +46,8 @@ Flag inconsistencies in the Gaps section.
 - Calculate the weighted average for the final score
 
 ### 3. Create Phase Score File
-Save to `.stage/<JIRA-ID>/code-score.md` with the same structure as plan-score.md:
-- JIRA ID, Phase (CODE), Score, Timestamp
+Save to `.stage/<ISSUE-ID>/code-score.md` with the same structure as plan-score.md:
+- ISSUE ID, Phase (CODE), Score, Timestamp
 - Evaluation breakdown table
 - Strengths, Gaps, Recommendation
 

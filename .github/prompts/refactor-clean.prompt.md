@@ -9,10 +9,10 @@ Identify and safely remove dead code from the codebase.
 ## Step 1: Scan for Dead Code
 - Search for unused imports, variables, functions, classes, and files
 - Use language-appropriate detection:
-  - **Java**: `javac -Xlint:unused`, IDE unused symbol detection
-  - **TypeScript/JS**: ESLint `no-unused-vars`, `no-unused-imports`
+  - **C++**: unused variable warnings via compiler flags
   - **Python**: `vulture`, `pylint` unused warnings
-  - **Angular**: `ng lint`, unused component/service detection
+  - **Rust**: `cargo clippy` unused code warnings
+  - **Go**: `go vet` with unused analysis
 
 ## Step 2: Categorize by Safety Tier
 - **Tier 1 (Safe)**: Unused imports, unused local variables, commented-out code
@@ -49,5 +49,5 @@ For each approved removal:
 - **Verify after each removal** — build + tests must pass
 - **Never remove Tier 3/4 without explicit user approval**
 - **Immediately revert** if removal causes breakage
-- **Commented-out code is dead code** — remove unless it has a linked TODO/FIXME with Jira ticket
+- **Commented-out code is dead code** — remove unless it has a linked TODO/FIXME with GitHub issue
 - Reference `.github/instructions/clean-code.instructions.md` for quality standards

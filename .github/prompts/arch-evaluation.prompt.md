@@ -11,7 +11,7 @@ Evaluate the quality of architecture outputs produced during this phase.
 | Criterion | Weight | What to Check |
 |-----------|--------|---------------|
 | Decision Completeness | 20% | All key architecture decisions captured with context, rationale, and alternatives? |
-| ADR Correctness | 20% | ADRs follow the project MADR format? Statuses accurate? |
+| DR Correctness | 20% | DRs follow the project S-CORE-style decision-record format? Statuses accurate? |
 | Boundary Clarity | 20% | Boundaries explicit, enforceable, and grounded in the codebase? |
 | Traceability | 20% | Each decision traced to a requirement or business constraint? |
 | Pragmatism | 20% | Recommendations grounded in actual codebase, not theoretical? |
@@ -29,7 +29,7 @@ Evaluate the quality of architecture outputs produced during this phase.
 ### 0. Artifact Existence Verification (MANDATORY FIRST STEP)
 Attempt to read each file below. Log existence status (Y/N). Do NOT assume content.
 - `.stage/docs/architecture.md` (if created/updated)
-- Any new ADRs in `docs/adr/`
+- Any new DRs in `docs/design_decisions/`
 - Architecture review findings (if `/arch review` was run)
 - Architecture health report (if `/arch evolve` was run)
 If no architecture artifacts exist → score ALL criteria as 0.
@@ -39,7 +39,7 @@ If no architecture artifacts exist → score ALL criteria as 0.
 
 ### 1b. Cross-Validation
 - Do module/service names in architecture.md match actual codebase directories?
-- Do ADR decisions reference real technology choices present in the project?
+- Do DR decisions reference real technology choices present in the project?
 - Are boundary definitions enforceable with the project's actual dependency structure?
 Flag inconsistencies in the Gaps section.
 
@@ -49,10 +49,10 @@ Flag inconsistencies in the Gaps section.
 - Calculate the weighted average for the final score
 
 ### 3. Create Phase Score File
-Save to `.stage/<JIRA-ID>/arch-score.md`:
+Save to `.stage/<ISSUE-ID>/arch-score.md`:
 
 ```markdown
-# Architecture Evaluation — <JIRA-ID>
+# Architecture Evaluation — <ISSUE-ID>
 
 **Phase:** Architecture
 **Score:** <X> / 10 (<Rating>)
@@ -61,7 +61,7 @@ Save to `.stage/<JIRA-ID>/arch-score.md`:
 | Criterion | Weight | Score | Evidence |
 |-----------|--------|-------|----------|
 | Decision Completeness | 20% | <X>/10 | ... |
-| ADR Correctness | 20% | <X>/10 | ... |
+| DR Correctness | 20% | <X>/10 | ... |
 | Boundary Clarity | 20% | <X>/10 | ... |
 | Traceability | 20% | <X>/10 | ... |
 | Pragmatism | 20% | <X>/10 | ... |

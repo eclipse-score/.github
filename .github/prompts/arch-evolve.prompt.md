@@ -10,14 +10,14 @@ Prerequisites:
 - `.stage/docs/architecture.md` must exist. If not, inform the user to run `/arch init` first.
 
 Tasks:
-- Read `.stage/docs/architecture.md` and all accepted ADRs
+- Read `.stage/docs/architecture.md` and all accepted DRs
 - Scan the codebase structure (directory layout, import patterns, naming conventions)
 - Compare actual patterns against documented decisions and boundaries
 - Identify:
   - **Drift** — code that has diverged from documented decisions
   - **Inconsistencies** — parts of the codebase that follow different patterns
-  - **Missing decisions** — patterns in the code that aren't captured in any ADR
-  - **Stale decisions** — ADRs that no longer reflect reality
+  - **Missing decisions** — patterns in the code that aren't captured in any DR
+  - **Stale decisions** — DRs that no longer reflect reality
 
 Produce an Architecture Health Report:
 
@@ -31,10 +31,10 @@ Produce an Architecture Health Report:
 - <description, with examples>
 
 ### Suggested New Decisions
-- <pattern that should be formalized as an ADR>
+- <pattern that should be formalized as a DR>
 
-### Potentially Stale ADRs
-- ADR-NNNN: <why it may be outdated>
+### Potentially Stale DRs
+- DR-NNN: <why it may be outdated>
 
 ### Health Assessment
 | Area | Findings |
@@ -46,6 +46,6 @@ Produce an Architecture Health Report:
 | Major refactors | ... |
 ```
 
-- Offer to create new ADRs (via `adr-expert` skill) for any findings
+- Offer to create new DRs (via `dr-expert` skill) for any findings
 - Ground all suggestions in the team's own decisions, not generic best practices
-- Add Jira comment: "Architecture evolution analysis completed"
+- Add GitHub Issues comment: "Architecture evolution analysis completed"

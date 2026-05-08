@@ -36,8 +36,8 @@ Tasks:
 - Use prompt file: `.github/prompts/epic-document.prompt.md`
 - User MUST approve before proceeding.
 
-### Step 5: Create Epic in Jira
-- Use prompt file: `.github/prompts/epic-jira-create.prompt.md`
+### Step 5: Create Epic in GitHub Issues
+- Use prompt file: `.github/prompts/epic-issue-create.prompt.md`
 
 ### Step 6: Phase Evaluation
 - Use prompt file: `.github/prompts/epic-evaluation.prompt.md`
@@ -63,13 +63,13 @@ Upon completion, produce:
 If the `atlassian/*` MCP tools are not available or fail to connect, do the following:
 
 1. **Inform the user clearly:**
-   > "It looks like I'm unable to connect to your Atlassian/Jira instance. The Atlassian MCP server may not be configured or enabled. No worries -- we can continue manually!"
+   > "It looks like I'm unable to connect to your GitHub Issues instance. The Atlassian MCP server may not be configured or enabled. No worries -- we can continue manually!"
 
 2. **For Epic creation** -- provide the Epic content formatted for manual creation and ask the user to:
-   - Create the Epic in Jira manually
+   - Create the Epic in GitHub Issues manually
    - Paste the Epic ID back (e.g., `EPIC-123`)
 
-3. **For duplicate checking** -- ask the user to search Jira manually for similar Epics.
+3. **For duplicate checking** -- ask the user to search GitHub Issues manually for similar Epics.
 
 4. **Continue the SDLC flow** with the manually provided Epic ID. The pipeline never stops.
 

@@ -1,15 +1,13 @@
 ---
-name: adr-expert
+name: dr-expert
 description: Use when documenting architectural decisions. Enforces the S-CORE-style DR format used in `docs/design_decisions/`.
 inference_examples:
   - "Create a DR for this decision"
-  - "Document why we chose Feign"
-  - "Write a decision record for the database switch"
+  - "Document why we chose this transport binding"
+  - "Write a decision record for the middleware integration"
 ---
 
 # DR Standards
-
-Compatibility note: prefer the `dr-expert` skill name in repository-owned prompts and guidance. Keep `adr-expert` as a compatibility alias for imported assets.
 
 **Trigger**: Request for architectural documentation.
 
@@ -59,7 +57,7 @@ Always generate decision records using the S-CORE-style DR structure and store t
 ```
 
 ### Writing Rules
-- **Conciseness**: No prose walls. Use bullet points.
+- **Conciseness**: Keep the record focused and reviewable.
 - **Tone**: Pragmatic and technical.
 - **Naming**: `DR-XXX-kebab-case-title.md`.
 - **Location**: `docs/design_decisions/`.

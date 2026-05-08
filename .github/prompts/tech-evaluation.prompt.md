@@ -55,7 +55,7 @@ Save to `.stage/EPIC-XXX/tech-score.md`:
 ```markdown
 # TECH Phase — Score Report
 
-**JIRA:** EPIC-XXX
+**ISSUE:** EPIC-XXX
 **Phase:** Technical Analysis
 **Score:** <X> / 10 (<Rating>)
 **Evaluated at:** <timestamp>

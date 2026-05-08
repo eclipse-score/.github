@@ -25,12 +25,12 @@ Evaluate the TEST phase and produce a quantitative score.
 
 ### 0. Artifact Existence Verification (MANDATORY FIRST STEP)
 Attempt to read each file below. Log existence status (Y/N). Do NOT assume content.
-- `.stage/<JIRA-ID>/testResults.md`
-- `.stage/<JIRA-ID>/testDesign.md` (if test-design was run)
+- `.stage/<ISSUE-ID>/testResults.md`
+- `.stage/<ISSUE-ID>/testDesign.md` (if test-design was run)
 If testResults.md is missing → score ALL criteria as 0.
 
 ### 1. Read Phase Artifacts
-- Read `.stage/<JIRA-ID>/testResults.md`
+- Read `.stage/<ISSUE-ID>/testResults.md`
 - Review coverage reports and test output
 
 ### 1b. Cross-Validation
@@ -47,8 +47,8 @@ Flag inconsistencies in the Gaps section.
 - Calculate the weighted average for the final score
 
 ### 3. Create Phase Score File
-Save to `.stage/<JIRA-ID>/test-score.md` with:
-- JIRA ID, Phase (TEST), Score, Timestamp
+Save to `.stage/<ISSUE-ID>/test-score.md` with:
+- ISSUE ID, Phase (TEST), Score, Timestamp
 - Evaluation breakdown table
 - Strengths, Gaps, Recommendation
 

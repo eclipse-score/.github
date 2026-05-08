@@ -10,17 +10,17 @@ Execute the generated unit test cases and capture results with coverage.
 
 ### 1. Detect Test Framework
 - Identify the project's test framework from config files:
-  - **Java**: JUnit 5 (`pom.xml` / `build.gradle` dependencies)
-  - **TypeScript/JS**: Jest or Vitest (`package.json` scripts)
-  - **Angular**: Jasmine/Karma (`angular.json` test config)
+  - **C++**: GoogleTest (`BUILD` files, `CMakeLists.txt`)
   - **Python**: pytest (`pyproject.toml` / `setup.cfg`)
+  - **Rust**: cargo test (`Cargo.toml`)
+  - **Go**: go test (`testing` package, `_test.go` files)
 
 ### 2. Execute Tests with Coverage
 - Run the appropriate test command with coverage enabled:
-  - Java: `mvn test jacoco:report`
-  - TypeScript/JS: `npx jest --coverage --verbose`
-  - Angular: `ng test --watch=false --code-coverage`
+  - C++: `bazel test //:all --test_summary=detailed` or `ctest --output-on-failure`
   - Python: `pytest --cov=src --cov-report=term-missing -v`
+  - Rust: `cargo tarpaulin --out Html` or `cargo test --verbose`
+  - Go: `go test -cover ./...` or `go test -coverprofile=coverage.out ./...`
 
 ### 3. Capture Results
 - Record for each test: name, status (pass/fail/skip), duration

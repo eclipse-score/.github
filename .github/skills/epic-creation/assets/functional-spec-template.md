@@ -5,7 +5,7 @@ Use this template when generating the functional specification document from bus
 ```markdown
 # [Feature Name] — Functional Specification
 
-**Epic Draft ID**: EPIC-DRAFT (will be renamed to EPIC-XXX after Jira creation)
+**Epic Draft ID**: EPIC-DRAFT (will be renamed to EPIC-XXX after GitHub Issues creation)
 **Created**: <date>
 **Author**: AI SDLC — Epic Creation Agent
 

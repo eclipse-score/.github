@@ -9,9 +9,9 @@ Generate comprehensive unit tests for the implementation.
 ## Tasks
 
 ### 1. Analyze Implementation
-- Review implemented code in `.stage/<JIRA-ID>/` artifacts and source files
+- Review implemented code in `.stage/<ISSUE-ID>/` artifacts and source files
 - Identify all public methods, API endpoints, and business logic requiring tests
-- Map requirements from `.stage/<JIRA-ID>/plan.md` to testable behaviors
+- Map requirements from `.stage/<ISSUE-ID>/plan.md` to testable behaviors
 
 ### 2. Generate Tests Following AAA Pattern
 For each testable behavior, write tests using **Arrange-Act-Assert**:
@@ -28,16 +28,16 @@ For each testable behavior, write tests using **Arrange-Act-Assert**:
 
 ### 4. Test Naming Convention
 - Format: `methodName_scenario_expectedBehavior`
-- Use `@DisplayName` (Java), `describe/it` (JS/TS), or docstrings (Python) for human-readable descriptions
-- Group related tests in describe blocks or nested classes
+- Use `TEST` macro comments (C++), `def test_*` (Python), or docstring comments (Rust/Go) for human-readable descriptions
+- Group related tests in fixtures or test modules
 
 ### 5. Framework-Specific Guidance
 | Language | Framework | Mocking | Assertions | Coverage Tool |
 |----------|-----------|---------|------------|---------------|
-| Java | JUnit 5 | Mockito | AssertJ | JaCoCo |
-| TypeScript | Jest/Vitest | jest.mock | expect() | jest --coverage |
-| Angular | Jasmine/Karma | jasmine.createSpy | expect() | ng test --coverage |
+| C++ | GoogleTest | GoogleMock | EXPECT_* macros | lcov/gcov |
 | Python | pytest | unittest.mock | assert/pytest.raises | pytest-cov |
+| Rust | cargo test | mockall | assert_eq! | llvm-cov/grcov |
+| Go | go test | testify/mock | assert.Equal | go test -cover |
 
 ### 6. Coverage Targets
 - **80% minimum** for standard code

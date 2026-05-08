@@ -35,7 +35,7 @@ Generate a comprehensive Epic document from the approved functional specificatio
 ### 4. Save and Present
 - Save to `.stage/EPIC-DRAFT/epic.md`
 - Present the full document to the user
-- Ask: "Review the Epic document. Would you like to make any changes before I create it in Jira?"
+- Ask: "Review the Epic document. Would you like to make any changes before I create it in GitHub Issues?"
 
 ## Rules
 - Do NOT proceed until user approves the Epic document

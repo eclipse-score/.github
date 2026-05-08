@@ -17,10 +17,10 @@ This is a **standalone utility agent** — not part of the SDLC pipeline. It can
 ### Step 1: Scan for Dead Code
 - Search for unused imports, variables, functions, classes, and files
 - Use language-appropriate tools:
-  - **Java**: IDE unused symbol detection, `javac -Xlint:unused`
-  - **TypeScript/JS**: ESLint `no-unused-vars`, `no-unused-imports`, tree-shaking analysis
+  - **C++**: unused variable warnings via compiler flags, `-Wall -Wextra`
   - **Python**: `vulture`, `pylint` unused warnings
-  - **Angular**: `ng lint`, unused component/service detection
+  - **Rust**: `cargo clippy` unused code warnings
+  - **Go**: `go vet` with unused analysis
 
 ### Step 2: Categorize by Safety Tier
 - **Tier 1 (Safe)**: Unused imports, unused local variables, commented-out code
@@ -59,5 +59,5 @@ After cleanup session:
 - **Always verify after each removal** — build + tests must pass
 - **Never remove Tier 3/4 without explicit user approval**
 - **Immediately revert** if removal breaks build or tests
-- **Commented-out code is dead code** — remove unless it has a linked TODO/FIXME with Jira ticket
+- **Commented-out code is dead code** — remove unless it has a linked TODO/FIXME with GitHub issue
 - Reference `.github/instructions/clean-code.instructions.md` for code quality standards

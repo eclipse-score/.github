@@ -15,7 +15,7 @@ applyTo: '**'
 ## Test Types (ALL required for production features)
 1. **Unit Tests** — Individual functions, utilities, components
 2. **Integration Tests** — API endpoints, database operations, service interactions
-3. **E2E Tests** — Critical user flows (Playwright, Cypress, or equivalent)
+3. **System/Scenario Tests** — Critical cross-component flows where applicable
 
 ## Test-Driven Development (TDD)
 
@@ -45,9 +45,9 @@ Mandatory workflow for new features and bug fixes:
 - Fix implementation, not tests (unless tests are wrong)
 
 ## Language-Specific Frameworks
-| Language | Unit | Mocking | Integration | E2E |
-|----------|------|---------|-------------|-----|
-| Java | JUnit 5 | Mockito | Testcontainers | Playwright |
-| TypeScript | Jest/Vitest | jest.mock | supertest | Playwright |
-| Angular | Jasmine/Karma | jasmine.createSpy | HttpClientTestingModule | Playwright |
-| Python | pytest | unittest.mock | pytest-django | Playwright |
+| Language | Unit | Mocking | Integration | Coverage |
+|----------|------|---------|-------------|----------|
+| C++ | GoogleTest | GoogleMock | Bazel test targets | lcov/gcov |
+| Python | pytest | unittest.mock | pytest + service/integration fixtures | pytest-cov |
+| Rust | cargo test | mockall (or equivalent) | integration tests in `tests/` | llvm-cov/grcov |
+| Go | go test | gomock/testify | package/integration tests | go test -cover |

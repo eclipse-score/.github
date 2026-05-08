@@ -30,6 +30,6 @@ Actions:
 - **Refactor now**: Apply fix, update dependencies and tests, verify compilation.
 - **Skip**: Mark skipped, never show again this session.
 - **Elaborate**: Show deeper explanation with before/after examples and guideline references.
-- **Backlog**: Save to `.stage/<JIRA-ID>/review-backlog.md` with file, line range, summary, priority.
+- **Backlog**: Save to `.stage/<ISSUE-ID>/review-backlog.md` with file, line range, summary, priority.
 
 After all issues: produce session summary of found, resolved, skipped, and backlogged items.

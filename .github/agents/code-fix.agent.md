@@ -16,10 +16,10 @@ This is a **standalone utility agent** — not part of the SDLC pipeline. It can
 
 ### Step 1: Detect Build System
 - Identify the project's build tool:
-  - **Java**: Maven (`pom.xml`) or Gradle (`build.gradle`)
-  - **TypeScript/JS**: npm/yarn (`package.json`), CRA (`react-scripts`)
+  - **C++**: CMake (`CMakeLists.txt`), Bazel (`BUILD` files)
   - **Python**: pip (`requirements.txt`), poetry (`pyproject.toml`)
-  - **Angular**: Angular CLI (`angular.json`)
+  - **Rust**: Cargo (`Cargo.toml`)
+  - **Go**: Go modules (`go.mod`)
 - Run the appropriate build command to capture errors
 
 ### Step 2: Parse Errors
@@ -28,7 +28,7 @@ This is a **standalone utility agent** — not part of the SDLC pipeline. It can
   - **Compilation** — Syntax, type mismatch, missing imports
   - **Dependency** — Missing packages, version conflicts
   - **Configuration** — Invalid config, missing environment variables
-  - **Lint** — ESLint, Checkstyle, Pylint violations
+  - **Lint** — clippy, pylint, go vet, rustfmt violations
   - **Test** — Failing tests blocking build
 
 ### Step 3: Fix One Error
@@ -51,5 +51,5 @@ This is a **standalone utility agent** — not part of the SDLC pipeline. It can
 - **Minimal changes** — smallest possible edit to fix the error
 - **No side effects** — fixes must not break other functionality
 - **Verify after each fix** — always re-run build to confirm
-- **Ask before suppressing** — never add `@SuppressWarnings`, `// eslint-disable`, `# noqa` without user approval
+- **Ask before suppressing** — never add `#[allow(...)]`, `# noqa`, `// allow` without user approval
 - Reference `.github/instructions/` files for language-specific coding standards

@@ -1,18 +1,18 @@
 ---
 agent: code-design
 tools: ['read', 'edit', 'github-enterprise/*']
-description: 'Create a GitHub branch based on Jira ticket type following naming conventions.'
+description: 'Create a GitHub branch based on GitHub issue type following naming conventions.'
 ---
 
-Create a branch based on the Jira ticket type and details.
+Create a branch based on the GitHub issue type and details.
 
 Tasks:
-- Analyze the ticket to determine type (feature, bugfix, hotfix, chore).
+- Analyze the issue to determine type (feature, bugfix, hotfix, chore).
 - Select the appropriate prefix:
   - Feature: `feature/`
   - Bugfix: `bugfix/`
   - Hotfix: `hotfix/`
   - Chore: `chore/`
-- Construct branch name: `<prefix><JIRA-ID>-<short-description>` (lowercase, hyphen-separated).
+- Construct branch name: `<prefix><ISSUE-ID>-<short-description>` (lowercase, hyphen-separated).
 - Create the branch in the GitHub repository.
-- Save branch details to: `.stage/<JIRA-ID>/plan.md`
+- Save branch details to: `.stage/<ISSUE-ID>/plan.md`
