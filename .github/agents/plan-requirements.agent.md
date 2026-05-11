@@ -1,8 +1,6 @@
 ---
 description: 'PLAN Phase: Fetches GitHub issue, assigns developer, extracts and refines requirements.'
-
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['read', 'edit', 'search', 'atlassian/*', 'todo']
+tools: ['read', 'edit', 'search', 'github', 'todo']
 handoffs:
   - label: Proceed to SETUP
     agent: setup-repo
@@ -37,32 +35,32 @@ The user arrives here with a GitHub issue ID (from `@sdlc` routing) or without o
 ### Scenario 1: No Issue
 User has no GitHub issue yet and needs to create one.
 - Use prompt file: `.github/prompts/issue-create.prompt.md`
-- Ask: "Is this under an existing Epic?" If yes → use `atlassian/*` to link the new issue to the parent Epic
+- Ask: "Is this under an existing roadmap/initiative issue?" If yes -> link the new issue to the parent issue via the issue tracker MCP or `gh issue edit` CLI
 - After creation → proceed to **Content Richness Check** (Step 1)
 
 ### Scenario 2: User Provides a Issue ID
-- Use `atlassian/*` to fetch the issue details (summary, description, acceptance criteria, issue type, priority, parent)
+- Fetch the issue details via the issue tracker MCP or `gh issue view` CLI (summary, description, acceptance criteria, issue type, priority, parent)
 - **Verify issue type:**
-  - If type = **Epic** → "This is an Epic, not a Story. You need to break it into stories first. Would you like to go back to **@plan-tech-analysis**?" → Do NOT proceed. Redirect or ask for a Story ID.
-  - If type = Story / Task / Bug → proceed to **Parent Epic Check** (Step 0b)
+  - If type = **Roadmap / Initiative** → "This looks like a roadmap initiative, not a single task. Would you like to go to **@plan-tech-analysis** to break it into tasks first?" -> Do NOT proceed. Redirect or ask for a Task ID.
+  - If type = Task / Bug / Story -> proceed to **Parent Context Check** (Step 0b)
 
-### Step 0b: Parent Epic Check
-- If the fetched issue has a **parent Epic**:
-  - Fetch the Epic details (summary, description, scope) via `atlassian/*`
-  - Use Epic context to enrich `plan.md` (business value, constraints, dependencies from Epic)
-  - Inform user: "This story belongs to Epic EPIC-XXX. I'll pull in the Epic context to enrich the requirements."
-- If no parent Epic → proceed normally
+### Step 0b: Parent Context Check
+- If the fetched issue has a parent roadmap/initiative issue:
+    - Fetch parent details (summary, description, scope) via the issue tracker MCP or `gh issue view` CLI
+  - Use parent context to enrich `plan.md` (business value, constraints, dependencies)
+  - Inform user: "This task belongs to a larger initiative. I'll pull in that context to enrich the requirements."
+- If no parent context → proceed normally
 
 ### Step 1: Content Richness Check
 After fetching the issue, evaluate its content:
 
-**Rich issue** (has ALL of: description > 50 words, acceptance criteria with Given/When/Then, story points):
+**Rich issue** (has ALL of: description > 50 words, acceptance criteria with Given/When/Then, size):
 - → **Fast-Track Mode**: auto-populate `.stage/<ISSUE-ID>/plan.md` directly from GitHub Issues content
 - Skip full requirement extraction Q&A
 - Present to user: "This issue is well-defined. Here are the requirements I extracted. Review and confirm."
 - If user approves → proceed to assignment + evaluation
 
-**Partial issue** (has description but missing AC or story points):
+**Partial issue** (has description but missing AC or size):
 - → **Guided Mode**: extract what exists, ask targeted questions ONLY about gaps
 - "The issue has a good description but is missing acceptance criteria. Let me help refine those."
 - Use prompt file: `.github/prompts/requirement-extract.prompt.md` (focused on gaps only)
@@ -74,14 +72,14 @@ After fetching the issue, evaluate its content:
 - Then use: `.github/prompts/requirement-extract.prompt.md`
 
 ### Lightweight Mode (Hotfix path)
-If the user indicated this is a **Hotfix** (urgent / P1 / critical) during the SDLC path selection:
+If the user indicated this is a **Hotfix** (urgent / Priority 1) during the SDLC path selection:
 - **Skip** full requirements extraction
 - Create or fetch a issue with minimal info: severity, affected environment, initial findings
 - Save a lightweight `.stage/<ISSUE-ID>/plan.md` with: issue ID, severity, initial findings, and "Full requirements deferred -- proceeding to RCA"
 - Immediately hand off to **Proceed to RCA (Bug Fix / Hotfix)**
 
 ### Step 2: Assign Developer
-- Use `atlassian/*` to check current assignee
+- Check current assignee via the issue tracker MCP or `gh issue view` CLI
 - If unassigned → use prompt file: `.github/prompts/issue-fetch-assign.prompt.md`
 - If already assigned → confirm with user: "This issue is assigned to [name]. Is that correct?"
 
@@ -89,7 +87,7 @@ If the user indicated this is a **Hotfix** (urgent / P1 / critical) during the S
 Save to `.stage/<ISSUE-ID>/plan.md` with standardized sections:
 
 ```markdown
-# <ISSUE-ID> — Story Brief
+# <ISSUE-ID> — Task Brief
 
 ## Issue Context
 - **GitHub issue ID**: <ISSUE-ID>
@@ -97,8 +95,8 @@ Save to `.stage/<ISSUE-ID>/plan.md` with standardized sections:
 - **Type**: <Story / Bug / Task>
 - **Priority**: <priority>
 - **Assignee**: <name>
-- **Parent Epic**: <EPIC-ID or "None">
-- **Story Points**: <points or "Not estimated">
+- **Parent Initiative**: <ISSUE-ID or "None">
+- **Size**: <points or "Not estimated">
 
 ## Requirements
 <Refined requirements from issue — SMART format>
@@ -136,14 +134,14 @@ Upon completion, produce:
 3. Create or update `.stage/score.md` with the PLAN phase score row
 4. Present the score to the user **before** showing the confirmation gate
 
-## MCP Fallback -- Atlassian Unavailable
-If the `atlassian/*` MCP tools are not available or fail to connect, do the following:
+## MCP Fallback -- Issue Tracker Unavailable
+If the issue tracker MCP is not available or fails to connect, do the following:
 
 1. **Inform the user clearly:**
-   > "It looks like I'm unable to connect to your GitHub Issues instance. The Atlassian MCP server may not be configured or enabled. No worries -- we can continue manually!"
+   > "It looks like I'm unable to connect to the issue tracker. The issue tracker MCP server may not be configured or enabled. No worries -- we can continue manually!"
 
 2. **For issue creation** -- ask the user to create the issue manually in GitHub Issues, then paste the following details here:
-   - GitHub issue ID (e.g. `PROJ-1234`)
+   - GitHub issue ID (e.g. `#1234`)
    - Title
    - Description
    - Acceptance criteria

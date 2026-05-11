@@ -1,6 +1,6 @@
 ---
 agent: release-review
-tools: ['vscode', 'execute', 'read', 'search', 'web', 'atlassian/search', 'github-enterprise/*', 'agent', 'todo']
+tools: ['vscode', 'execute', 'read', 'search', 'web', 'github', 'agent', 'todo']
 description: 'Interactive code review -- surfaces critical issues one at a time with actionable options.'
 ---
 

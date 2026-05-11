@@ -1,6 +1,5 @@
 ---
 description: 'Utility: Creates reusable playbook agents from completed work — analyzes git diff, commit history, and code changes to extract repeatable patterns.'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['read', 'edit', 'search', 'todo']
 ---
 

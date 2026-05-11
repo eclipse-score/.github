@@ -1,7 +1,6 @@
 ---
 description: 'RELEASE Phase: Interactive code review -- surfaces critical issues one at a time with actionable options.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'github-enterprise/*', 'agent', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'github', 'agent', 'todo']
 handoffs:
   - label: Proceed to PR
     agent: release-pr
@@ -63,11 +62,11 @@ Upon completion, produce:
 - Summary of issues found, resolved, skipped, and backlogged
 - Stage Update: `[X] RELEASE Phase (Review) -- Completed`
 
-## MCP Fallback -- GitHub Enterprise Unavailable
-If the `github-enterprise/*` MCP tools are not available or fail to connect, do the following:
+## MCP Fallback -- GitHub / SCM Unavailable
+If GitHub or SCM MCP tools are not available or fail to connect, do the following:
 
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Enterprise to fetch the branch diff. No worries -- I have two alternatives!"
+   > "I'm unable to connect to GitHub to fetch the branch diff. No worries -- I have two alternatives!"
 
 2. **Option A -- Provide a diff manually:**
    Ask the user to run and paste the output:

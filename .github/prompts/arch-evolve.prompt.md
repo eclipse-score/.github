@@ -1,6 +1,6 @@
 ---
 agent: code-architect
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github-enterprise/*', 'atlassian/*', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github', 'todo']
 description: 'Analyze codebase for architectural drift and health assessment.'
 ---
 
@@ -49,3 +49,4 @@ Produce an Architecture Health Report:
 - Offer to create new DRs (via `dr-expert` skill) for any findings
 - Ground all suggestions in the team's own decisions, not generic best practices
 - Add GitHub Issues comment: "Architecture evolution analysis completed"
+- Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json`: summary = "Architecture evolution analysis completed", status = ready_for_handoff

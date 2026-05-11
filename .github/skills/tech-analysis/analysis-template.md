@@ -3,13 +3,13 @@
 Use this template when generating a per-repo technical analysis document. This template is tech-agnostic -- adapt sections based on what the codebase actually contains.
 
 ```markdown
-# [Epic Name] — Technical Analysis: [Repo Name]
-**ISSUE Epic**: EPIC-XXX
+# [Initiative Name] — Technical Analysis: [Repo Name]
+**ISSUE**: <INITIATIVE-ID>
 **Repository**: [repo-name]
 **Tech Stack**: [Auto-detected: e.g., C++/Bazel, Rust/Cargo+Bazel, Python tooling, Go services, etc.]
 
 ## Goal of the Task
-[1-2 paragraph summary: what this Epic requires from THIS specific repo, and the business value.]
+[1-2 paragraph summary: what this initiative requires from this specific repo, and the business value.]
 
 ## Analysis Summary
 

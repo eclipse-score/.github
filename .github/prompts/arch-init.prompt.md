@@ -1,6 +1,6 @@
 ---
 agent: code-architect
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github-enterprise/*', 'atlassian/*', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github', 'todo']
 description: 'Initialize architecture documentation through an interactive interview.'
 ---
 
@@ -27,3 +27,4 @@ Tasks:
   - Consequences: Note trade-offs mentioned
 - Present all generated files for user review before writing
 - Add GitHub Issues comment: "Architecture initialized with `/arch init`"
+- Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json`: summary = "Architecture initialized with /arch init", status = ready_for_handoff

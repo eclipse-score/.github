@@ -9,7 +9,7 @@ Establish the repository path for technical analysis.
 ## Tasks
 
 ### 1. Ask for Repository Path
-- Ask: "Which repository do you want to analyze for this Epic? Please provide the local path."
+- Ask: "Which repository do you want to analyze for this initiative? Please provide the local path."
 - If user provides a path: verify it exists by attempting to read a file (e.g., README.md, package.json, pom.xml)
 - If path is valid: confirm and proceed
 

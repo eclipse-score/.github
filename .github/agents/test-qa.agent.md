@@ -1,7 +1,6 @@
 ---
 description: 'TEST Phase: Generates unit tests, executes them, and documents results.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/search', 'agent', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'agent', 'todo']
 handoffs:
   - label: Proceed to RELEASE (Review Loop)
     agent: release-review-loop
@@ -67,6 +66,7 @@ Upon completion, produce:
 - Coverage report: overall % and per-module breakdown
 - Test results saved at: `.stage/<ISSUE-ID>/testResults.md`
 - GitHub Issues comment added indicating stage completion
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with status and next action
 - Stage Update: `[X] TEST Phase -- Completed`
 
 ## MANDATORY: Phase Evaluation

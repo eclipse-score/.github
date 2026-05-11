@@ -1,6 +1,6 @@
 ---
 agent: plan-requirements
-tools: ['read', 'edit', 'atlassian/*']
+tools: ['read', 'edit']
 description: 'Evaluate PLAN phase quality, assign a score, and update the global score.md.'
 ---
 
@@ -35,7 +35,7 @@ If the artifact is missing → score ALL criteria as 0.
 - Does the GitHub issue ID in plan.md match the actual GitHub issue?
 - Are acceptance criteria testable (each has a verifiable condition)?
 - Are requirements SMART (Specific, Measurable, Achievable, Relevant, Time-bound)?
-- If parent Epic exists, do the requirements align with Epic scope?
+- If parent initiative context exists, do the requirements align with that scope?
 Flag inconsistencies in the Gaps section.
 
 ### 2. Score Each Criterion

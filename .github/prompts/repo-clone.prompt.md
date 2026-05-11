@@ -1,6 +1,6 @@
 ---
 agent: setup-repo
-tools: ['execute', 'read', 'edit', 'github-enterprise/*']
+tools: ['execute', 'read', 'edit', 'github']
 description: 'Clone an existing GitHub repository after confirming details with user.'
 ---
 
@@ -13,4 +13,4 @@ Tasks:
   - Branch to clone (if not default/main)
 - Confirm collected details with the user.
 - Validate repository exists and user has access permissions.
-- Clone the specified branch using `github-enterprise/*`.
+- Clone the specified branch using git CLI.

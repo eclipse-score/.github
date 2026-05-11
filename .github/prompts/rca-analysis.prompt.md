@@ -1,6 +1,6 @@
 ---
 agent: plan-rca
-tools: ['read', 'edit', 'search', 'atlassian/*']
+tools: ['read', 'edit', 'search']
 description: 'Perform issue-driven root cause analysis. Collect evidence interactively (Hotfix: always ask, Bug Fix: ask if issue insufficient), generate structured RCA report.'
 ---
 

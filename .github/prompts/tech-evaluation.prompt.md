@@ -1,6 +1,6 @@
 ---
 agent: plan-tech-analysis
-tools: ['read', 'edit', 'search', 'atlassian/*']
+tools: ['read', 'edit', 'search']
 description: 'Evaluate TECH analysis quality, assign a score, and update the global score.md.'
 ---
 
@@ -11,7 +11,7 @@ Evaluate the TECH analysis phase and produce a quantitative score.
 | Criterion | Weight | What to Check |
 |-----------|--------|---------------|
 | Technical depth | 25% | Architecture patterns identified? Integration points mapped? Mermaid workflows included? Similar implementations referenced? |
-| Story slicing quality | 25% | Stories vertically sliced? Each story = full stack within one service? Each independently deployable? Story points realistic? |
+| Story slicing quality | 25% | Tasks vertically sliced? Each task = full stack within one service? Each independently deployable? Size realistic? |
 | Risk identification | 25% | Technical, integration, data, security risks listed? Impact + likelihood + mitigation for each? At least 2 risks per analysis? |
 | Completeness | 25% | All affected modules identified? Open questions tracked? Assumptions documented? Dependencies mapped? Coding guidelines referenced? |
 
@@ -27,21 +27,21 @@ Evaluate the TECH analysis phase and produce a quantitative score.
 
 ### 0. Artifact Existence Verification (MANDATORY FIRST STEP)
 Attempt to list/read each location below. Log existence status (Y/N). Do NOT assume content.
-- `.stage/EPIC-XXX/tech-analysis/` — at least one `*-analysis.md` file?
-- `.stage/EPIC-XXX/stories/` — at least one `story-*.md` file?
-- `.stage/EPIC-XXX/stories/tests/` — at least one `*-test-scenarios.md` file?
+- `.stage/<INITIATIVE-ID>/tech-analysis/` — at least one `*-analysis.md` file?
+- `.stage/<INITIATIVE-ID>/tasks/` — at least one `task-*.md` file?
+- `.stage/<INITIATIVE-ID>/tasks/tests/` — at least one `*-test-scenarios.md` file?
 If any required artifact is missing → score affected criteria as 0 and log in Gaps.
 
 ### 1. Read Phase Artifacts
-- Read all files in `.stage/EPIC-XXX/tech-analysis/`
-- Read all files in `.stage/EPIC-XXX/stories/`
-- Read test scenario outlines in `.stage/EPIC-XXX/stories/tests/`
+- Read all files in `.stage/<INITIATIVE-ID>/tech-analysis/`
+- Read all files in `.stage/<INITIATIVE-ID>/tasks/`
+- Read test scenario outlines in `.stage/<INITIATIVE-ID>/tasks/tests/`
 
 ### 1b. Cross-Validation
 - Do file/module references in analysis.md actually exist in the codebase? Spot-check at least 3.
-- Does every story map to at least one requirement from the Epic?
-- Are story point estimates consistent (similar-sized stories have similar points)?
-- Does each story have corresponding test scenarios?
+- Does every task map to at least one requirement from the initiative context?
+- Are task size estimates consistent (similar-sized tasks have similar size)?
+- Does each task have corresponding test scenarios?
 Flag inconsistencies in the Gaps section.
 
 ### 2. Score Each Criterion
@@ -50,12 +50,12 @@ Flag inconsistencies in the Gaps section.
 - Calculate the weighted average for the final score
 
 ### 3. Create Phase Score File
-Save to `.stage/EPIC-XXX/tech-score.md`:
+Save to `.stage/<INITIATIVE-ID>/tech-score.md`:
 
 ```markdown
 # TECH Phase — Score Report
 
-**ISSUE:** EPIC-XXX
+**ISSUE:** <INITIATIVE-ID>
 **Phase:** Technical Analysis
 **Score:** <X> / 10 (<Rating>)
 **Evaluated at:** <timestamp>
@@ -82,7 +82,7 @@ Save to `.stage/EPIC-XXX/tech-score.md`:
 ### 4. Update Global Score Logger
 - If `.stage/score.md` does not exist, create it with header:
   ```
-  # Score Tracker — EPIC-XXX
+  # Score Tracker — <INITIATIVE-ID>
   | Phase | Score | Rating | Date |
   |-------|-------|--------|------|
   ```
@@ -93,5 +93,5 @@ Save to `.stage/EPIC-XXX/tech-score.md`:
 - Score ONLY what the artifacts prove. If information is absent, score it as missing — never infer.
 - Never inflate scores. A missing artifact = 0 for that criterion.
 - Present the score to the user before proceeding.
-- If `.stage/EPIC-XXX/tech-score.md` already exists from a previous run, re-evaluate and overwrite it.
+- If `.stage/<INITIATIVE-ID>/tech-score.md` already exists from a previous run, re-evaluate and overwrite it.
 - This prompt may be run independently by the user for a second opinion. Evaluate as if you did NOT produce the artifacts.

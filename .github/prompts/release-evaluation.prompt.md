@@ -1,6 +1,6 @@
 ---
 agent: release-pr
-tools: ['read', 'edit', 'github-enterprise/*']
+tools: ['read', 'edit', 'github']
 description: 'Evaluate RELEASE phase quality, assign a score, update score.md, and produce final SDLC scorecard.'
 ---
 

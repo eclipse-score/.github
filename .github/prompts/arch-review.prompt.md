@@ -1,6 +1,6 @@
 ---
 agent: code-architect
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github-enterprise/*', 'atlassian/*', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github', 'todo']
 description: 'Review code or implementation plans against documented architectural decisions.'
 ---
 
@@ -35,3 +35,4 @@ If no violations:
 
 - End with summary: what was reviewed, violations found, boundaries/decisions checked
 - Add GitHub Issues comment: "Architecture review completed -- N violations found"
+- Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json`: summary = "Architecture review completed -- N violations found", status = ready_for_handoff

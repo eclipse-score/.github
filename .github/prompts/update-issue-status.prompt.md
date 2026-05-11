@@ -1,13 +1,13 @@
 ---
 agent: release-pr
-tools: ['edit', 'atlassian/*']
+tools: ['edit', 'github']
 description: 'Update GitHub issue status to In Review and add completion comment.'
 ---
 
 Update the GitHub issue to reflect SDLC completion.
 
 Tasks:
-- Update issue status to "In Review" using `atlassian/*`.
+- Update issue status to "In Review" using the issue tracker MCP or `gh issue edit` CLI.
 - Add a comment summarizing:
   - PR link
   - Implementation summary

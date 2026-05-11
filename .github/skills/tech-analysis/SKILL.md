@@ -1,20 +1,20 @@
 ---
-description: 'Deep technical analysis skill -- codebase-aware, tech-agnostic analysis with gap-only clarification and vertically-sliced story generation.'
+description: 'Deep technical analysis skill -- codebase-aware, tech-agnostic analysis with gap-only clarification and vertically-sliced task generation.'
 ---
 
 # Tech Analysis Skill
 
-This skill provides deep technical analysis capabilities. It is loaded on-demand when an agent needs to perform comprehensive codebase analysis for an Epic.
+This skill provides deep technical analysis capabilities. It is loaded on-demand when an agent needs to perform comprehensive codebase analysis for an initiative.
 
 ## When to Use
-- During PLAN phase: when breaking an Epic into technical analysis and stories
-- When user requests deep technical analysis of a feature or epic
+- During PLAN phase: when breaking an initiative into technical analysis and tasks
+- When user requests deep technical analysis of a feature or initiative
 
 ## Workflow
 
 ### Step 1: Deep Context Analysis (Always Start Here)
 Before asking questions, perform thorough analysis:
-1. Review Epic artifacts in `.stage/EPIC-XXX/` (functional-spec.md, epic.md)
+1. Review initiative artifacts in `.stage/<INITIATIVE-ID>/` (roadmap.md, issue-summary.md)
 2. Auto-detect tech stack from repo files (pom.xml, package.json, build.gradle, requirements.txt, go.mod, etc.)
 3. Analyze repository structure:
    - Database schemas (migration files -- detect tool automatically)
@@ -28,7 +28,7 @@ Before asking questions, perform thorough analysis:
 
 ### Step 2: Gap-Only Questions
 After analysis, identify what you KNOW vs what you DON'T KNOW:
-- List knowns (from Epic + codebase) internally
+- List knowns (from initiative context + codebase) internally
 - List unknowns (gaps) internally
 - **If no gaps → skip questions entirely, proceed to Step 3**
 - If gaps exist: ask ONE question at a time, wait for response
@@ -37,21 +37,21 @@ After analysis, identify what you KNOW vs what you DON'T KNOW:
 - Explain briefly why you recommend that option with code references
 
 ### Step 3: Generate Structured Analysis
-Create ONE analysis document per repo in `.stage/EPIC-XXX/tech-analysis/`:
+Create ONE analysis document per repo in `.stage/<INITIATIVE-ID>/tech-analysis/`:
 
 ```
 tech-analysis/
 ├── {repo-name}-codebase-notes.md
 ├── {repo-name}-analysis.md
-stories/
-├── story-{prefix}-1.md
-├── story-{prefix}-2.md
+tasks/
+├── task-{prefix}-1.md
+├── task-{prefix}-2.md
 └── tests/
     └── {prefix}-test-scenarios.md
 ```
 
 ### Analysis Document Sections
-1. Goal of the Task (business value from Epic)
+1. Goal of the Task (business value from initiative context)
 2. Analysis Summary (modules affected, integration points, interface impacts)
 3. Dependencies (team, service, technical, timeline)
 4. Architecture Overview with Mermaid diagrams
@@ -61,7 +61,7 @@ stories/
 
 ## Templates
 - `analysis-template.md` -- Per-repo technical analysis structure
-- `assets/story-template.md` -- Vertically sliced story structure
+- `assets/task-template.md` -- Vertically sliced task structure
 - `assets/test-scenario-template.md` -- Lightweight test scenario outlines
 
 ## Tech-Agnostic Rules

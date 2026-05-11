@@ -1,6 +1,5 @@
 ---
 description: 'Utility: Generates a comprehensive Deep Wiki for any repository — dynamic, hierarchical, Mermaid-diagrammed technical documentation.'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['read', 'edit', 'search', 'todo']
 ---
 

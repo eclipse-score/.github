@@ -1,7 +1,6 @@
 ---
 description: 'RELEASE Phase: Autonomous review loop -- reviews code, fixes issues, and verifies until approved or escalated.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'github-enterprise/*', 'agent', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'github', 'agent', 'todo']
 handoffs:
   - label: Proceed to PR
     agent: release-pr
@@ -22,7 +21,7 @@ handoffs:
 
 ## Self-Contained Loop
 
-**⚠️ This agent performs BOTH review AND fix within a single session.** It does NOT delegate to separate agents. This is because Copilot agents hand off via user-clicked buttons, not programmatic sub-agent invocation. The loop is entirely self-contained.
+**⚠️ This agent performs BOTH review AND fix within a single session.** It does NOT delegate to separate agents. This is because for example Copilot agents hand off via user-clicked buttons, not programmatic sub-agent invocation. The loop is entirely self-contained.
 
 ## Configuration
 
@@ -157,6 +156,7 @@ Implementation approved after <N> iteration(s). All blockers resolved.
 ```
 
 4. Add GitHub Issues comment: "Autonomous review loop completed — approved after <N> iteration(s)"
+4. Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json`: status = ready_for_handoff, summary = "Autonomous review loop completed — approved after <N> iteration(s)"
 5. Stage Update: `[X] RELEASE Phase (Review Loop) -- Completed`
 6. Log:
    ```
@@ -189,26 +189,27 @@ Autonomous loop could not resolve all issues. Human review required.
 ```
 
 2. Add GitHub Issues comment: "Review loop stalled after <N> iterations — human review required"
-3. Log:
+3. Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json`: status = blocked, summary = "Review loop stalled after <N> iterations — human review required"
+4. Log:
    ```
    [Review Loop] STALLED. <reason>. Human intervention required.
    ```
-4. Present stall report to the user with: "Click **Escalate to Human** for manual review, or fix issues manually and re-run."
+5. Present stall report to the user with: "Click **Escalate to Human** for manual review, or fix issues manually and re-run."
 
 ---
 
-## MCP Fallback -- GitHub Enterprise / Atlassian Unavailable
+## MCP Fallback -- GitHub / SCM Unavailable
 
-### If `github-enterprise/*` is unavailable:
+### If GitHub or SCM MCP tools are unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Enterprise for diff analysis. No worries -- I'll work with local git commands!"
+   > "I'm unable to connect to GitHub for diff analysis. No worries -- I'll work with local git commands!"
 2. Use `execute` tool with `git diff` commands instead.
 3. For PR-based reviews, ask the user to provide the diff manually.
 
-### If `atlassian/*` is unavailable:
+### If the issue tracker MCP is unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Issues. I'll skip the GitHub Issues comment but continue with the review loop."
-2. Skip GitHub Issues comment steps, proceed with all other tasks.
+   > "I'm unable to connect to the issue tracker. I'll update the Agent Card instead and continue with the review loop."
+2. Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json` instead, then proceed with all other tasks.
 
 **Continue the SDLC flow** with locally available information. The pipeline never stops.
 

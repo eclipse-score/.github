@@ -1,6 +1,6 @@
 ---
 agent: code-design
-tools: ['read', 'edit', 'github-enterprise/*']
+tools: ['read', 'edit', 'github']
 description: 'Create a GitHub branch based on GitHub issue type following naming conventions.'
 ---
 

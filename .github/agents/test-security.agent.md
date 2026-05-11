@@ -1,6 +1,5 @@
 ---
 description: 'TEST Phase (utility): Scans code for vulnerabilities, secrets, and OWASP Top 10 issues.'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['vscode', 'execute', 'read', 'search', 'web']
 ---
 

@@ -1,7 +1,6 @@
 ---
 description: 'CODE Phase: Creates branch, analyzes codebase, and writes detailed implementation plan.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: [vscode, execute, read, agent, edit, search, web, 'github-enterprise/*', 'atlassian/*', todo]
+tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'github', 'todo']
 handoffs:
   - label: Proceed to CODE (Implement)
     agent: code-implement
@@ -68,14 +67,17 @@ Upon completion, produce:
 - Branch created and confirmed
 - Detailed implementation plan saved at: `.stage/<ISSUE-ID>/plan.md`
 - GitHub Issues comment added indicating stage completion
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with status and next action
 - Stage Update: `[X] CODE Phase -- Completed`
 
 ## MCP Fallback -- GitHub Enterprise Unavailable
+## MCP Fallback -- GitHub / SCM Unavailable
 If any MCP tools are not available or fail to connect, handle each gracefully:
 
-### If `github-enterprise/*` is unavailable:
+### If GitHub or SCM MCP tools are unavailable:
 1. **Inform the user clearly:**
    > "I'm unable to connect to GitHub Enterprise to create the branch. No worries -- here's the manual command!"
+  > "I'm unable to create the branch via MCP. No worries -- here's the manual command!"
 
 2. **Provide the exact command:**
    ```bash

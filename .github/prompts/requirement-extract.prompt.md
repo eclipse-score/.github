@@ -1,6 +1,6 @@
 ---
 agent: plan-requirements
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'agent', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'agent', 'todo']
 description: 'Extract clear, testable requirements from GitHub issue details.'
 ---
 

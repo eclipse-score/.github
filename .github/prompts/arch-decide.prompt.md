@@ -1,6 +1,6 @@
 ---
 agent: code-architect
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github-enterprise/*', 'atlassian/*', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github', 'todo']
 description: 'Record a new architectural decision with tradeoff analysis.'
 ---
 
@@ -33,3 +33,4 @@ Tasks:
   - Superseded DR → update old decision record status to reference the newer DR
 - Present changes for user review before writing
 - Add GitHub Issues comment: "Architecture decision recorded: DR-NNN"
+- Update Agent Card at `.stage/<ISSUE-ID>/agent-card.json`: summary = "Architecture decision recorded: DR-NNN", status = ready_for_handoff

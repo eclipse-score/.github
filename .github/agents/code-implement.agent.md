@@ -1,7 +1,6 @@
 ---
 description: 'CODE Phase: Reviews codebase, executes implementation plan, and writes documentation.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: [vscode, execute, read, agent, edit, search, web, 'atlassian/*', 'github-enterprise/*', todo]
+tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'github', 'todo']
 handoffs:
   - label: Proceed to BUILD
     agent: build-compile
@@ -35,6 +34,7 @@ Upon completion, produce:
 - Implementation report at: `.stage/<ISSUE-ID>/implementationReport.md`
 - Documentation at: `.stage/<ISSUE-ID>/documentation.md`
 - GitHub Issues comment added indicating stage completion
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with status and next action
 - Stage Update: `[X] CODE Phase (Implement) -- Completed`
 
 ## MANDATORY: Phase Evaluation
@@ -46,10 +46,12 @@ Upon completion, produce:
 4. Present the score to the user **before** showing the confirmation gate
 
 ## MCP Fallback -- GitHub Enterprise Unavailable
-If the `github-enterprise/*` MCP tools are not available or fail to connect, do the following:
+## MCP Fallback -- GitHub / SCM Unavailable
+If GitHub or SCM MCP tools are not available or fail to connect, do the following:
 
 1. **Inform the user clearly:**
    > "I'm unable to connect to GitHub Enterprise to push changes. No worries -- here are the manual steps!"
+   > "I'm unable to push changes via GitHub MCP. No worries -- here are the manual steps!"
 
 2. **Provide the exact commands to commit and push:**
    ```bash
@@ -58,8 +60,9 @@ If the `github-enterprise/*` MCP tools are not available or fail to connect, do 
    git push origin <branch-name>
    ```
 
-3. **For GitHub Issues comment updates** -- if Atlassian MCP is also unavailable:
-   > "Please add a comment to GitHub issue `<ISSUE-ID>`: 'CODE Phase (Implement) completed. Implementation report at `.stage/<ISSUE-ID>/implementationReport.md`'"
+3. **For GitHub Issues comment updates** -- if GitHub MCP is also unavailable:
+3. **For issue tracker updates** -- if also unavailable:
+   > "Update the Agent Card at `.stage/<ISSUE-ID>/agent-card.json` with status = ready_for_handoff and summary = 'CODE Phase (Implement) completed.'"
 
 4. **Continue the SDLC flow** once user confirms the push. The pipeline never stops.
 

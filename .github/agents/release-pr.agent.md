@@ -1,7 +1,6 @@
 ---
 description: 'RELEASE Phase: Creates Pull Request, updates GitHub Issues status, and completes the SDLC cycle.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'atlassian/*', 'github-enterprise/*', 'agent', 'todo']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'web', 'github', 'agent', 'todo']
 handoffs:
   - label: Back to Normal github Copilot Agent
     agent: agent
@@ -27,6 +26,7 @@ Upon completion, produce:
 - Confirmation that PR has been created (include PR link)
 - GitHub issue status updated to "In Review"
 - GitHub Issues comment added indicating SDLC cycle completion
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with final status = completed
 - Stage Update: `[X] RELEASE Phase (PR) -- Completed`
 
 ## MANDATORY: Phase Evaluation
@@ -52,12 +52,12 @@ Present the full completed SDLC Progress block:
 
 Congratulate the user. The SDLC cycle is complete.
 
-## MCP Fallback -- GitHub Enterprise / Atlassian Unavailable
+## MCP Fallback -- GitHub / SCM Unavailable
 If any MCP tools are not available or fail to connect, handle each gracefully:
 
-### If `github-enterprise/*` is unavailable:
+### If GitHub or SCM MCP tools are unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Enterprise to create the PR. No worries -- here's everything you need to do it manually!"
+   > "I'm unable to create the PR via GitHub MCP. No worries -- here's everything you need to do it manually!"
 
 2. **Provide the PR template to copy-paste:**
    ```
@@ -80,9 +80,9 @@ If any MCP tools are not available or fail to connect, handle each gracefully:
 
 4. Ask user to create the PR on GitHub manually and paste the PR URL here.
 
-### If `atlassian/*` is unavailable:
+### If the issue tracker MCP is unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Issues to update the issue status. Here's what to update manually:"
+   > "I'm unable to connect to the issue tracker to update the issue status. Here's what to update manually:"
 
 2. **Provide exact instructions:**
    - Set issue `<ISSUE-ID>` status to **In Review**

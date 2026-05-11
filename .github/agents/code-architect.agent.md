@@ -1,7 +1,6 @@
 ---
 description: 'CODE Phase: Manages architectural decisions, boundaries, and DRs. Supports 4 modes: init, decide, review, evolve.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'github-enterprise/*', 'atlassian/*', 'todo']
+tools: ['vscode', 'execute', 'read', 'agent', 'edit', 'search', 'web', 'github', 'todo']
 handoffs:
   - label: Proceed to CODE (Design)
     agent: code-design
@@ -19,6 +18,7 @@ handoffs:
 ## General Rules
 
 - **Base on ACTUAL codebase, not theory.** Read the code before recommending.
+- **Read `.github/score/repo-manifest.json` when present.** Use it to understand language, execution commands, and repo-local harness capabilities before recommending architecture work.
 - **Never invent decisions.** Only enforce what is documented.
 - **When in doubt → simpler solution.**
 - **Always consider migration cost** when proposing changes.
@@ -38,6 +38,7 @@ handoffs:
 
 **Before executing ANY mode, check if the project architecture documentation exists.**
 
+0. Look for `.github/score/repo-manifest.json` and read it when present
 1. Look for architecture documentation at `.stage/docs/architecture.md`
 2. If it does NOT exist:
    - **Auto-select `/arch init`** — inform the user: "No architecture documentation found. Starting initialization interview."
@@ -233,6 +234,7 @@ Upon completion of the selected mode, produce:
 - Architecture documentation created/updated at `.stage/docs/architecture.md`
 - DRs created/updated in `docs/design_decisions/`
 - GitHub Issues comment added indicating architecture phase completion
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with status and next action
 - Stage Update: `[X] CODE Phase (Architecture) -- Completed`
 
 ## MANDATORY: Phase Evaluation
@@ -243,18 +245,18 @@ Upon completion of the selected mode, produce:
 3. Create or update `.stage/score.md` with the ARCH phase score row
 4. Present the score to the user **before** showing the confirmation gate
 
-## MCP Fallback -- GitHub Enterprise / Atlassian Unavailable
+## MCP Fallback -- GitHub / SCM Unavailable
 
-### If `github-enterprise/*` is unavailable:
+### If GitHub or SCM MCP tools are unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Enterprise for code browsing. No worries -- I'll work with local files!"
+   > "I'm unable to connect to GitHub for code browsing. No worries -- I'll work with local files!"
 2. Use local `read` and `search` tools to analyze the codebase instead.
 3. For branch-based reviews, ask the user to provide the diff manually.
 
-### If `atlassian/*` is unavailable:
+### If the issue tracker MCP is unavailable:
 1. **Inform the user clearly:**
-   > "I'm unable to connect to GitHub Issues. I'll skip the GitHub Issues comment but continue with architecture work."
-2. Skip GitHub Issues comment step, proceed with all other tasks.
+   > "I'm unable to connect to the issue tracker. I'll update the Agent Card instead and continue with architecture work."
+2. Skip issue tracker update, proceed with all other tasks. Agent Card serves as the handoff record.
 
 **Continue the SDLC flow** with locally available information. The pipeline never stops.
 

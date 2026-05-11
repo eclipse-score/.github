@@ -1,7 +1,6 @@
 ---
 description: 'PLAN Phase: Issue-driven root cause analysis for Bug Fix and Hotfix paths.'
-model: 'Claude Opus 4.6 (copilot)'
-tools: ['read', 'edit', 'search', 'atlassian/*', 'todo']
+tools: ['read', 'edit', 'search', 'todo']
 handoffs:
   - label: Proceed to CODE (Architecture)
     agent: code-architect
@@ -110,12 +109,13 @@ Save to `.stage/<ISSUE-ID>/rca-report.md`:
 Upon completion, produce:
 - RCA report saved at: `.stage/<ISSUE-ID>/rca-report.md`
 - GitHub Issues comment added with RCA summary
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with RCA summary and next action
 - Stage Update: `[X] PLAN Phase (RCA) -- Completed`
 
 ## User Review & Confirmation Gate
 Present the RCA report and recommend the next step based on the path and RCA findings:
 
-- **Hotfix path** (P1/Critical urgency): Show ONLY "Proceed to CODE (Design)" — architecture review is skipped for speed:
+- **Hotfix path** (Priority 1 urgency): Show ONLY "Proceed to CODE (Design)" — architecture review is skipped for speed:
   > "RCA complete. This is a Hotfix — skipping architecture review for speed. Click **Proceed to CODE (Design)** to begin the fix immediately."
 
 - **Bug Fix path**: Analyze the RCA findings and recommend:

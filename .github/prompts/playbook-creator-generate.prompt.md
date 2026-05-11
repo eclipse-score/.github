@@ -80,7 +80,6 @@ Save to `.stage/playbooks/{playbook-name}.agent.md`:
 ```markdown
 ---
 description: '{One-line description of what this playbook does}'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['read', 'edit', 'search', 'todo']
 ---
 

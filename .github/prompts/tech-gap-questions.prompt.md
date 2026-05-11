@@ -1,7 +1,7 @@
 ---
 agent: plan-tech-analysis
 tools: ['read', 'search']
-description: 'List knowns vs unknowns from Epic + codebase analysis. Ask ONLY about gaps. Skip if no gaps.'
+description: 'List knowns vs unknowns from initiative context + codebase analysis. Ask only about gaps. Skip if no gaps.'
 ---
 
 Identify information gaps and ask targeted questions to resolve them.
@@ -9,7 +9,7 @@ Identify information gaps and ask targeted questions to resolve them.
 ## Tasks
 
 ### 1. List What You KNOW
-From the Epic context (Step 1) and codebase analysis (Step 3), list internally:
+From initiative context (Step 1) and codebase analysis (Step 3), list internally:
 - Business requirements understood ✅
 - Tech stack identified ✅
 - Architecture patterns detected ✅
@@ -28,7 +28,7 @@ Identify unknowns that would prevent a complete technical analysis:
 ### 3. Decision: Ask or Skip
 
 **If NO gaps identified:**
-- Inform the user: "I have enough information from the Epic and codebase analysis to proceed. No clarification questions needed."
+- Inform the user: "I have enough information from the initiative context and codebase analysis to proceed. No clarification questions needed."
 - Skip to the next step (tech-analysis-generate)
 
 **If gaps exist:**
@@ -46,7 +46,7 @@ Identify unknowns that would prevent a complete technical analysis:
 - Do NOT save a separate Q&A file -- answers feed directly into the analysis
 
 ## Rules
-- NEVER ask questions that are already answered by the Epic artifacts or codebase analysis
+- NEVER ask questions that are already answered by the initiative artifacts or codebase analysis
 - NEVER ask a fixed list of questions -- only gap-driven questions
-- Maximum 5 questions total -- if you need more, the Epic is underspecified (suggest going back to `@plan-epic-creation`)
+- Maximum 5 questions total -- if you need more, the initiative is underspecified (suggest going back to `@plan-community-roadmap`)
 - If user says "I'm not sure" → note as Open Question in the analysis, move on

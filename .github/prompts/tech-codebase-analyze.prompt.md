@@ -28,15 +28,15 @@ Scan the repo root for build/config files to identify the stack:
 - Read `.github/instructions/` if it exists
 - Read `.editorconfig` if it exists
 - Check for linter configs: `pylintrc`, `.flake8`, `rust-clippy.toml`, `rustfmt.toml`, `golangci.yml`, `.clang-format`, etc.
-- Note active guidelines that the stories must follow
+- Note active guidelines that the tasks must follow
 
 ### 4. Find Similar Implementations
-- Search the codebase for patterns similar to what the Epic requires
+- Search the codebase for patterns similar to what the initiative requires
 - Look for: existing CRUD operations, similar workflows, integration patterns
 - Note file paths and what can be reused as reference
 
 ### 5. Save Codebase Notes
-Save to `.stage/EPIC-XXX/tech-analysis/{repo-name}-codebase-notes.md`:
+Save to `.stage/<INITIATIVE-ID>/tech-analysis/{repo-name}-codebase-notes.md`:
 
 ```markdown
 # Codebase Notes — {repo-name}

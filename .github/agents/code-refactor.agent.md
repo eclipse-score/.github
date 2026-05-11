@@ -1,6 +1,5 @@
 ---
 description: 'CODE Phase (utility): Safely identifies and removes dead code with test verification at every step.'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['vscode', 'execute', 'read', 'edit', 'search']
 ---
 

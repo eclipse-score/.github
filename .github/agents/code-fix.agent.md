@@ -1,6 +1,5 @@
 ---
 description: 'CODE Phase (utility): Incrementally fixes build and type errors with minimal, safe changes.'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['vscode', 'execute', 'read', 'edit', 'search']
 ---
 

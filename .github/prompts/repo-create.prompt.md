@@ -1,6 +1,6 @@
 ---
 agent: setup-repo
-tools: ['execute', 'read', 'edit', 'github-enterprise/*']
+tools: ['execute', 'read', 'edit', 'github']
 description: 'Create a new GitHub repository following naming conventions and configure settings.'
 ---
 
@@ -12,5 +12,5 @@ Tasks:
   - Repository name and description
   - Visibility (public/private)
   - Required templates or initialization settings
-- Create the repository using `github-enterprise/*`.
+- Create the repository using GitHub MCP or `gh repo create` CLI.
 - Configure: default branch, branch protection rules, issue templates, security/compliance rules, and webhooks as required.

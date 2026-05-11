@@ -1,6 +1,6 @@
 ---
 agent: code-design
-tools: ['read', 'edit', 'github-enterprise/*']
+tools: ['read', 'edit', 'github']
 description: 'Create a detailed implementation plan from GitHub issue requirements.'
 ---
 

@@ -1,6 +1,5 @@
 ---
 description: 'BUILD Phase: Compiles project, runs linter, checks types, audits dependencies, and verifies build artifact.'
-model: 'Claude Opus 4.6 (copilot)'
 tools: ['vscode', 'execute', 'read', 'edit', 'search', 'todo']
 handoffs:
   - label: Proceed to TEST
@@ -84,6 +83,7 @@ Upon completion, produce a build report:
 
 Save report at: `.stage/<ISSUE-ID>/buildReport.md`
 - GitHub Issues comment added indicating stage completion
+- Agent Card updated at `.stage/<ISSUE-ID>/agent-card.json` with status and next action
 - Stage Update: `[X] BUILD Phase -- Completed`
 
 ## MANDATORY: Phase Evaluation

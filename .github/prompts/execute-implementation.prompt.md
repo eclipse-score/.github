@@ -1,6 +1,6 @@
 ---
 agent: code-implement
-tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github-enterprise/*']
+tools: ['vscode', 'execute', 'read', 'edit', 'search', 'github']
 description: 'Execute the implementation plan -- write code, test, and document changes.'
 ---
 

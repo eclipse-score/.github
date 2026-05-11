@@ -1,14 +1,13 @@
 ---
 description: 'Type /sdlc or KICKOFF to start the AI SDLC workflow.'
-model: 'Claude Opus 4.6 (copilot)'
 handoffs:
-  - label: Start Epic Planning
-    agent: plan-epic-creation
-    prompt: 'Begin Epic creation -- collect business context and define a new Epic.'
+  - label: Start Roadmap Planning
+    agent: plan-community-roadmap
+    prompt: 'Begin roadmap planning -- organize multiple related issues into a cohesive initiative.'
     send: true
   - label: Start Technical Analysis
     agent: plan-tech-analysis
-    prompt: 'Analyze the Epic and break it into vertical stories. Provide the Epic ID or artifacts path.'
+    prompt: 'Analyze the roadmap and break it into vertical tasks. Provide the roadmap ID or artifacts path.'
     send: true
   - label: Start PLAN
     agent: plan-requirements
@@ -26,6 +25,8 @@ handoffs:
 
 Tasks:
 
+- If a repo already exists, read `.github/score/repo-manifest.json` when present to understand the repo's language, execution commands, and MCP capabilities before routing.
+
 ### Step A: First-Time Check
 Ask: **"Have you used AI SDLC before?"**
 - **No / First time** → Show this 3-line intro, then proceed to Step B:
@@ -35,18 +36,23 @@ Ask: **"Have you used AI SDLC before?"**
 ### Step B: Role Detection
 Ask: **"What is your role?"**
 
-- **Product Owner / Business Analyst** → Show ONLY these options:
-  > 1. "I have a new feature idea or Epic to define" → **Epic Planning**
-  > 2. "I need to refine an existing Epic" → **Epic Planning**
-  Then skip Questions 1-4 entirely. Jump to the relevant handoff.
+- **Project Lead** → Start with these suggested options:
+  > 1. "I have multiple related issues to coordinate into a roadmap" → **Roadmap Planning**
+  > 2. "I have a task/issue to implement" → Continue to Question 0
+  Then continue with the full Decision Tree if needed.
 
-- **Tech Lead / Architect** → Show ONLY these options:
-  > 1. "I have an Epic and need to break it into stories" → **Technical Analysis**
-  > 2. "I have a story to implement" → Continue to Question 0c
-  Then show only relevant questions.
+- **Product Owner / Business Analyst** → Start with these suggested options:
+  > 1. "I have a new feature idea or initiative to define" → **Roadmap Planning** (lightweight approach)
+  > 2. "I need to refine an existing initiative" → **Roadmap Planning**
+  Then continue with the full Decision Tree if needed.
+
+- **Tech Lead / Architect** → Start with these suggested options:
+  > 1. "I have a roadmap and need to break it into tasks" → **Technical Analysis**
+  > 2. "I have a task to implement" → Continue to Question 0
+  Then continue with the full Decision Tree if needed.
 
 - **Developer** → Show ALL options:
-  > 1. "I have a story/issue to implement"
+  > 1. "I have a task/issue to implement"
   > 2. "Quick prototype / spike"
   > 3. "Bug fix"
   Then proceed to the full Decision Tree (Question 0 onward).
@@ -57,11 +63,12 @@ Ask: **"What is your role?"**
 Determine the correct path by asking the user. **Verify each answer before proceeding.**
 
 0. **"What brings you here today?"**
-   - "I have a new feature idea or Epic to define" → **Epic Planning** path: Click **Start Epic Planning**
-   - "I have an Epic and need technical analysis / story slicing" → Ask for the Epic ID. Use `atlassian/*` to fetch it. **Verify issue type = Epic.** If it's a Story/Task → "That's a Story, not an Epic. Did you mean to implement it instead?" → **Technical Analysis** path: Click **Start Technical Analysis**
-   - "I have a story/issue to implement" → Ask for the GitHub issue ID. Use `atlassian/*` to fetch it. **Verify issue type:**
-     - If type = Epic → "That's an Epic, not a Story. Would you like to run **Start Technical Analysis** to break it into stories first?"
-     - If type = Story/Task/Bug → Continue to question 1
+  - "I have multiple related issues to coordinate into a roadmap" → **Roadmap Planning** path: Click **Start Roadmap Planning**
+   - "I have a new feature idea or roadmap initiative to define" → **Roadmap Planning** path: Click **Start Roadmap Planning**
+   - "I have a roadmap and need technical analysis / task slicing" → Ask for the roadmap ID. Fetch roadmap details. **Verify it's a coordinated initiative.** If it's a single issue → "That's a single issue, not a multi-issue roadmap. Did you mean to implement it instead?" → **Technical Analysis** path: Click **Start Technical Analysis**
+   - "I have a task/issue to implement" → Ask for the GitHub issue ID. Fetch issue details. **Verify issue type:**
+    - If type = Roadmap/Initiative → "That's a roadmap initiative, not a single task. Would you like to run **Start Technical Analysis** to break it into tasks first?"
+     - If type = Bug/Task → Continue to question 1
    - "Quick prototype / spike" → Continue to question 1 (PoC check)
 
 1. **"Is this a proof-of-concept or spike?"** (or user already indicated PoC above)
@@ -74,21 +81,21 @@ Determine the correct path by asking the user. **Verify each answer before proce
 2. **"Does a repo already exist?"**
    - ⚠️ **Guardrail — verify, don't trust:**
      - Ask: "Provide the local repo path so I can confirm it exists."
-     - If path exists (can read a file like README.md, package.json, pom.xml) → Yes, continue to question 3
+     - If path exists (can read a file like README.md, package.json, pom.xml) → Yes, and read `.github/score/repo-manifest.json` if it exists before continuing to question 3
      - If path does not exist → "I can't find a repo at that path. Would you like to set one up?" → **Full Greenfield** path: PLAN → SETUP → CODE → BUILD → TEST → RELEASE
    - User says "No repo yet" → **Full Greenfield** path
 
 3. **"What is the urgency?"**
    - ⚠️ **Guardrail — cross-check GitHub Issues priority if issue was fetched:**
-     - If GitHub issue has priority P1/Critical but user says "Normal" → "The GitHub issue is marked **P1/Critical** but you said Normal. Which is correct?"
-     - If GitHub issue has priority P3/P4 but user says "Urgent" → "The GitHub issue is marked **P3** but you said Urgent. Which is correct?"
-   - Urgent / P1 / Critical → **Hotfix** path: PLAN (lite) → RCA → CODE → BUILD → TEST → RELEASE (PR only)
+     - If GitHub issue has priority Priority 1 but user says "Normal" → "The GitHub issue is marked **Priority 1** but you said Normal. Which is correct?"
+     - If GitHub issue has priority Priority 2/3 but user says "Urgent" → "The GitHub issue is marked **Priority 3** but you said Urgent. Which is correct?"
+   - Urgent / Priority 1 / Critical → **Hotfix** path: PLAN (lite) → RCA → CODE → BUILD → TEST → RELEASE (PR only)
    - Normal → Continue to question 4.
 
 4. **"What type of change?"**
    - ⚠️ **Guardrail — cross-check GitHub issue type if issue was fetched:**
-     - If GitHub Issues says "Bug" but user says "New Feature" → "The GitHub issue is typed as **Bug** but you said New Feature. Which is correct?"
-     - If GitHub Issues says "Story" but user says "Bug Fix" → "The GitHub issue is typed as **Story** but you said Bug Fix. Which is correct?"
+     - If GitHub issue type is "Bug" but user says "New Feature" → "The GitHub issue is typed as **Bug** but you said New Feature. Which is correct?"
+     - If GitHub issue type is "Task" but user says "Bug Fix" → "The GitHub issue is typed as **Task** but you said Bug Fix. Which is correct?"
    - Bug Fix / Enhancement → **Bug Fix** path: PLAN → RCA → CODE (Architect [optional] → Design → Implement) → BUILD → TEST → RELEASE (Review Loop → PR)
    - New Feature → **Standard Feature** path: PLAN → CODE (Architect → Design → Implement) → BUILD → TEST → RELEASE (Review Loop → PR)
 
@@ -96,8 +103,8 @@ After determining the path, inform the user which path was selected and present 
 
 ## User Review & Confirmation Gate
 Based on the determined path, ask the user to click the appropriate button:
-- **Start Epic Planning** — for new feature ideas / Epic creation
-- **Start Technical Analysis** — for breaking an Epic into stories
+- **Start Roadmap Planning** — for coordinating multiple related issues or new roadmap initiatives
+- **Start Technical Analysis** — for breaking a roadmap initiative into tasks
 - **Start PLAN** — for implementing an existing GitHub issue (Story, Bug, Task)
 - **Start CODE (PoC / Spike)** — for prototypes (confirmed non-production)
 
