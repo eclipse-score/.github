@@ -18,9 +18,9 @@ Get the latest stable release to start building or check the release notes for r
 
 ## Repositories in the Github organization
 
-**[Metrics, Status, etc](https://eclipse-score.github.io/.github/)** — for all repositories in this organization.
-
 *Note: categories and descriptions are taken from [IAC configuration](https://github.com/eclipse-score/.eclipsefdn/blob/main/otterdog/eclipse-score.jsonnet). If you need changes, you must change them there, not here!*
+
+**[Metrics, Status, etc](https://eclipse-score.github.io/.github/)** — for all repositories in this organization.
 
 ### General
 
