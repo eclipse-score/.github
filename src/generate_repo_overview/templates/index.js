@@ -1,5 +1,5 @@
 // Tab switching with URL hash
-const TAB_IDS = ['overview', 'versions', 'tech-stack'];
+const TAB_IDS = ['overview', 'versions', 'tech-stack', 'traceability'];
 
 function getHashTab() {
   const h = location.hash.slice(1);
@@ -17,6 +17,7 @@ function applyVisibility() {
 function activateTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('filters').style.display = tab === 'traceability' ? 'none' : '';
   applyVisibility();
 }
 
@@ -62,8 +63,9 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
     const asc = th.classList.toggle('sort-asc');
     th.parentNode.querySelectorAll('th').forEach(h => { if (h !== th) h.classList.remove('sort-asc'); });
     rows.sort((a, b) => {
-      const av = a.children[idx]?.textContent.trim() || '';
-      const bv = b.children[idx]?.textContent.trim() || '';
+      const aCell = a.children[idx], bCell = b.children[idx];
+      const av = aCell?.getAttribute('data-sort-value') ?? aCell?.textContent.trim() ?? '';
+      const bv = bCell?.getAttribute('data-sort-value') ?? bCell?.textContent.trim() ?? '';
       const an = parseFloat(av), bn = parseFloat(bv);
       if (!isNaN(an) && !isNaN(bn)) return asc ? an - bn : bn - an;
       return asc ? av.localeCompare(bv) : bv.localeCompare(av);
@@ -71,3 +73,4 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
     rows.forEach(r => tbody.appendChild(r));
   });
 });
+

@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
@@ -23,7 +23,7 @@ from generate_repo_overview.models import (
     RepoSnapshot,
 )
 
-from . import reference_integration, registry_metadata, repo_entry
+from . import reference_integration, registry_metadata, repo_entry, traceability
 from .registry_metadata import RegistrySignalsPayload
 from .snapshot_io import load_snapshot, load_snapshot_if_present, write_snapshot
 
@@ -160,6 +160,19 @@ def collect_snapshot(
             github_token=token,
             status_prefix=status_prefix,
         )
+
+        trace_by_repo = traceability.fetch_all_traceability_metrics(
+            org_name,
+            repos,
+            status_prefix=status_prefix,
+        )
+        if trace_by_repo:
+            repos = [
+                replace(r, traceability=trace_by_repo[r.name])
+                if r.name in trace_by_repo
+                else r
+                for r in repos
+            ]
 
         snapshot = RepoSnapshot(
             schema_version=SNAPSHOT_SCHEMA_VERSION,

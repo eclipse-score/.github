@@ -47,6 +47,7 @@ def render_index_page(snapshot: RepoSnapshot) -> str:
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, repos, snapshot.org_name)
         + _render_automation_sections(categories, snapshot.org_name)
+        + _render_traceability_section(repos, snapshot.org_name)
         + "</div>\n"
         + _render_footer(snapshot)
         + _render_script(categories)
@@ -102,6 +103,7 @@ def _render_tab_bar() -> str:
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
         '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
+        '  <button class="tab-btn" data-tab="traceability">Traceability</button>\n'
         "</div>\n\n"
     )
 
@@ -245,6 +247,11 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
 
 
 _DAC_DEP_NAME = "score_docs_as_code"
+_DAC_REPO_NAME = "docs-as-code"
+
+
+def _is_docs_as_code_repo(entry: RepoEntry) -> bool:
+    return bool(entry.content.docs_as_code_version) or entry.name == _DAC_REPO_NAME
 
 
 def _build_version_tooltip(
@@ -580,6 +587,120 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
     )
 
 
+def _trace_progress_cell(count: int, total: int) -> str:
+    pct = (count / total * 100) if total > 0 else 0.0
+    color = "var(--green)" if pct >= 80 else ("var(--yellow)" if pct >= 40 else "var(--red)")
+    return (
+        f'{count} <span class="text-muted">({pct:.0f}%)</span>'
+        f'<div class="trace-bar"><div class="trace-bar-fill" '
+        f'style="width:{pct:.1f}%;background:{color}"></div></div>'
+    )
+
+
+def _format_type_name(key: str) -> str:
+    return key.replace("_", " ").title()
+
+
+def _render_traceability_section(
+    repos: list[RepoEntry],
+    org_name: str,
+) -> str:
+    dac_repos = [r for r in repos if _is_docs_as_code_repo(r)]
+    if not dac_repos:
+        return ""
+
+    total_reqs = 0
+    total_code_linked = 0
+    total_test_linked = 0
+    total_fully_linked = 0
+    loaded_count = 0
+
+    row_parts: list[str] = []
+    for r in dac_repos:
+        name_cell = repo_name_cell(r, org_name, bazel_icon=False)
+        if not r.traceability:
+            row_parts.append(
+                f'    <tr data-repo="{e(r.name)}">'
+                f"<td>{name_cell}</td>"
+                f'<td class="text-right" colspan="6">'
+                f'<span class="text-muted">— not available</span></td>'
+                f"</tr>"
+            )
+            continue
+
+        loaded_count += 1
+        types = r.traceability
+        for ti, tm in enumerate(types):
+            total_reqs += tm.req_total
+            total_code_linked += tm.req_with_code_link
+            total_test_linked += tm.req_with_test_link
+            total_fully_linked += tm.req_fully_linked
+
+            tests_linked_pct = (
+                f"{tm.tests_linked / tm.tests_total * 100:.0f}"
+                if tm.tests_total > 0
+                else "0"
+            )
+
+            cells = (
+                f"<td>{e(_format_type_name(tm.type_name))}</td>"
+                f'<td class="text-right" data-sort-value="{tm.req_total}">{tm.req_total}</td>'
+                f'<td class="text-right" data-sort-value="{tm.req_with_code_link}">'
+                f"{_trace_progress_cell(tm.req_with_code_link, tm.req_total)}</td>"
+                f'<td class="text-right" data-sort-value="{tm.req_with_test_link}">'
+                f"{_trace_progress_cell(tm.req_with_test_link, tm.req_total)}</td>"
+                f'<td class="text-right" data-sort-value="{tm.req_fully_linked}">'
+                f"{_trace_progress_cell(tm.req_fully_linked, tm.req_total)}</td>"
+                f'<td class="text-right" data-sort-value="{tm.tests_total}">'
+                f'{tm.tests_total} <span class="text-muted">({tests_linked_pct}% linked)</span></td>'
+            )
+
+            if ti == 0:
+                rowspan = f' rowspan="{len(types)}"' if len(types) > 1 else ""
+                row_parts.append(
+                    f'    <tr data-repo="{e(r.name)}">'
+                    f"<td{rowspan}>{name_cell}</td>{cells}</tr>"
+                )
+            else:
+                row_parts.append(f"    <tr data-repo=\"{e(r.name)}\">{cells}</tr>")
+
+    rows = "\n".join(row_parts)
+
+    code_cov = f"{total_code_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
+    test_cov = f"{total_test_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
+    fully_cov = f"{total_fully_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
+
+    return (
+        f'<div class="section hidden" data-tab="traceability">\n'
+        f'  <div class="section-header">\n'
+        f'    <span class="section-title">Requirement Traceability</span>\n'
+        f'    <span class="section-count">{len(dac_repos)}</span>\n'
+        f"  </div>\n"
+        f'  <div id="trace-summary">\n'
+        f'    <div class="stat-grid">\n'
+        f'      <div class="stat-card"><div class="stat-value">{loaded_count} / {len(dac_repos)}</div><div class="stat-label">Repos Reporting</div></div>\n'
+        f'      <div class="stat-card"><div class="stat-value">{total_reqs}</div><div class="stat-label">Total Requirements</div></div>\n'
+        f'      <div class="stat-card"><div class="stat-value">{code_cov}</div><div class="stat-label">Code Link Coverage</div></div>\n'
+        f'      <div class="stat-card"><div class="stat-value">{test_cov}</div><div class="stat-label">Test Link Coverage</div></div>\n'
+        f'      <div class="stat-card"><div class="stat-value">{fully_cov}</div><div class="stat-label">Fully Linked</div></div>\n'
+        f"    </div>\n"
+        f"  </div>\n"
+        f"  <table>\n"
+        f"    <thead><tr>\n"
+        f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
+        f'      <th>Type</th>\n'
+        f'      <th data-sort="req-total" class="text-right">Requirements <span class="sort-arrow"></span></th>\n'
+        f'      <th data-sort="code-link" class="text-right">Code Links <span class="sort-arrow"></span></th>\n'
+        f'      <th data-sort="test-link" class="text-right">Test Links <span class="sort-arrow"></span></th>\n'
+        f'      <th data-sort="fully-linked" class="text-right">Fully Linked <span class="sort-arrow"></span></th>\n'
+        f'      <th data-sort="tests" class="text-right">Tests <span class="sort-arrow"></span></th>\n'
+        f"    </tr></thead>\n"
+        f"    <tbody>\n{rows}\n    </tbody>\n"
+        f"  </table>\n"
+        f"</div>\n"
+    )
+
+
 def _render_footer(snapshot: RepoSnapshot) -> str:
     return (
         f"\n<footer>\n"
@@ -598,6 +719,7 @@ def _render_script(
 ) -> str:
     cat_names = json.dumps(["all"] + [c for c, _ in categories])
     return (
-        f"<script>const categories = {cat_names};</script>\n"
+        f"<script>\nconst categories = {cat_names};\n"
+        f"</script>\n"
         f"<script>\n{_INDEX_JS}</script>\n"
     )

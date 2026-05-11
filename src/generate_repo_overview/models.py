@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 14
+SNAPSHOT_SCHEMA_VERSION = 15
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +119,31 @@ class VolatileMetricsSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class TraceabilityTypeMetrics:
+    """Parsed traceability metrics for one requirement type within a repository."""
+
+    type_name: str
+    req_total: int = 0
+    req_with_code_link: int = 0
+    req_with_test_link: int = 0
+    req_fully_linked: int = 0
+    tests_total: int = 0
+    tests_linked: int = 0
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> TraceabilityTypeMetrics:
+        return cls(
+            type_name=cast("str", data.get("type_name", "")),
+            req_total=cast("int", data.get("req_total", 0)),
+            req_with_code_link=cast("int", data.get("req_with_code_link", 0)),
+            req_with_test_link=cast("int", data.get("req_with_test_link", 0)),
+            req_fully_linked=cast("int", data.get("req_fully_linked", 0)),
+            tests_total=cast("int", data.get("tests_total", 0)),
+            tests_linked=cast("int", data.get("tests_linked", 0)),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RepoEntry:
     """Normalized repository record grouped by collection cadence and source."""
 
@@ -133,12 +158,14 @@ class RepoEntry:
     volatile: VolatileMetricsSnapshot = field(default_factory=VolatileMetricsSnapshot)
     stars: int = 0
     forks: int = 0
+    traceability: tuple[TraceabilityTypeMetrics, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoEntry:
         content_payload = cast("Mapping[str, Any]", data.get("content", {}))
         registry_payload = cast("Mapping[str, Any]", data.get("registry", {}))
         volatile_payload = cast("Mapping[str, Any]", data.get("volatile", {}))
+        traceability_payload = data.get("traceability", ())
 
         return cls(
             name=cast("str", data.get("name", "")),
@@ -152,6 +179,12 @@ class RepoEntry:
             volatile=VolatileMetricsSnapshot.from_dict(volatile_payload),
             stars=cast("int", data.get("stars", 0)),
             forks=cast("int", data.get("forks", 0)),
+            traceability=tuple(
+                TraceabilityTypeMetrics.from_dict(cast("Mapping[str, Any]", item))
+                for item in traceability_payload
+            )
+            if isinstance(traceability_payload, (list, tuple))
+            else (),
         )
 
     def to_dict(self) -> dict[str, Any]:

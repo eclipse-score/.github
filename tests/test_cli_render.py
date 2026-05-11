@@ -7,6 +7,7 @@ from generate_repo_overview.models import (
     DeepContentSignals,
     RepoEntry,
     RepoSnapshot,
+    TraceabilityTypeMetrics,
     VolatileMetricsSnapshot,
 )
 
@@ -108,6 +109,71 @@ def test_render_details_writes_repo_detail_pages(tmp_path: Path) -> None:
     assert "tools" in detail_content
     assert "../" in detail_content
     assert "<!DOCTYPE html>" in detail_content
+
+
+def _make_snapshot_with_dac() -> RepoSnapshot:
+    return RepoSnapshot(
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="my-dac-repo",
+                description="A repo with docs-as-code",
+                category="Components",
+                subcategory="General",
+                content=DeepContentSignals(
+                    docs_as_code_version="4.0.1",
+                ),
+                traceability=(
+                    TraceabilityTypeMetrics(
+                        type_name="feature",
+                        req_total=10,
+                        req_with_code_link=8,
+                        req_with_test_link=6,
+                        req_fully_linked=5,
+                        tests_total=20,
+                        tests_linked=15,
+                    ),
+                ),
+            ),
+            RepoEntry(
+                name="plain-repo",
+                description="No docs-as-code",
+                category="Infrastructure",
+                subcategory="General",
+            ),
+        ),
+    )
+
+
+def test_render_details_traceability_tab(tmp_path: Path) -> None:
+    snapshot_path = tmp_path / "repo_overview.json"
+    output_dir = tmp_path / "_site"
+    write_snapshot(_make_snapshot_with_dac(), snapshot_path)
+
+    cli.main(
+        [
+            "render-details",
+            "--input",
+            str(snapshot_path),
+            "--output",
+            str(output_dir),
+        ]
+    )
+
+    content = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert 'data-tab="traceability"' in content
+    assert "Traceability" in content
+    assert 'data-repo="my-dac-repo"' in content
+    assert 'data-repo="plain-repo"' not in content
+    # Server-rendered metrics values
+    assert "Feature" in content
+    assert ">10<" in content  # req_total
+    assert "1 / 1" in content  # repos loaded summary
+    # No client-side fetch variables
+    assert "traceabilityRepos" not in content
+    assert "orgName" not in content
 
 
 def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:
