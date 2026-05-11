@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -48,7 +47,6 @@ def render_index_page(snapshot: RepoSnapshot) -> str:
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, repos, snapshot.org_name)
         + _render_automation_sections(categories, snapshot.org_name)
-        + _render_timeline_section(repos, snapshot.org_name)
         + "</div>\n"
         + _render_footer(snapshot)
         + _render_script(categories)
@@ -104,7 +102,6 @@ def _render_tab_bar() -> str:
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
         '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
-        '  <button class="tab-btn" data-tab="timeline">Releases</button>\n'
         "</div>\n\n"
     )
 
@@ -580,127 +577,6 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
         f'      <td class="text-center" data-tooltip="{e(tips["daily"])}">{_yesno(c.uses_cicd_daily_workflow)}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
         f"    </tr>"
-    )
-
-
-_TIMELINE_TIERS: list[tuple[str, int, int | None]] = [
-    ("Released in the last 30 days", 0, 30),
-    ("Released this quarter (30-90 days ago)", 30, 90),
-    ("Released more than 90 days ago", 90, None),
-]
-
-
-def _parse_release_date(r: RepoEntry) -> date | None:
-    raw = r.volatile.latest_release_date
-    if not raw:
-        return None
-    try:
-        return date.fromisoformat(raw)
-    except ValueError:
-        return None
-
-
-def _build_timeline_tier_html(
-    with_release: list[tuple[RepoEntry, date]],
-    org_name: str,
-    today: date,
-) -> str:
-    html_parts: list[str] = []
-    remaining = list(with_release)
-    for label, min_days, max_days in _TIMELINE_TIERS:
-        tier_rows: list[str] = []
-        next_remaining: list[tuple[RepoEntry, date]] = []
-        for r, d in remaining:
-            age = (today - d).days
-            in_tier = age >= min_days and (max_days is None or age < max_days)
-            if in_tier:
-                tier_rows.append(_timeline_row(r, org_name, d))
-            else:
-                next_remaining.append((r, d))
-        remaining = next_remaining
-        if tier_rows:
-            html_parts.append(
-                f'  <tr class="tier-header"><td colspan="4">{e(label)}</td></tr>\n'
-                + "".join(tier_rows)
-            )
-    return "".join(html_parts)
-
-
-def _render_timeline_section(repos: list[RepoEntry], org_name: str) -> str:
-    today = date.today()
-
-    with_release = sorted(
-        ((r, d) for r in repos if (d := _parse_release_date(r)) is not None),
-        key=lambda rd: rd[1],
-        reverse=True,
-    )
-    without_release = [r for r in repos if _parse_release_date(r) is None]
-
-    recent_count = sum(1 for _, d in with_release if (today - d).days <= 30)
-    unreleased_count = len(without_release)
-    summary = (
-        f"{recent_count} release{'s' if recent_count != 1 else ''} in the last 30 days"
-    )
-    if unreleased_count:
-        summary += f" · {unreleased_count} repo{'s' if unreleased_count != 1 else ''} with no release"
-
-    tier_html = _build_timeline_tier_html(with_release, org_name, today)
-
-    if without_release:
-        unreleased_rows = "".join(
-            _timeline_row_unreleased(r, org_name) for r in without_release
-        )
-        tier_html += (
-            '  <tr class="tier-header"><td colspan="4">No release</td></tr>\n'
-            + unreleased_rows
-        )
-
-    return (
-        '<div class="section hidden" data-tab="timeline">\n'
-        '  <div class="section-header">\n'
-        '    <span class="section-title">Release Timeline</span>\n'
-        f'    <span class="section-subtitle text-muted">{e(summary)}</span>\n'
-        "  </div>\n"
-        "  <table>\n"
-        "    <thead><tr>\n"
-        "      <th>Repository</th>\n"
-        "      <th>Version</th>\n"
-        "      <th>Released</th>\n"
-        '      <th title="Number of commits on the main branch not yet included in a release. A higher number means the repository has drifted further from its last published version.">Freshness</th>\n'
-        "    </tr></thead>\n"
-        f"    <tbody>\n{tier_html}    </tbody>\n"
-        "  </table>\n"
-        "</div>\n"
-    )
-
-
-def _timeline_row(entry: RepoEntry, org_name: str, release_date: object) -> str:
-    name_cell = repo_name_cell(entry, org_name)
-    ver = entry.volatile.latest_release_version or "—"
-    freshness = _render_release(
-        entry.volatile.latest_release_version,
-        entry.volatile.commits_since_latest_release,
-    )
-    date_str = str(release_date)
-    return (
-        f"    <tr>\n"
-        f"      <td>{name_cell}</td>\n"
-        f'      <td class="mono">{e(ver)}</td>\n'
-        f"      <td>{e(date_str)}</td>\n"
-        f"      <td>{freshness}</td>\n"
-        f"    </tr>\n"
-    )
-
-
-def _timeline_row_unreleased(entry: RepoEntry, org_name: str) -> str:
-    name_cell = repo_name_cell(entry, org_name)
-    return (
-        f"    <tr>\n"
-        f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-muted">—</td>\n'
-        f'      <td class="text-muted">—</td>\n'
-        f'      <td class="text-muted">—</td>\n'
-        f"    </tr>\n"
     )
 
 

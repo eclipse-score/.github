@@ -1,5 +1,5 @@
 // Tab switching with URL hash
-const TAB_IDS = ['overview', 'versions', 'tech-stack', 'timeline'];
+const TAB_IDS = ['overview', 'versions', 'tech-stack'];
 
 function getHashTab() {
   const h = location.hash.slice(1);
