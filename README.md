@@ -96,7 +96,7 @@ You will be prompted for:
 - Repository name
 - Primary language (C++, Rust, Python, Go, Other)
 - Build / test / lint commands
-- AI assistant instructions filename (default: `copilot-instructions.md`)
+- AI assistant instructions filename (default: `copilot-instructions.md` for Copilot, or your runtime's equivalent)
 
 ### Pull SCORE governance updates
 

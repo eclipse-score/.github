@@ -58,5 +58,5 @@ assistant_instructions_file:
   type: str
   help: >
     Filename your AI assistant loads as instructions
-    (GitHub Copilot uses copilot-instructions.md; others may differ)
+    (Copilot commonly uses copilot-instructions.md; other runtimes may use a different name)
   default: copilot-instructions.md
