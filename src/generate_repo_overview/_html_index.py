@@ -585,6 +585,10 @@ def _render_footer(snapshot: RepoSnapshot) -> str:
         f"\n<footer>\n"
         f"  Cross-repo metrics for <strong>{e(snapshot.org_name)}</strong> "
         f"— generated {e(snapshot.generated_at)}\n"
+        f'  <div class="machine-readable">'
+        f'<a href="data.json">Machine-readable JSON</a>'
+        f" — format is unstable and may change without notice"
+        f"</div>\n"
         f"</footer>\n\n"
     )
 

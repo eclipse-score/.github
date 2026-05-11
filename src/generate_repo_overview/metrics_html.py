@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from ._html_detail import render_detail_page
@@ -17,6 +18,7 @@ def render_all_pages(snapshot: RepoSnapshot) -> dict[str, str]:
 
     pages: dict[str, str] = {
         "index.html": render_index_page(snapshot),
+        "data.json": json.dumps(snapshot.to_dict(), indent=2, sort_keys=True) + "\n",
     }
     for entry in repos:
         pages[f"{entry.name}/index.html"] = render_detail_page(

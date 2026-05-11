@@ -259,6 +259,7 @@ footer {
   border-top: 1px solid var(--border);
   padding-top: 1rem;
 }
+.machine-readable { margin-top: 0.4rem; }
 
 .gh-link { color: var(--muted); margin-left: 0.3rem; vertical-align: middle; display: inline-flex; cursor: alias; }
 .gh-link:hover { color: var(--accent); text-decoration: none; }
