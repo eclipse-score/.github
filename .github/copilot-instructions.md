@@ -1,5 +1,8 @@
 You are operating inside the SCORE governance overlay.
 
+This file is runtime-specific glue.
+Canonical, runtime-neutral policy should live in AGENTS.md.
+
 This repository intentionally keeps only SCORE-specific governance contracts and lightweight maintenance rules.
 Generic workflow execution (for example Spec Kit, OpenSpec, BMAD, or custom runtime behavior) is inherited externally by adopter repositories.
 

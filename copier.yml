@@ -10,10 +10,12 @@ _message_after_copy: |
   SCORE governance overlay applied.
 
   Next steps:
-    1. Review .github/score/repo-manifest.json — update build/test/lint commands.
-    2. Commit the generated files.
-    3. Run: python3 scripts/check_markdown_hygiene.py --root . --include .github
-    4. To update SCORE governance in future: copier update
+    1. Review AGENTS.md as the canonical cross-assistant policy.
+    2. If needed, add assistant-specific notes in CLAUDE.md or .github/<instructions-file>.
+    3. Review .github/score/repo-manifest.json — update build/test/lint commands.
+    4. Commit the generated files.
+    5. Run: python3 scripts/check_markdown_hygiene.py --root . --include .github
+    6. To update SCORE governance in future: copier update
 
 # ── Questions ────────────────────────────────────────────────────────────────
 

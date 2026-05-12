@@ -115,12 +115,30 @@ The `.github/score/.copier-answers.yml` file (written on first `copy`) records t
 
 | File | Varies per repo? |
 |------|-----------------|
+| `AGENTS.md` | No — canonical runtime-neutral policy |
+| `CLAUDE.md` | No — imports AGENTS.md + Claude-specific notes |
 | `.github/<instructions-file>` | No — static SCORE policy |
+| `.claude/settings.json` | No — Claude plugin marketplace recommendations |
+| `.github/copilot/settings.json` | No — VS Code/Copilot plugin marketplace recommendations |
 | `.github/instructions/*.md` | No — coding standards |
+| `.github/references/assistant-runtime-alignment.md` | No — multi-runtime alignment guidance |
 | `.github/references/*.schema.json` | No — contract schemas |
 | `.github/workflows/docs-hygiene.yml` | No — CI checks |
 | `scripts/check_markdown_hygiene.py` | No — hygiene tooling |
 | `.github/score/repo-manifest.json` | **Yes** — generated from answers |
+
+### Cross-assistant alignment (Copilot, Codex, Claude)
+
+The template follows a single-source model to avoid drift across assistant runtimes:
+
+1. `AGENTS.md` is the canonical, runtime-neutral governance policy.
+2. `CLAUDE.md` imports `AGENTS.md` (supported Claude pattern) and carries optional Claude-only notes.
+3. `.github/<instructions-file>` is runtime-specific glue for assistants that use a dedicated instructions filename.
+
+This structure aligns with current guidance:
+- VS Code agent plugin format supports cross-tool compatibility and shared plugin structures.
+- Codex reads layered `AGENTS.md` files directly.
+- Claude reads `CLAUDE.md` and supports importing `@AGENTS.md` to avoid duplicated policy.
 
 ### What you own in your module repo
 

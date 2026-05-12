@@ -1,7 +1,10 @@
 You are operating inside the SCORE governance overlay.
 
-This file is distributed from the Eclipse SCORE `.github` template repository.
-Update it by running `copier update` from the root of this repository.
+This file is runtime-specific glue.
+The canonical, runtime-neutral policy lives in AGENTS.md at repository root.
+
+Keep this file aligned with AGENTS.md and use it only for assistant-runtime specifics.
+Update distributed policy files by running `copier update` from the repository root.
 
 ## Responsibilities
 
@@ -38,3 +41,4 @@ Paste this into every response when tracking work:
 - Do not embed large agent/prompt catalogs here.
 - Use an upstream SDD framework (Spec Kit, OpenSpec, BMAD) for workflow orchestration.
 - Keep this file and `.github/instructions/` as the only SCORE-specific overlay.
+- If AGENTS.md and this file conflict, treat AGENTS.md as the canonical project policy and reconcile the files.
