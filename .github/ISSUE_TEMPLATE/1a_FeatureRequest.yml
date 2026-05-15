@@ -18,7 +18,7 @@ type: 'Feature Request'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Feature Request Issue creation</ins>"
+      value: "## <ins>Feature Request Ticket creation</ins>"
   - type: textarea
     attributes:
       label: Feature Request / Modification Description

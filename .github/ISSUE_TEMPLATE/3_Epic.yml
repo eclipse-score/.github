@@ -11,23 +11,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-name: Roadmap Initiative
-description: Issue to track a roadmap initiative
-title: "Your roadmap initiative title"
-type: 'Roadmap Initiative'
+name: Epic
+description: Issue to track an Epic
+title: "Your Epic title"
+type: 'Epic'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Roadmap Initiative Issue creation</ins>"
+      value: "## <ins>Epic Ticket creation</ins>"
   - type: textarea
     attributes:
-      label: Initiative Description
-      description: Goal of the roadmap initiative
+      label: Epic Description
+      description: Goal of the Epic
     validations:
       required: true
   - type: textarea
     attributes:
       label: Acceptance Criteria (DoD)
-      description: Details on when the initiative is considered "done"
+      description: Details on when the Task is considered "done"
     validations:
       required: true

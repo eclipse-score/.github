@@ -18,7 +18,7 @@ type: 'Component Request'
 body:
   - type: markdown
     attributes:
-      value: "## <ins>Component Request / Modification Issue creation</ins>"
+      value: "## <ins>Component Request / Modification Ticket creation</ins>"
   - type: textarea
     attributes:
       label: Component Request /Modification Description
