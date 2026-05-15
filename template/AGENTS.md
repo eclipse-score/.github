@@ -21,6 +21,8 @@ Do not add large local agent or prompt catalogs.
    - .github/score/repo-manifest.json
 3. Apply coding standards from .github/instructions/.
 
+Terminology note: .github/references/agent-card.schema.json defines a SCORE work/handoff artifact, not an A2A service-discovery AgentCard.
+
 ## Artifact rules
 
 Use issue-scoped artifacts only:

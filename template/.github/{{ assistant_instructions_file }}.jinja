@@ -15,6 +15,8 @@ Update distributed policy files by running `copier update` from the repository r
    - `.github/score/repo-manifest.json`
 3. Apply coding standards from `.github/instructions/`.
 
+Terminology note: `.github/references/agent-card.schema.json` defines a SCORE work/handoff artifact, not an A2A service-discovery AgentCard.
+
 ## Artifact Naming
 
 Use issue-scoped stage folders for all work artifacts:
@@ -22,7 +24,7 @@ Use issue-scoped stage folders for all work artifacts:
 ```
 .stage/ISSUE-<number>/
   plan.md
-  agent-card.json
+  work-card.json
 ```
 
 ## SDLC Progress Block
