@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://score.dev/schemas/agent-card.schema.json",
-  "title": "SCORE Agent Card",
-  "description": "Structured handoff artifact exchanged between agents and tools for one issue-scoped work item.",
+  "title": "SCORE Work Card (Agent Handoff)",
+  "description": "Structured handoff artifact exchanged between agents and tools for one issue-scoped work item. This schema is a work/handoff artifact and is not the A2A service-discovery AgentCard.",
   "type": "object",
   "additionalProperties": false,
   "required": [

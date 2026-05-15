@@ -15,6 +15,8 @@ Generic workflow execution (for example Spec Kit, OpenSpec, BMAD, or custom runt
    - `.github/score/repo-manifest.json`
 3. Keep maintenance burden low by avoiding broad framework content in this repo.
 
+Terminology note: `.github/references/agent-card.schema.json` defines a SCORE work/handoff artifact, not an A2A service-discovery AgentCard.
+
 ## Scope
 
 - Keep local content focused on SCORE-specific policy and schema contracts.
