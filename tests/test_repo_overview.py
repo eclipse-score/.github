@@ -74,7 +74,9 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
         tracked_deps=(
             TrackedDep(repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"),
         ),
-        workflow_signal_labels=("Daily Workflow",),
+        workflow_signals=(
+            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+        ),
     )
     snapshot_path = tmp_path / "repo_overview.json"
 
@@ -250,7 +252,9 @@ def test_fetch_repositories_invalidates_cache_when_signal_labels_change() -> Non
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        workflow_signal_labels=("Daily Workflow",),
+        workflow_signals=(
+            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+        ),
         repos=(
             RepoEntry(
                 name="tools",
@@ -1136,7 +1140,9 @@ def test_metrics_report_renders_summary_and_table() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        workflow_signal_labels=("Daily Workflow",),
+        workflow_signals=(
+            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+        ),
         repos=(
             RepoEntry(
                 name="tools",
@@ -1504,7 +1510,7 @@ def test_metrics_report_renders_without_tracked_deps_or_signals() -> None:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         tracked_deps=(),
-        workflow_signal_labels=(),
+        workflow_signals=(),
         repos=(
             RepoEntry(
                 name="basic-repo",
@@ -1531,7 +1537,10 @@ def test_metrics_report_automation_with_multiple_signals() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        workflow_signal_labels=("Daily Workflow", "Nightly Build"),
+        workflow_signals=(
+            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+            WorkflowSignal(label="Nightly Build", reference="org/cicd/.github/workflows/nightly.yml@"),
+        ),
         repos=(
             RepoEntry(
                 name="repo-a",

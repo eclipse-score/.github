@@ -73,7 +73,7 @@ That file stores a serialized `RepoSnapshot` containing:
 - generation timestamp
 - all normalized repositories
 - tracked Bazel dependency definitions (`tracked_deps`)
-- workflow signal labels (`workflow_signal_labels`)
+- workflow signal definitions (`workflow_signals`)
 
 The cache loader only accepts the current schema version. If the snapshot schema does not match, the cache is treated as unusable and collection falls back to a fresh GitHub fetch.
 

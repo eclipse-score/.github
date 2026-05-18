@@ -25,6 +25,8 @@ from .metrics_report import (
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot, TrackedDep
 
+from .models import is_tracked_dep_repo
+
 _INDEX_JS = (Path(__file__).parent / "templates" / "index.js").read_text(
     encoding="utf-8"
 )
@@ -247,16 +249,7 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
     )
 
 
-def _is_tracked_dep_repo(
-    entry: RepoEntry, tracked_deps: tuple[TrackedDep, ...]
-) -> bool:
-    from .models import lookup_bazel_dep_version
 
-    return any(
-        lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
-        or entry.name == dep.repo.rsplit("/", 1)[-1]
-        for dep in tracked_deps
-    )
 
 
 def _build_version_tooltip(
@@ -518,7 +511,7 @@ def _render_automation_sections(
     categories: list[tuple[str, list[RepoEntry]]],
     snapshot: RepoSnapshot,
 ) -> str:
-    signal_labels = snapshot.workflow_signal_labels
+    signal_labels = tuple(s.label for s in snapshot.workflow_signals)
     org_name = snapshot.org_name
     parts: list[str] = []
     for category, cat_repos in categories:
@@ -644,7 +637,7 @@ def _render_traceability_section(
     snapshot: RepoSnapshot,
 ) -> str:
     org_name = snapshot.org_name
-    dep_repos = [r for r in repos if _is_tracked_dep_repo(r, snapshot.tracked_deps)]
+    dep_repos = [r for r in repos if is_tracked_dep_repo(r, snapshot.tracked_deps)]
     if not dep_repos:
         return ""
 

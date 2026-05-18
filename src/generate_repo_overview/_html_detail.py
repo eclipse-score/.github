@@ -237,7 +237,7 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
     signals: list[tuple[bool, str]] = [
         (c.has_ci, "GitHub Actions (CI)"),
     ]
-    for label in snapshot.workflow_signal_labels:
+    for label in (s.label for s in snapshot.workflow_signals):
         signals.append((label in c.matched_workflow_signals, label))
     signals.extend([
         (c.has_lint_config, "Lint Config"),

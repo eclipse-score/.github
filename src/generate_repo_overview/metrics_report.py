@@ -139,7 +139,7 @@ def render_versions_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot) -
 
 def render_automation_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot) -> list[str]:
     """Render the Automation table with one column per workflow signal."""
-    signal_labels = snapshot.workflow_signal_labels
+    signal_labels = tuple(s.label for s in snapshot.workflow_signals)
 
     def render_row(entry: RepoEntry, *, org_name: str) -> str:
         url = f"https://github.com/{org_name}/{entry.name}"

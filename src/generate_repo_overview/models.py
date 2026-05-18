@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 17
+SNAPSHOT_SCHEMA_VERSION = 18
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,7 +260,7 @@ class RepoSnapshot:
     generated_at: str
     repos: tuple[RepoEntry, ...]
     tracked_deps: tuple[TrackedDep, ...] = ()
-    workflow_signal_labels: tuple[str, ...] = ()
+    workflow_signals: tuple[WorkflowSignal, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoSnapshot:
@@ -286,22 +286,28 @@ class RepoSnapshot:
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
 
+        tracked_deps = tuple(
+            TrackedDep.from_dict(cast("Mapping[str, Any]", item))
+            for item in (data.get("tracked_deps") or ())
+            if isinstance(item, dict)
+            and isinstance(item.get("repo"), str) and item["repo"]
+            and isinstance(item.get("module_name"), str) and item["module_name"]
+        )
+        workflow_signals = tuple(
+            WorkflowSignal.from_dict(cast("Mapping[str, Any]", item))
+            for item in (data.get("workflow_signals") or ())
+            if isinstance(item, dict)
+            and isinstance(item.get("label"), str) and item["label"]
+            and isinstance(item.get("reference"), str) and item["reference"]
+        )
+
         return cls(
             schema_version=cast("int", schema_version),
             org_name=org_name,
             generated_at=generated_at,
             repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
-            tracked_deps=tuple(
-                dep
-                for item in (data.get("tracked_deps") or ())
-                if isinstance(item, dict)
-                and (dep := TrackedDep.from_dict(cast("Mapping[str, Any]", item)))
-                and dep.repo
-                and dep.module_name
-            ),
-            workflow_signal_labels=normalize_string_tuple(
-                data.get("workflow_signal_labels")
-            ),
+            tracked_deps=tracked_deps,
+            workflow_signals=workflow_signals,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -311,7 +317,7 @@ class RepoSnapshot:
             "generated_at": self.generated_at,
             "repos": [repo.to_dict() for repo in self.repos],
             "tracked_deps": [dep.to_dict() for dep in self.tracked_deps],
-            "workflow_signal_labels": list(self.workflow_signal_labels),
+            "workflow_signals": [s.to_dict() for s in self.workflow_signals],
         }
 
 
@@ -350,3 +356,14 @@ def lookup_bazel_dep_version(
         if name == dep_name:
             return version
     return None
+
+
+def is_tracked_dep_repo(
+    entry: RepoEntry,
+    tracked_deps: tuple[TrackedDep, ...],
+) -> bool:
+    return any(
+        lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
+        or entry.name == dep.repo.rsplit("/", 1)[-1]
+        for dep in tracked_deps
+    )

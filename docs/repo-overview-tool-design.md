@@ -35,7 +35,7 @@ The shared model lives in `models.py`.
   - generation timestamp
   - normalized repositories
   - tracked Bazel dependency definitions (`tracked_deps`)
-  - workflow signal labels (`workflow_signal_labels`)
+  - workflow signal definitions (`workflow_signals`)
 
 The snapshot is intentionally renderer-agnostic. It stores neutral values such as booleans and plain strings rather than Markdown-specific markers.
 

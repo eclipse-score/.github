@@ -96,6 +96,7 @@ def _parse_tracked_deps(value: object) -> tuple[TrackedDep, ...]:
         if (
             isinstance(repo, str)
             and repo.strip()
+            and "/" in repo
             and isinstance(module_name, str)
             and module_name.strip()
         ):

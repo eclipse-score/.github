@@ -202,9 +202,7 @@ def collect_snapshot(
             generated_at=datetime.now(UTC).isoformat(),
             repos=tuple(repos),
             tracked_deps=config.tracked_deps,
-            workflow_signal_labels=tuple(
-                signal.label for signal in config.workflow_signals
-            ),
+            workflow_signals=config.workflow_signals,
         )
         if cache_path is not None:
             write_snapshot(snapshot, cache_path)
@@ -343,10 +341,7 @@ def fetch_repositories(
 
     cached_by_name: dict[str, RepoEntry] = {}
     if existing_snapshot is not None:
-        current_signal_labels = tuple(
-            s.label for s in config.workflow_signals
-        )
-        if current_signal_labels == existing_snapshot.workflow_signal_labels:
+        if config.workflow_signals == existing_snapshot.workflow_signals:
             cached_by_name = {repo.name: repo for repo in existing_snapshot.repos}
         else:
             print_status(

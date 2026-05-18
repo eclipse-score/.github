@@ -9,23 +9,13 @@ from generate_repo_overview.console import print_status
 from generate_repo_overview.models import (
     TraceabilityTypeMetrics,
     TrackedDep,
-    lookup_bazel_dep_version,
+    is_tracked_dep_repo,
 )
 
 if TYPE_CHECKING:
     from generate_repo_overview.models import RepoEntry
 
 _METRICS_TIMEOUT_SECONDS = 10
-
-
-def is_tracked_dep_repo(
-    entry: RepoEntry, tracked_deps: tuple[TrackedDep, ...]
-) -> bool:
-    return any(
-        lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
-        or entry.name == dep.repo.rsplit("/", 1)[-1]
-        for dep in tracked_deps
-    )
 
 
 def fetch_traceability_metrics(
