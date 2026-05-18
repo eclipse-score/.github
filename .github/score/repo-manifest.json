@@ -1,4 +1,5 @@
 {
+  "$schema": "../references/repo-manifest.schema.json",
   "version": 1,
   "repository": {
     "name": "score_github",
