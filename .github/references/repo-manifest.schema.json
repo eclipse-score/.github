@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://score.dev/schemas/repo-manifest.schema.json",
+  "$id": "https://eclipse-score.github.io/schemas/repo-manifest.schema.json",
   "title": "SCORE Repo Manifest",
   "description": "Minimal federated harness contract for a SCORE repository.",
   "type": "object",
@@ -9,8 +9,7 @@
     "version",
     "repository",
     "bootstrap",
-    "execution",
-    "mcp"
+    "execution"
   ],
   "properties": {
     "version": {
