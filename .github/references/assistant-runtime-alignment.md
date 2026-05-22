@@ -8,11 +8,11 @@ This repository aligns policy for multiple assistant runtimes (Copilot/VS Code, 
 - CLAUDE.md imports AGENTS.md for Claude compatibility.
 - .github/copilot-instructions.md is runtime-specific glue for Copilot.
 
-## Plugin alignment model
+## MCP alignment model
 
-- Keep one approved plugin marketplace source for the organization.
-- Configure the same marketplace in runtime settings files.
-- Enable a common governance plugin set where possible.
+- Keep one approved MCP integration model for the organization.
+- Configure runtime settings files for MCP-first behavior.
+- Keep governance assets runtime-neutral and shared where possible.
 
 ## Repository template integration
 
@@ -24,4 +24,4 @@ The Copier template distributes:
 - .claude/settings.json
 - .github/copilot/settings.json
 
-This keeps assistants aligned while preserving runtime-specific entrypoints.
+This keeps assistants aligned while preserving runtime-specific entrypoints and MCP-first integration.
