@@ -1,13 +1,1 @@
-{
-  "extraKnownMarketplaces": {
-    "score-agent-plugins": {
-      "source": {
-        "source": "github",
-        "repo": "eclipse-score/agent-plugins"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "score-governance@score-agent-plugins": true
-  }
-}
+{}
