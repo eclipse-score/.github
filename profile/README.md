@@ -166,5 +166,6 @@ Repositories that are not yet assigned to a dedicated category.
 | [.eclipsefdn](https://github.com/eclipse-score/.eclipsefdn) | Repository to host configurations related to the Eclipse Foundation. |
 | [bazel-tools-python](https://github.com/eclipse-score/bazel-tools-python) | Repository for python static code checker |
 | [dev_playground](https://github.com/eclipse-score/dev_playground) | Repository for developer tools and playground |
+| [mcp-servers](https://github.com/eclipse-score/mcp-servers) | Repository for MCP servers |
 | [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | Nlohmann JSON Library |
 | [score-crates](https://github.com/eclipse-score/score-crates) | Repository to provide a defined list of rust crates to be used as bzl_mods |
