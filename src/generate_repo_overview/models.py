@@ -8,7 +8,43 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 15
+SNAPSHOT_SCHEMA_VERSION = 18
+
+
+@dataclass(frozen=True, slots=True)
+class TrackedDep:
+    """A Bazel dependency tracked across all repositories."""
+
+    repo: str
+    module_name: str
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> TrackedDep:
+        return cls(
+            repo=cast("str", data.get("repo", "")),
+            module_name=cast("str", data.get("module_name", "")),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {"repo": self.repo, "module_name": self.module_name}
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowSignal:
+    """A named workflow signal with a reference string to match."""
+
+    label: str
+    reference: str
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> WorkflowSignal:
+        return cls(
+            label=cast("str", data.get("label", "")),
+            reference=cast("str", data.get("reference", "")),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {"label": self.label, "reference": self.reference}
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,14 +54,13 @@ class DeepContentSignals:
     is_bazel_repo: bool = False
     bazel_version: str | None = None
     codeowners: tuple[str, ...] = ()
-    docs_as_code_version: str | None = None
     referenced_by_reference_integration: bool = False
     has_lint_config: bool = False
     has_gitlint_config: bool = False
     has_pyproject_toml: bool = False
     has_pre_commit_config: bool = False
     has_ci: bool = False
-    uses_cicd_daily_workflow: bool = False
+    matched_workflow_signals: tuple[str, ...] = ()
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[tuple[str, str], ...] = ()
@@ -36,7 +71,6 @@ class DeepContentSignals:
             is_bazel_repo=bool(data.get("is_bazel_repo", False)),
             bazel_version=cast("str | None", data.get("bazel_version")),
             codeowners=normalize_string_tuple(data.get("codeowners")),
-            docs_as_code_version=cast("str | None", data.get("docs_as_code_version")),
             referenced_by_reference_integration=bool(
                 data.get("referenced_by_reference_integration", False)
             ),
@@ -45,7 +79,9 @@ class DeepContentSignals:
             has_pyproject_toml=bool(data.get("has_pyproject_toml", False)),
             has_pre_commit_config=bool(data.get("has_pre_commit_config", False)),
             has_ci=bool(data.get("has_ci", False)),
-            uses_cicd_daily_workflow=bool(data.get("uses_cicd_daily_workflow", False)),
+            matched_workflow_signals=normalize_string_tuple(
+                data.get("matched_workflow_signals")
+            ),
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
@@ -223,6 +259,8 @@ class RepoSnapshot:
     org_name: str
     generated_at: str
     repos: tuple[RepoEntry, ...]
+    tracked_deps: tuple[TrackedDep, ...] = ()
+    workflow_signals: tuple[WorkflowSignal, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoSnapshot:
@@ -248,11 +286,28 @@ class RepoSnapshot:
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
 
+        tracked_deps = tuple(
+            TrackedDep.from_dict(cast("Mapping[str, Any]", item))
+            for item in (data.get("tracked_deps") or ())
+            if isinstance(item, dict)
+            and isinstance(item.get("repo"), str) and item["repo"]
+            and isinstance(item.get("module_name"), str) and item["module_name"]
+        )
+        workflow_signals = tuple(
+            WorkflowSignal.from_dict(cast("Mapping[str, Any]", item))
+            for item in (data.get("workflow_signals") or ())
+            if isinstance(item, dict)
+            and isinstance(item.get("label"), str) and item["label"]
+            and isinstance(item.get("reference"), str) and item["reference"]
+        )
+
         return cls(
             schema_version=cast("int", schema_version),
             org_name=org_name,
             generated_at=generated_at,
             repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
+            tracked_deps=tracked_deps,
+            workflow_signals=workflow_signals,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -261,6 +316,8 @@ class RepoSnapshot:
             "org_name": self.org_name,
             "generated_at": self.generated_at,
             "repos": [repo.to_dict() for repo in self.repos],
+            "tracked_deps": [dep.to_dict() for dep in self.tracked_deps],
+            "workflow_signals": [s.to_dict() for s in self.workflow_signals],
         }
 
 
@@ -289,3 +346,24 @@ def normalize_string_tuple(value: object) -> tuple[str, ...]:
         sequence_items = cast("list[object]", value)
         return tuple(item for item in sequence_items if isinstance(item, str))
     return ()
+
+
+def lookup_bazel_dep_version(
+    bazel_deps: tuple[tuple[str, str], ...],
+    dep_name: str,
+) -> str | None:
+    for name, version in bazel_deps:
+        if name == dep_name:
+            return version
+    return None
+
+
+def is_tracked_dep_repo(
+    entry: RepoEntry,
+    tracked_deps: tuple[TrackedDep, ...],
+) -> bool:
+    return any(
+        lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
+        or entry.name == dep.repo.rsplit("/", 1)[-1]
+        for dep in tracked_deps
+    )

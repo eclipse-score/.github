@@ -30,14 +30,14 @@ jobs:
       - name: Restore snapshot cache
         uses: actions/cache@v4
         with:
-          path: profile/cache/repo_overview.json
+          path: .cache/repo_overview.json
           key: snapshot-${{ github.run_id }}
           restore-keys: snapshot-
 
       - name: Collect metrics
         env:
           GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
-        run: uv run generate-repo-overview collect
+        run: uv run generate-repo-overview collect --org-config org_config.toml
 
       - name: Render overview (MD)
         run: uv run generate-repo-overview render-overview

@@ -38,8 +38,10 @@ This document explains the package structure and cache behavior. It intentionall
   - Renders the main HTML metrics dashboard (tabs, filters, sortable columns).
 - `_html_detail.py`
   - Renders per-repository HTML detail pages.
+- `org_config.py`
+  - Loads `org_config.toml`: org name, repo include patterns, tracked Bazel deps, workflow signals.
 - `constants.py`
-  - Centralizes default org, cache, and output paths.
+  - Centralizes default cache and output paths.
 - `console.py`
   - Keeps status output formatting in one place.
 
@@ -62,7 +64,7 @@ The renderers do not talk to GitHub directly. They only consume normalized data.
 
 The main cache file is:
 
-- `profile/cache/repo_overview.json`
+- `.cache/repo_overview.json`
 
 That file stores a serialized `RepoSnapshot` containing:
 
@@ -70,6 +72,8 @@ That file stores a serialized `RepoSnapshot` containing:
 - organization name
 - generation timestamp
 - all normalized repositories
+- tracked Bazel dependency definitions (`tracked_deps`)
+- workflow signal definitions (`workflow_signals`)
 
 The cache loader only accepts the current schema version. If the snapshot schema does not match, the cache is treated as unusable and collection falls back to a fresh GitHub fetch.
 
@@ -106,14 +110,13 @@ For each repository, the snapshot currently stores:
   - `is_bazel_repo`
   - `bazel_version`
   - `codeowners`
-  - `docs_as_code_version`
   - `referenced_by_reference_integration`
   - `has_lint_config`
   - `has_gitlint_config`
   - `has_pyproject_toml`
   - `has_pre_commit_config`
   - `has_ci`
-  - `uses_cicd_daily_workflow`
+  - `matched_workflow_signals`
   - `has_coverage_config`
   - `top_languages`
   - `bazel_deps`
@@ -122,7 +125,7 @@ For each repository, the snapshot currently stores:
 
 There is only one persistent cache file today:
 
-- `profile/cache/repo_overview.json`
+- `.cache/repo_overview.json`
 
 There is no separate per-repository cache directory and no checked-out repository mirror.
 
@@ -148,7 +151,7 @@ Rendered outputs such as `profile/README.md` and `_site/` are products of the sn
 
 ## Cache Semantics By Layer
 
-- Render-only paths read `profile/cache/repo_overview.json` and do not contact GitHub.
+- Render-only paths read `.cache/repo_overview.json` and do not contact GitHub.
 - Collection paths always contact GitHub for current repository metadata.
 - During collection, some content-derived fields can still be reused from the previous snapshot when the repository content fingerprint (`default_branch_sha`) matches.
 
