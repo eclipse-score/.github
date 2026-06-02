@@ -263,20 +263,23 @@ def get_all_bazel_dep_versions(text: str | None) -> tuple[tuple[str, str], ...]:
 
     name_pattern = re.compile(r'\bname\s*=\s*"(?P<name>[^"]+)"')
     bazel_dep_re = re.compile(
-        r'\bbazel_dep\s*\((?P<body>.*?)\)',
+        r"\bbazel_dep\s*\((?P<body>.*?)\)",
         re.DOTALL,
     )
     result: list[tuple[str, str]] = []
     for match in bazel_dep_re.finditer(text):
         body = match.group("body")
         name_match = name_pattern.search(body)
-        version_match = VERSION_PATTERN.search(body)
-        if name_match is None or version_match is None:
+        if name_match is None:
             continue
         name = name_match.group("name").strip()
-        version = version_match.group("version").strip()
-        if name and version:
-            result.append((name, version))
+        if not name:
+            continue
+        version_match = VERSION_PATTERN.search(body)
+        version = (
+            version_match.group("version").strip() if version_match else "unversioned"
+        )
+        result.append((name, version))
 
     return tuple(sorted(result, key=lambda x: x[0]))
 
