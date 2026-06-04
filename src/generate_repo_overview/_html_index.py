@@ -196,9 +196,9 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
         f'    <tr data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-right" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
-        f'      <td class="text-right" data-tooltip="{e(issues_tip)}">{issues_cell}</td>\n'
-        f'      <td class="text-right" data-tooltip="{e(prs_tip)}">{prs_cell}</td>\n'
+        f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
+        f'      <td class="text-right" data-sort-value="{entry.volatile.open_issues}" data-tooltip="{e(issues_tip)}">{issues_cell}</td>\n'
+        f'      <td class="text-right" data-sort-value="{total_prs}" data-tooltip="{e(prs_tip)}">{prs_cell}</td>\n'
         f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
         f'      <td class="text-right" data-tooltip="{e(stars_tip)}">{stars_forks}</td>\n'
         f"    </tr>"
