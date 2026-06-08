@@ -169,7 +169,7 @@ while deep content signals remain cached.
 
 Set `REPO_OVERVIEW_VOLATILE_TTL_MINUTES` to adjust this freshness window.
 
-Use `collect --deep` when you need a full deep refresh for every repository.
+Use `collect --clean` to delete the cache and force a full refresh for every repository.
 
 This is why cached rendering is fast, while live collection is incremental rather than “download everything again.”
 

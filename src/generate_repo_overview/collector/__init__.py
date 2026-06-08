@@ -124,14 +124,14 @@ def collect_snapshot(
     config: OrgConfig,
     token_env: str = DEFAULT_TOKEN_ENV,
     cache_path: Path | None = DEFAULT_CACHE,
-    reuse_unchanged_repositories: bool = False,
     status_prefix: str = "repo-overview",
 ) -> RepoSnapshot:
-    """Collect a fresh snapshot from GitHub, optionally reusing cached data.
+    """Collect a fresh snapshot from GitHub, reusing unchanged repository data from cache.
 
     Loads the existing snapshot from *cache_path* for incremental reuse.
     Invalidates the content cache when workflow signal definitions in
     *config* differ from the cached snapshot.
+    Delete the cache file before calling to force a full refresh (see ``--clean``).
     """
     try:
         from github import Auth, Github
@@ -175,7 +175,6 @@ def collect_snapshot(
         repos = fetch_repositories(
             organization,
             existing_snapshot=existing_snapshot,
-            reuse_unchanged_repositories=reuse_unchanged_repositories,
             github_token=token,
             status_prefix=status_prefix,
             config=config,
@@ -257,7 +256,6 @@ def fetch_repositories(
     organization: OrganizationLike,
     existing_snapshot: RepoSnapshot | None = None,
     *,
-    reuse_unchanged_repositories: bool = False,
     github_token: str | None = None,
     status_prefix: str = "repo-overview",
     config: OrgConfig | None = None,
@@ -392,7 +390,6 @@ def fetch_repositories(
                 referenced_by_reference_integration=(
                     repository_name in reference_integration_repository_names
                 ),
-                reuse_cached_entry_when_unchanged=reuse_unchanged_repositories,
                 workflow_signals=config.workflow_signals,
             )
             futures[future] = (index, repository_name)

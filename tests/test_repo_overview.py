@@ -386,7 +386,6 @@ def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None
         },
         cached_entry=cached_entry,
         referenced_by_reference_integration=True,
-        reuse_cached_entry_when_unchanged=True,
     )
 
     assert entry == RepoEntry(
@@ -482,7 +481,6 @@ def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_m
         custom_properties={},
         bazel_registry_metadata=None,
         cached_entry=cached_entry,
-        reuse_cached_entry_when_unchanged=True,
     )
 
     assert entry.registry == RegistrySignals()
@@ -575,7 +573,6 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
         custom_properties={},
         bazel_registry_metadata=None,
         cached_entry=cached_entry,
-        reuse_cached_entry_when_unchanged=True,
     )
 
     assert repo.tree_calls == 1
