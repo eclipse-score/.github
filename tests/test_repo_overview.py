@@ -72,10 +72,15 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
             ),
         ),
         tracked_deps=(
-            TrackedDep(repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"),
+            TrackedDep(
+                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
+            ),
         ),
         workflow_signals=(
-            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+            WorkflowSignal(
+                label="Daily Workflow",
+                reference="org/cicd/.github/workflows/daily.yml@",
+            ),
         ),
     )
     snapshot_path = tmp_path / "repo_overview.json"
@@ -253,7 +258,10 @@ def test_fetch_repositories_invalidates_cache_when_signal_labels_change() -> Non
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         workflow_signals=(
-            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+            WorkflowSignal(
+                label="Daily Workflow",
+                reference="org/cicd/.github/workflows/daily.yml@",
+            ),
         ),
         repos=(
             RepoEntry(
@@ -273,9 +281,7 @@ def test_fetch_repositories_invalidates_cache_when_signal_labels_change() -> Non
 
     config = OrgConfig(
         org_name="eclipse-score",
-        workflow_signals=(
-            WorkflowSignal(label="Nightly Build", reference="org/ref@"),
-        ),
+        workflow_signals=(WorkflowSignal(label="Nightly Build", reference="org/ref@"),),
     )
 
     original_fetch = collector.fetch_active_repositories
@@ -729,6 +735,13 @@ def test_get_all_bazel_dep_versions_extracts_dependency_versions() -> None:
     ) == (("score_docs_as_code", "4.0.0"), ("score_process", "1.2.3"))
 
 
+def test_get_all_bazel_dep_versions_detects_versionless_deps() -> None:
+    assert signal_detection.get_all_bazel_dep_versions(
+        'bazel_dep(name = "some_lib", dev_dependency = True)\n'
+        'bazel_dep(name = "score_process", version = "1.2.3")\n',
+    ) == (("score_process", "1.2.3"), ("some_lib", "unversioned"))
+
+
 def test_get_all_bazel_dep_versions_returns_empty_for_no_deps() -> None:
     assert signal_detection.get_all_bazel_dep_versions("# no deps\n") == ()
 
@@ -933,8 +946,14 @@ def test_detect_matched_workflow_signals_multiple_signals_partial_match() -> Non
         tree_paths={".github/workflows/ci.yml"},
         ref="abc",
         workflow_signals=(
-            WorkflowSignal(label="Daily Workflow", reference="org/workflows/.github/workflows/daily.yml@"),
-            WorkflowSignal(label="Nightly Build", reference="org/workflows/.github/workflows/nightly.yml@"),
+            WorkflowSignal(
+                label="Daily Workflow",
+                reference="org/workflows/.github/workflows/daily.yml@",
+            ),
+            WorkflowSignal(
+                label="Nightly Build",
+                reference="org/workflows/.github/workflows/nightly.yml@",
+            ),
         ),
     )
     assert result == ("Daily Workflow",)
@@ -1141,7 +1160,10 @@ def test_metrics_report_renders_summary_and_table() -> None:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         workflow_signals=(
-            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
+            WorkflowSignal(
+                label="Daily Workflow",
+                reference="org/cicd/.github/workflows/daily.yml@",
+            ),
         ),
         repos=(
             RepoEntry(
@@ -1334,7 +1356,9 @@ def test_metrics_report_renders_versions_table() -> None:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         tracked_deps=(
-            TrackedDep(repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"),
+            TrackedDep(
+                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
+            ),
         ),
         repos=(
             RepoEntry(
@@ -1377,7 +1401,9 @@ def test_versions_table_tracked_dep_color_rules() -> None:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         tracked_deps=(
-            TrackedDep(repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"),
+            TrackedDep(
+                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
+            ),
         ),
         repos=(
             RepoEntry(
@@ -1460,7 +1486,9 @@ def test_versions_table_multiple_tracked_deps() -> None:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         tracked_deps=(
-            TrackedDep(repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"),
+            TrackedDep(
+                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
+            ),
             TrackedDep(repo="eclipse-score/toolchain", module_name="score_toolchain"),
         ),
         repos=(
@@ -1538,8 +1566,14 @@ def test_metrics_report_automation_with_multiple_signals() -> None:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         workflow_signals=(
-            WorkflowSignal(label="Daily Workflow", reference="org/cicd/.github/workflows/daily.yml@"),
-            WorkflowSignal(label="Nightly Build", reference="org/cicd/.github/workflows/nightly.yml@"),
+            WorkflowSignal(
+                label="Daily Workflow",
+                reference="org/cicd/.github/workflows/daily.yml@",
+            ),
+            WorkflowSignal(
+                label="Nightly Build",
+                reference="org/cicd/.github/workflows/nightly.yml@",
+            ),
         ),
         repos=(
             RepoEntry(
