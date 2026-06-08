@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+
+class LockfileStatus(StrEnum):
+    OK = "ok"
+    MISSING = "missing"
+    ERROR = "error"
+    TIMEOUT = "timeout"
+    UNKNOWN = "unknown"
+
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
@@ -65,8 +74,7 @@ class DeepContentSignals:
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[tuple[str, str], ...] = ()
-    bazel_lockfile_ok: bool | None = None
-    bazel_lockfile_exists: bool | None = None
+    bazel_lockfile_status: LockfileStatus = LockfileStatus.UNKNOWN
     bazel_lockfile_error: str | None = None
 
     @classmethod
@@ -90,8 +98,7 @@ class DeepContentSignals:
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
-            bazel_lockfile_ok=cast("bool | None", data.get("bazel_lockfile_ok")),
-            bazel_lockfile_exists=cast("bool | None", data.get("bazel_lockfile_exists")),
+            bazel_lockfile_status=_parse_lockfile_status(data.get("bazel_lockfile_status")),
             bazel_lockfile_error=cast("str | None", data.get("bazel_lockfile_error")),
         )
 
@@ -330,6 +337,15 @@ class RepoSnapshot:
 
 
 CustomPropertyValue = str | list[str] | None
+
+
+def _parse_lockfile_status(value: object) -> LockfileStatus:
+    if isinstance(value, str):
+        try:
+            return LockfileStatus(value)
+        except ValueError:
+            pass
+    return LockfileStatus.UNKNOWN
 
 
 def normalize_string_pairs(value: object) -> tuple[tuple[str, str], ...]:

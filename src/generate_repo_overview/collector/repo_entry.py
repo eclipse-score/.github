@@ -11,6 +11,7 @@ from generate_repo_overview.models import (
     DEFAULT_SUBCATEGORY,
     CustomPropertyValue,
     DeepContentSignals,
+    LockfileStatus,
     RegistrySignals,
     RepoEntry,
     VolatileMetricsSnapshot,
@@ -202,14 +203,13 @@ def collect_repository_entry_slow_path(
             workflow_signals=workflow_signals,
         )
         if content_signals["has_bazel_module"]:
-            lockfile_ok, lockfile_exists, lockfile_error = _detect_lockfile_ok_for_repo(
+            lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
                 repository_name=repository_name,
                 repository=repository,
                 default_branch=default_branch,
                 github_token=github_token,
             )
-            content_signals["bazel_lockfile_ok"] = lockfile_ok
-            content_signals["bazel_lockfile_exists"] = lockfile_exists
+            content_signals["bazel_lockfile_status"] = lockfile_status
             content_signals["bazel_lockfile_error"] = lockfile_error
     else:
         content_signals = cached_content_signals
@@ -244,10 +244,10 @@ def _detect_lockfile_ok_for_repo(
     repository: Any,
     default_branch: str | None,
     github_token: str | None,
-) -> tuple[bool | None, bool | None, str | None]:
+) -> tuple[LockfileStatus, str | None]:
     clone_url = cast("str | None", getattr(repository, "clone_url", None))
     if clone_url is None or default_branch is None:
-        return None, None, None
+        return LockfileStatus.UNKNOWN, None
     checkout_path = REPO_CHECKOUTS_BASE / repository_name
     synced = sync_repository_checkout(
         clone_url=clone_url,
@@ -256,7 +256,7 @@ def _detect_lockfile_ok_for_repo(
         checkout_path=checkout_path,
     )
     if synced is None:
-        return None, None, None
+        return LockfileStatus.UNKNOWN, None
     return detect_bazel_lockfile_ok(synced)
 
 
@@ -355,8 +355,7 @@ def cached_signals_for_repository(
         "has_coverage_config": cached_entry.content.has_coverage_config,
         "top_languages": cached_entry.content.top_languages,
         "bazel_deps": cached_entry.content.bazel_deps,
-        "bazel_lockfile_ok": cached_entry.content.bazel_lockfile_ok,
-        "bazel_lockfile_exists": cached_entry.content.bazel_lockfile_exists,
+        "bazel_lockfile_status": cached_entry.content.bazel_lockfile_status,
         "bazel_lockfile_error": cached_entry.content.bazel_lockfile_error,
     }
 
@@ -464,8 +463,7 @@ def build_repo_entry(
             has_coverage_config=content_signals["has_coverage_config"],
             top_languages=content_signals.get("top_languages", ()),
             bazel_deps=content_signals.get("bazel_deps", ()),
-            bazel_lockfile_ok=content_signals.get("bazel_lockfile_ok"),
-            bazel_lockfile_exists=content_signals.get("bazel_lockfile_exists"),
+            bazel_lockfile_status=content_signals.get("bazel_lockfile_status", LockfileStatus.UNKNOWN),
             bazel_lockfile_error=content_signals.get("bazel_lockfile_error"),
         ),
         registry=registry_signals,

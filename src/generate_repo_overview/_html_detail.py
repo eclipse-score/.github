@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ._html_common import BAZEL_ICON, CSS, GITHUB_ICON, e, language_badge, version_badge
 from .metrics_report import tracked_dep_label
+from .models import LockfileStatus
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot
@@ -265,11 +266,13 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
 
 def _render_lockfile_error_section(entry: RepoEntry) -> str:
     c = entry.content
-    if c.bazel_lockfile_exists is False:
+    if c.bazel_lockfile_status == LockfileStatus.MISSING:
         body = (
             '<p>No <code>MODULE.bazel.lock</code> file found. '
             "Run <code>bazel mod deps</code> to generate it.</p>"
         )
+    elif c.bazel_lockfile_status == LockfileStatus.TIMEOUT:
+        body = "<p>Bazel lockfile check timed out.</p>"
     elif c.bazel_lockfile_error:
         body = f'<pre class="lockfile-error">{e(c.bazel_lockfile_error)}</pre>'
     else:

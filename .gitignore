@@ -5,6 +5,5 @@ __pycache__/
 /.codex
 /profile/cache/bazel_registry_checkout/
 /profile/cache/reference_integration_checkout/
-/.cache/repo_checkouts/
 /.cache
 /_site/

@@ -21,6 +21,7 @@ from .metrics_report import (
     parse_version_key,
     tracked_dep_label,
 )
+from .models import LockfileStatus
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot, TrackedDep
@@ -550,20 +551,21 @@ def _render_automation_sections(
 
 
 def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
-    c = entry.content
-    if c.bazel_lockfile_ok is True:
-        return '<span class="badge green">ok</span>', "The Bazel lockfile is up to date (bazel mod deps --lockfile_mode=error passes)."
-    if c.bazel_lockfile_exists is False:
-        url = f"{e(entry.name)}/index.html#lockfile-error"
+    status = entry.content.bazel_lockfile_status
+    has_error = bool(entry.content.bazel_lockfile_error)
+    url = f"{e(entry.name)}/index.html#lockfile-error"
+
+    if status == LockfileStatus.OK:
+        return '<span class="badge green">ok</span>', "The Bazel lockfile is up to date."
+    if status == LockfileStatus.MISSING:
         cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">missing</a></span>'
         return cell, "MODULE.bazel.lock does not exist — click for details."
-    if c.bazel_lockfile_ok is False and c.bazel_lockfile_error:
-        url = f"{e(entry.name)}/index.html#lockfile-error"
-        cell = f'<span class="badge red"><a href="{url}" class="lockfile-error-link">error</a></span>'
-        return cell, "The Bazel lockfile is out of date — click to see the error."
-    if c.bazel_lockfile_ok is False:
-        return '<span class="badge red">error</span>', "The Bazel lockfile check failed."
-    if c.has_bazel_module:
+    if status == LockfileStatus.ERROR:
+        link_text = f'<a href="{url}" class="lockfile-error-link">error</a>' if has_error else "error"
+        return f'<span class="badge red">{link_text}</span>', "The Bazel lockfile is out of date — click to see the error."
+    if status == LockfileStatus.TIMEOUT:
+        return '<span class="badge yellow">timeout</span>', "Bazel lockfile check timed out."
+    if entry.content.has_bazel_module:
         return '<span class="text-muted">n/a</span>', "Lockfile status not yet collected."
     return '<span class="text-muted">—</span>', "Not a Bazel module repository."
 

@@ -5,6 +5,8 @@ import re
 import subprocess
 from typing import TYPE_CHECKING, Any, TypedDict
 
+from generate_repo_overview.models import LockfileStatus
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -26,8 +28,7 @@ class DeepContentPayload(TypedDict):
     has_coverage_config: bool
     top_languages: tuple[str, ...]
     bazel_deps: tuple[tuple[str, str], ...]
-    bazel_lockfile_ok: bool | None
-    bazel_lockfile_exists: bool | None
+    bazel_lockfile_status: LockfileStatus
     bazel_lockfile_error: str | None
 
 
@@ -56,20 +57,20 @@ VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 BAZEL_LOCKFILE_TIMEOUT_SECONDS = 60
 
 
-def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[bool | None, bool | None, str | None]:
+def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str | None]:
     """Run `bazel mod deps --lockfile_mode=error` in the checkout.
 
-    Returns (ok, lockfile_exists, error_output):
-      (True,  True,  None)    — lockfile exists and is up to date
-      (False, True,  stderr)  — lockfile exists but check failed
-      (False, False, None)    — MODULE.bazel.lock does not exist
-      (None,  None,  None)    — bazel unavailable or MODULE.bazel missing
+    Returns (status, error_output):
+      (OK,      None)    — lockfile exists and is up to date
+      (ERROR,   stderr)  — lockfile check failed
+      (MISSING, None)    — MODULE.bazel.lock does not exist
+      (TIMEOUT, None)    — bazel timed out
+      (UNKNOWN, None)    — bazel unavailable or MODULE.bazel missing
     """
     if not (checkout_path / "MODULE.bazel").exists():
-        return None, None, None
-    lockfile_exists = (checkout_path / "MODULE.bazel.lock").exists()
-    if not lockfile_exists:
-        return False, False, None
+        return LockfileStatus.UNKNOWN, None
+    if not (checkout_path / "MODULE.bazel.lock").exists():
+        return LockfileStatus.MISSING, None
     try:
         result = subprocess.run(
             ["bazel", "mod", "deps", "--lockfile_mode=error"],
@@ -81,12 +82,12 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[bool | None, bool | N
             timeout=BAZEL_LOCKFILE_TIMEOUT_SECONDS,
         )
     except OSError:
-        return None, None, None
+        return LockfileStatus.UNKNOWN, None
     except subprocess.TimeoutExpired:
-        return None, True, None
+        return LockfileStatus.TIMEOUT, None
     if result.returncode != 0:
-        return False, True, result.stderr.strip() or None
-    return True, True, None
+        return LockfileStatus.ERROR, result.stderr.strip() or None
+    return LockfileStatus.OK, None
 
 
 def inspect_repository_content_slow(
@@ -143,8 +144,7 @@ def inspect_repository_content_slow(
             tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
         ),
         "top_languages": detect_top_languages(repository, n=3),
-        "bazel_lockfile_ok": None,
-        "bazel_lockfile_exists": None,
+        "bazel_lockfile_status": LockfileStatus.UNKNOWN,
         "bazel_lockfile_error": None,
     }
 
@@ -165,8 +165,7 @@ def default_content_signals() -> DeepContentPayload:
         "matched_workflow_signals": (),
         "has_coverage_config": False,
         "top_languages": (),
-        "bazel_lockfile_ok": None,
-        "bazel_lockfile_exists": None,
+        "bazel_lockfile_status": LockfileStatus.UNKNOWN,
         "bazel_lockfile_error": None,
     }
 
