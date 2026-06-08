@@ -264,15 +264,22 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
 
 
 def _render_lockfile_error_section(entry: RepoEntry) -> str:
-    if not entry.content.bazel_lockfile_error:
+    c = entry.content
+    if c.bazel_lockfile_exists is False:
+        body = (
+            '<p>No <code>MODULE.bazel.lock</code> file found. '
+            "Run <code>bazel mod deps</code> to generate it.</p>"
+        )
+    elif c.bazel_lockfile_error:
+        body = f'<pre class="lockfile-error">{e(c.bazel_lockfile_error)}</pre>'
+    else:
         return ""
-    error_text = e(entry.content.bazel_lockfile_error)
     return (
         '<section class="detail-section" id="lockfile-error">\n'
         '  <div class="section-header">'
-        '<span class="section-title">&#x1F513; Bazel Lockfile Error</span>'
+        '<span class="section-title">Bazel Lockfile</span>'
         "</div>\n"
-        f'  <div class="detail-body"><pre class="lockfile-error">{error_text}</pre></div>\n'
+        f"  <div class=\"detail-body\">{body}</div>\n"
         "</section>\n\n"
     )
 

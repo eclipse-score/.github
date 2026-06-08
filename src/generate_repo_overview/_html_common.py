@@ -18,14 +18,6 @@ BAZEL_ICON = (
     ' alt="Bazel" class="icon-bazel">'
 )
 
-BAZEL_LOCKFILE_OK_ICON = (
-    '<span title="bazel mod deps --lockfile_mode=error passed"'
-    ' class="icon-lockfile">&#x1F512;</span>'
-)
-BAZEL_LOCKFILE_FAIL_ICON = (
-    '<span title="bazel mod deps --lockfile_mode=error failed"'
-    ' class="icon-lockfile icon-lockfile-fail">&#x1F513;</span>'
-)
 
 GITHUB_ICON = (
     '<svg viewBox="0 0 16 16" fill="currentColor">'

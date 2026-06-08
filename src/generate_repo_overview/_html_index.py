@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING
 
 from ._html_common import (
     BAZEL_ICON,
-    BAZEL_LOCKFILE_FAIL_ICON,
-    BAZEL_LOCKFILE_OK_ICON,
     CSS,
     e,
     language_badge,
@@ -551,6 +549,25 @@ def _render_automation_sections(
     return "".join(parts)
 
 
+def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
+    c = entry.content
+    if c.bazel_lockfile_ok is True:
+        return '<span class="badge green">ok</span>', "The Bazel lockfile is up to date (bazel mod deps --lockfile_mode=error passes)."
+    if c.bazel_lockfile_exists is False:
+        url = f"{e(entry.name)}/index.html#lockfile-error"
+        cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">missing</a></span>'
+        return cell, "MODULE.bazel.lock does not exist — click for details."
+    if c.bazel_lockfile_ok is False and c.bazel_lockfile_error:
+        url = f"{e(entry.name)}/index.html#lockfile-error"
+        cell = f'<span class="badge red"><a href="{url}" class="lockfile-error-link">error</a></span>'
+        return cell, "The Bazel lockfile is out of date — click to see the error."
+    if c.bazel_lockfile_ok is False:
+        return '<span class="badge red">error</span>', "The Bazel lockfile check failed."
+    if c.has_bazel_module:
+        return '<span class="text-muted">n/a</span>', "Lockfile status not yet collected."
+    return '<span class="text-muted">—</span>', "Not a Bazel module repository."
+
+
 def _automation_row(
     entry: RepoEntry, org_name: str, signal_labels: tuple[str, ...]
 ) -> str:
@@ -567,20 +584,7 @@ def _automation_row(
             return '<span class="badge green">yes</span>'
         return '<span class="text-muted">no</span>'
 
-    if c.bazel_lockfile_ok is True:
-        lockfile_cell = f'<span class="badge green">{BAZEL_LOCKFILE_OK_ICON}</span>'
-        lockfile_tip = "The Bazel lockfile is up to date (bazel mod deps --lockfile_mode=error passes)."
-    elif c.bazel_lockfile_ok is False:
-        detail_url = f"{e(entry.name)}/index.html#lockfile-error"
-        lockfile_cell = (
-            f'<span class="badge red">'
-            f'<a href="{detail_url}" class="lockfile-error-link">'
-            f"{BAZEL_LOCKFILE_FAIL_ICON} ❌</a></span>"
-        )
-        lockfile_tip = "The Bazel lockfile is out of date — click to see the error."
-    else:
-        lockfile_cell = '<span class="text-muted">—</span>'
-        lockfile_tip = "Lockfile status unknown (not a Bazel repo or bazel not available)."
+    lockfile_cell, lockfile_tip = _lockfile_cell(entry)
 
     tips = {
         "bazel": "This repository uses Bazel as its build system."

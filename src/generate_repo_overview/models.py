@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 21
+SNAPSHOT_SCHEMA_VERSION = 22
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +66,7 @@ class DeepContentSignals:
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[tuple[str, str], ...] = ()
     bazel_lockfile_ok: bool | None = None
+    bazel_lockfile_exists: bool | None = None
     bazel_lockfile_error: str | None = None
 
     @classmethod
@@ -90,6 +91,7 @@ class DeepContentSignals:
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
             bazel_lockfile_ok=cast("bool | None", data.get("bazel_lockfile_ok")),
+            bazel_lockfile_exists=cast("bool | None", data.get("bazel_lockfile_exists")),
             bazel_lockfile_error=cast("str | None", data.get("bazel_lockfile_error")),
         )
 

@@ -27,6 +27,7 @@ class DeepContentPayload(TypedDict):
     top_languages: tuple[str, ...]
     bazel_deps: tuple[tuple[str, str], ...]
     bazel_lockfile_ok: bool | None
+    bazel_lockfile_exists: bool | None
     bazel_lockfile_error: str | None
 
 
@@ -55,16 +56,20 @@ VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 BAZEL_LOCKFILE_TIMEOUT_SECONDS = 60
 
 
-def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[bool | None, str | None]:
+def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[bool | None, bool | None, str | None]:
     """Run `bazel mod deps --lockfile_mode=error` in the checkout.
 
-    Returns (ok, error_output):
-      (True, None)    — lockfile is up to date
-      (False, stderr) — lockfile check failed; stderr contains the error
-      (None, None)    — bazel unavailable or MODULE.bazel missing
+    Returns (ok, lockfile_exists, error_output):
+      (True,  True,  None)    — lockfile exists and is up to date
+      (False, True,  stderr)  — lockfile exists but check failed
+      (False, False, None)    — MODULE.bazel.lock does not exist
+      (None,  None,  None)    — bazel unavailable or MODULE.bazel missing
     """
     if not (checkout_path / "MODULE.bazel").exists():
-        return None, None
+        return None, None, None
+    lockfile_exists = (checkout_path / "MODULE.bazel.lock").exists()
+    if not lockfile_exists:
+        return False, False, None
     try:
         result = subprocess.run(
             ["bazel", "mod", "deps", "--lockfile_mode=error"],
@@ -75,11 +80,13 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[bool | None, str | No
             text=True,
             timeout=BAZEL_LOCKFILE_TIMEOUT_SECONDS,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        return None, None
+    except OSError:
+        return None, None, None
+    except subprocess.TimeoutExpired:
+        return None, True, None
     if result.returncode != 0:
-        return False, result.stderr.strip() or None
-    return True, None
+        return False, True, result.stderr.strip() or None
+    return True, True, None
 
 
 def inspect_repository_content_slow(
@@ -137,6 +144,7 @@ def inspect_repository_content_slow(
         ),
         "top_languages": detect_top_languages(repository, n=3),
         "bazel_lockfile_ok": None,
+        "bazel_lockfile_exists": None,
         "bazel_lockfile_error": None,
     }
 
@@ -158,6 +166,7 @@ def default_content_signals() -> DeepContentPayload:
         "has_coverage_config": False,
         "top_languages": (),
         "bazel_lockfile_ok": None,
+        "bazel_lockfile_exists": None,
         "bazel_lockfile_error": None,
     }
 

@@ -244,14 +244,6 @@ a:hover { text-decoration: underline; }
   vertical-align: text-bottom;
 }
 
-.icon-lockfile {
-  font-size: 0.85em;
-  vertical-align: text-bottom;
-}
-.icon-lockfile-fail {
-  filter: grayscale(0.3);
-  opacity: 0.8;
-}
 
 a.lockfile-error-link {
   color: inherit;
