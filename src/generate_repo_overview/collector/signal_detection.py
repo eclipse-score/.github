@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import fnmatch
 import re
+import subprocess
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from generate_repo_overview.models import WorkflowSignal
 
 
 class DeepContentPayload(TypedDict):
     is_bazel_repo: bool
+    has_bazel_module: bool
     bazel_version: str | None
     codeowners: tuple[str, ...]
     referenced_by_reference_integration: bool
@@ -22,6 +26,8 @@ class DeepContentPayload(TypedDict):
     has_coverage_config: bool
     top_languages: tuple[str, ...]
     bazel_deps: tuple[tuple[str, str], ...]
+    bazel_lockfile_ok: bool | None
+    bazel_lockfile_error: str | None
 
 
 GITLINT_PATHS = (".gitlint",)
@@ -46,6 +52,36 @@ WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
 VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 
 
+BAZEL_LOCKFILE_TIMEOUT_SECONDS = 60
+
+
+def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[bool | None, str | None]:
+    """Run `bazel mod deps --lockfile_mode=error` in the checkout.
+
+    Returns (ok, error_output):
+      (True, None)    — lockfile is up to date
+      (False, stderr) — lockfile check failed; stderr contains the error
+      (None, None)    — bazel unavailable or MODULE.bazel missing
+    """
+    if not (checkout_path / "MODULE.bazel").exists():
+        return None, None
+    try:
+        result = subprocess.run(
+            ["bazel", "mod", "deps", "--lockfile_mode=error"],
+            cwd=checkout_path,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=BAZEL_LOCKFILE_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None, None
+    if result.returncode != 0:
+        return False, result.stderr.strip() or None
+    return True, None
+
+
 def inspect_repository_content_slow(
     repository: Any,
     *,
@@ -58,6 +94,9 @@ def inspect_repository_content_slow(
 
     return {
         "is_bazel_repo": detect_is_bazel_repo(tree_paths),
+        "has_bazel_module": any(
+            tree_contains_path(tree_paths, p) for p in MODULE_PATHS
+        ),
         "bazel_version": detect_bazel_version(
             repository,
             tree_paths=tree_paths,
@@ -97,12 +136,15 @@ def inspect_repository_content_slow(
             tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
         ),
         "top_languages": detect_top_languages(repository, n=3),
+        "bazel_lockfile_ok": None,
+        "bazel_lockfile_error": None,
     }
 
 
 def default_content_signals() -> DeepContentPayload:
     return {
         "is_bazel_repo": False,
+        "has_bazel_module": False,
         "bazel_version": None,
         "codeowners": (),
         "bazel_deps": (),
@@ -115,6 +157,8 @@ def default_content_signals() -> DeepContentPayload:
         "matched_workflow_signals": (),
         "has_coverage_config": False,
         "top_languages": (),
+        "bazel_lockfile_ok": None,
+        "bazel_lockfile_error": None,
     }
 
 

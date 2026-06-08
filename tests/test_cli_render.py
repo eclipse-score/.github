@@ -217,4 +217,4 @@ def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:
     )
 
     index_content = (output_dir / "index.html").read_text(encoding="utf-8")
-    assert 'href="tools/"' in index_content
+    assert 'href="tools/index.html"' in index_content

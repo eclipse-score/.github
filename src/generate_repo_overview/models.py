@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 18
+SNAPSHOT_SCHEMA_VERSION = 21
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +52,7 @@ class DeepContentSignals:
     """Deep, slow-to-collect content signals from default-branch tree inspection."""
 
     is_bazel_repo: bool = False
+    has_bazel_module: bool = False
     bazel_version: str | None = None
     codeowners: tuple[str, ...] = ()
     referenced_by_reference_integration: bool = False
@@ -64,11 +65,14 @@ class DeepContentSignals:
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[tuple[str, str], ...] = ()
+    bazel_lockfile_ok: bool | None = None
+    bazel_lockfile_error: str | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
         return cls(
             is_bazel_repo=bool(data.get("is_bazel_repo", False)),
+            has_bazel_module=bool(data.get("has_bazel_module", False)),
             bazel_version=cast("str | None", data.get("bazel_version")),
             codeowners=normalize_string_tuple(data.get("codeowners")),
             referenced_by_reference_integration=bool(
@@ -85,6 +89,8 @@ class DeepContentSignals:
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
+            bazel_lockfile_ok=cast("bool | None", data.get("bazel_lockfile_ok")),
+            bazel_lockfile_error=cast("str | None", data.get("bazel_lockfile_error")),
         )
 
 

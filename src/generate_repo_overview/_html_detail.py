@@ -29,6 +29,7 @@ def render_detail_page(
         + _render_release_section(entry)
         + _render_dep_diff_section(entry)
         + _render_tooling_section(entry, snapshot)
+        + _render_lockfile_error_section(entry)
         + _render_ownership_section(entry)
         + _render_versions_section(entry, snapshot, max_bazel, latest_dep_versions)
         + _render_footer(snapshot)
@@ -258,6 +259,20 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
         '<section class="detail-section">\n'
         '  <div class="section-header"><span class="section-title">Build &amp; Tooling</span></div>\n'
         f'  <div class="detail-body"><div class="signal-grid">\n{items}\n  </div></div>\n'
+        "</section>\n\n"
+    )
+
+
+def _render_lockfile_error_section(entry: RepoEntry) -> str:
+    if not entry.content.bazel_lockfile_error:
+        return ""
+    error_text = e(entry.content.bazel_lockfile_error)
+    return (
+        '<section class="detail-section" id="lockfile-error">\n'
+        '  <div class="section-header">'
+        '<span class="section-title">&#x1F513; Bazel Lockfile Error</span>'
+        "</div>\n"
+        f'  <div class="detail-body"><pre class="lockfile-error">{error_text}</pre></div>\n'
         "</section>\n\n"
     )
 
