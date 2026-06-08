@@ -210,7 +210,7 @@ def collect_repository_entry_slow_path(
                 github_token=github_token,
             )
             content_signals["bazel_lockfile_status"] = lockfile_status
-            content_signals["bazel_lockfile_error"] = lockfile_error
+            content_signals["bazel_lockfile_error_output"] = lockfile_error
     else:
         content_signals = cached_content_signals
     content_signals["referenced_by_reference_integration"] = (
@@ -356,7 +356,7 @@ def cached_signals_for_repository(
         "top_languages": cached_entry.content.top_languages,
         "bazel_deps": cached_entry.content.bazel_deps,
         "bazel_lockfile_status": cached_entry.content.bazel_lockfile_status,
-        "bazel_lockfile_error": cached_entry.content.bazel_lockfile_error,
+        "bazel_lockfile_error_output": cached_entry.content.bazel_lockfile_error_output,
     }
 
 
@@ -464,7 +464,7 @@ def build_repo_entry(
             top_languages=content_signals.get("top_languages", ()),
             bazel_deps=content_signals.get("bazel_deps", ()),
             bazel_lockfile_status=content_signals.get("bazel_lockfile_status", LockfileStatus.UNKNOWN),
-            bazel_lockfile_error=content_signals.get("bazel_lockfile_error"),
+            bazel_lockfile_error_output=content_signals.get("bazel_lockfile_error_output"),
         ),
         registry=registry_signals,
         volatile=VolatileMetricsSnapshot(

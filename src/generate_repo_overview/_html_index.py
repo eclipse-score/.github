@@ -552,7 +552,7 @@ def _render_automation_sections(
 
 def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
     status = entry.content.bazel_lockfile_status
-    has_error = bool(entry.content.bazel_lockfile_error)
+    has_error = bool(entry.content.bazel_lockfile_error_output)
     url = f"{e(entry.name)}/index.html#lockfile-error"
 
     if status == LockfileStatus.OK:

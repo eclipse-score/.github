@@ -29,7 +29,7 @@ class DeepContentPayload(TypedDict):
     top_languages: tuple[str, ...]
     bazel_deps: tuple[tuple[str, str], ...]
     bazel_lockfile_status: LockfileStatus
-    bazel_lockfile_error: str | None
+    bazel_lockfile_error_output: str | None
 
 
 GITLINT_PATHS = (".gitlint",)
@@ -145,7 +145,7 @@ def inspect_repository_content_slow(
         ),
         "top_languages": detect_top_languages(repository, n=3),
         "bazel_lockfile_status": LockfileStatus.UNKNOWN,
-        "bazel_lockfile_error": None,
+        "bazel_lockfile_error_output": None,
     }
 
 
@@ -166,7 +166,7 @@ def default_content_signals() -> DeepContentPayload:
         "has_coverage_config": False,
         "top_languages": (),
         "bazel_lockfile_status": LockfileStatus.UNKNOWN,
-        "bazel_lockfile_error": None,
+        "bazel_lockfile_error_output": None,
     }
 
 

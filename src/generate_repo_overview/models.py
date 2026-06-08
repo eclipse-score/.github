@@ -75,7 +75,7 @@ class DeepContentSignals:
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[tuple[str, str], ...] = ()
     bazel_lockfile_status: LockfileStatus = LockfileStatus.UNKNOWN
-    bazel_lockfile_error: str | None = None
+    bazel_lockfile_error_output: str | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
@@ -99,7 +99,7 @@ class DeepContentSignals:
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
             bazel_lockfile_status=_parse_lockfile_status(data.get("bazel_lockfile_status")),
-            bazel_lockfile_error=cast("str | None", data.get("bazel_lockfile_error")),
+            bazel_lockfile_error_output=cast("str | None", data.get("bazel_lockfile_error_output")),
         )
 
 

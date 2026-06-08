@@ -273,8 +273,8 @@ def _render_lockfile_error_section(entry: RepoEntry) -> str:
         )
     elif c.bazel_lockfile_status == LockfileStatus.TIMEOUT:
         body = "<p>Bazel lockfile check timed out.</p>"
-    elif c.bazel_lockfile_error:
-        body = f'<pre class="lockfile-error">{e(c.bazel_lockfile_error)}</pre>'
+    elif c.bazel_lockfile_error_output:
+        body = f'<pre class="lockfile-error">{e(c.bazel_lockfile_error_output)}</pre>'
     else:
         return ""
     return (
