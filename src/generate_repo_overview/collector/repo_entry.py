@@ -69,7 +69,6 @@ def collect_repository_entry(
     bazel_registry_metadata: RegistrySignalsPayload | None,
     cached_entry: RepoEntry | None,
     referenced_by_reference_integration: bool = False,
-    reuse_cached_entry_when_unchanged: bool = False,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
 ) -> RepoEntry:
     fast_entry = maybe_collect_repository_entry_fast_path(
@@ -79,7 +78,6 @@ def collect_repository_entry(
         bazel_registry_metadata=bazel_registry_metadata,
         referenced_by_reference_integration=referenced_by_reference_integration,
         cached_entry=cached_entry,
-        reuse_cached_entry_when_unchanged=reuse_cached_entry_when_unchanged,
     )
     if fast_entry is not None:
         return fast_entry
@@ -103,7 +101,6 @@ def maybe_collect_repository_entry_fast_path(
     bazel_registry_metadata: RegistrySignalsPayload | None,
     referenced_by_reference_integration: bool,
     cached_entry: RepoEntry | None,
-    reuse_cached_entry_when_unchanged: bool,
 ) -> RepoEntry | None:
     """Attempt a fast collection path that avoids deep content inspection.
 
@@ -117,7 +114,7 @@ def maybe_collect_repository_entry_fast_path(
         default_branch_sha=default_branch_sha,
     )
 
-    if not (reuse_cached_entry_when_unchanged and cache_matches_default_branch):
+    if not cache_matches_default_branch:
         return None
 
     assert cached_entry is not None

@@ -85,7 +85,7 @@ Built-in commands:
 - `collect --org-config org_config.toml`
   - Sync the cached snapshot from GitHub and write it to disk.
   - Requires `--org-config` pointing to a TOML file with organization-specific settings.
-  - Use `--deep` to force a full refresh for every repository instead of reusing cached signals for unchanged ones.
+  - Use `--clean` to delete the cache and force a full refresh for every repository.
 - `render-overview`
   - Render the profile README from an existing snapshot.
 - `render-details`

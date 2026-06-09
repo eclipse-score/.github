@@ -42,10 +42,10 @@ values automatically when they are older than 1 hour.
 You can tune this freshness window with `REPO_OVERVIEW_VOLATILE_TTL_MINUTES`
 (default: `60`).
 
-If you need a full deep refresh for every repository, run:
+If you need a full refresh for every repository, run:
 
 ```sh
-uv run generate-repo-overview collect --deep
+uv run generate-repo-overview collect --clean
 ```
 
 If you only want the profile README:

@@ -77,10 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Environment variable that contains the GitHub token",
     )
     collect_parser.add_argument(
-        "--deep",
+        "--clean",
         action="store_true",
         help=(
-            "Force a deep refresh for every repository. "
+            "Delete the cache before collecting, forcing a full refresh for every repository. "
             "By default, unchanged repositories reuse cached detailed signals."
         ),
     )
@@ -152,11 +152,12 @@ def run_collect(args: argparse.Namespace) -> int:
         config = load_org_config(args.org_config)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
+    if args.clean and args.cache.exists():
+        args.cache.unlink()
     collect_snapshot(
         config=config,
         token_env=args.token_env,
         cache_path=args.cache,
-        reuse_unchanged_repositories=not args.deep,
         status_prefix="repo-overview",
     )
     return 0
