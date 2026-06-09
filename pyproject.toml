@@ -18,6 +18,7 @@ generate-repo-overview = "generate_repo_overview.cli:main"
 [dependency-groups]
 dev = [
   "basedpyright",
+  "copier",
   "pre-commit",
   "pytest",
   "ruff",

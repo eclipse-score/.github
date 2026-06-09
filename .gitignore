@@ -7,3 +7,8 @@ __pycache__/
 /profile/cache/reference_integration_checkout/
 /.cache
 /_site/
+
+# Exported Copilot chat transcripts
+/dialog*.md
+/copilot-dialog*.md
+/chat-transcript*.md
