@@ -40,7 +40,6 @@ Core S-CORE modules, libraries, and APIs.
 | Repository | Description |
 |------------|-------------|
 | [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
-| [baselibs_rust](https://github.com/eclipse-score/baselibs_rust) | Repository for the Rust baselibs |
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
