@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ._html_common import BAZEL_ICON, CSS, GITHUB_ICON, e, language_badge, version_badge
 from .metrics_report import tracked_dep_label
+from .models import LockfileStatus
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot
@@ -29,6 +30,7 @@ def render_detail_page(
         + _render_release_section(entry)
         + _render_dep_diff_section(entry)
         + _render_tooling_section(entry, snapshot)
+        + _render_lockfile_error_section(entry)
         + _render_ownership_section(entry)
         + _render_versions_section(entry, snapshot, max_bazel, latest_dep_versions)
         + _render_footer(snapshot)
@@ -258,6 +260,29 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
         '<section class="detail-section">\n'
         '  <div class="section-header"><span class="section-title">Build &amp; Tooling</span></div>\n'
         f'  <div class="detail-body"><div class="signal-grid">\n{items}\n  </div></div>\n'
+        "</section>\n\n"
+    )
+
+
+def _render_lockfile_error_section(entry: RepoEntry) -> str:
+    c = entry.content
+    if c.bazel_lockfile_status == LockfileStatus.MISSING:
+        body = (
+            '<p>No <code>MODULE.bazel.lock</code> file found. '
+            "Run <code>bazel mod deps</code> to generate it.</p>"
+        )
+    elif c.bazel_lockfile_status == LockfileStatus.TIMEOUT:
+        body = "<p>Bazel lockfile check timed out.</p>"
+    elif c.bazel_lockfile_error_output:
+        body = f'<pre class="lockfile-error">{e(c.bazel_lockfile_error_output)}</pre>'
+    else:
+        return ""
+    return (
+        '<section class="detail-section" id="lockfile-error">\n'
+        '  <div class="section-header">'
+        '<span class="section-title">Bazel Lockfile</span>'
+        "</div>\n"
+        f"  <div class=\"detail-body\">{body}</div>\n"
         "</section>\n\n"
     )
 

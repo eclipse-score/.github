@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from generate_repo_overview.models import (
@@ -10,19 +11,24 @@ from generate_repo_overview.models import (
     DEFAULT_SUBCATEGORY,
     CustomPropertyValue,
     DeepContentSignals,
+    LockfileStatus,
     RegistrySignals,
     RepoEntry,
     VolatileMetricsSnapshot,
     WorkflowSignal,
 )
 
+from .git_checkout import sync_repository_checkout
 from .signal_detection import (
     DeepContentPayload,
     detect_all_bazel_deps,
+    detect_bazel_lockfile_ok,
     detect_bazel_version,
     fetch_repository_tree_paths,
     inspect_repository_content_slow,
 )
+
+REPO_CHECKOUTS_BASE = Path(".cache/repo_checkouts")
 
 if TYPE_CHECKING:
     from .registry_metadata import RegistrySignalsPayload
@@ -70,6 +76,7 @@ def collect_repository_entry(
     cached_entry: RepoEntry | None,
     referenced_by_reference_integration: bool = False,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
+    github_token: str | None = None,
 ) -> RepoEntry:
     fast_entry = maybe_collect_repository_entry_fast_path(
         repository_name=repository_name,
@@ -90,6 +97,7 @@ def collect_repository_entry(
         referenced_by_reference_integration=referenced_by_reference_integration,
         cached_entry=cached_entry,
         workflow_signals=workflow_signals,
+        github_token=github_token,
     )
 
 
@@ -172,6 +180,7 @@ def collect_repository_entry_slow_path(
     referenced_by_reference_integration: bool,
     cached_entry: RepoEntry | None,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
+    github_token: str | None = None,
 ) -> RepoEntry:
     """Collect a repository entry with deep content inspection.
 
@@ -193,6 +202,15 @@ def collect_repository_entry_slow_path(
             ref=default_branch_sha,
             workflow_signals=workflow_signals,
         )
+        if content_signals["has_bazel_module"]:
+            lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
+                repository_name=repository_name,
+                repository=repository,
+                default_branch=default_branch,
+                github_token=github_token,
+            )
+            content_signals["bazel_lockfile_status"] = lockfile_status
+            content_signals["bazel_lockfile_error_output"] = lockfile_error
     else:
         content_signals = cached_content_signals
     content_signals["referenced_by_reference_integration"] = (
@@ -218,6 +236,28 @@ def collect_repository_entry_slow_path(
         stars=getattr(repository, "stargazers_count", 0) or 0,
         forks=getattr(repository, "forks_count", 0) or 0,
     )
+
+
+def _detect_lockfile_ok_for_repo(
+    *,
+    repository_name: str,
+    repository: Any,
+    default_branch: str | None,
+    github_token: str | None,
+) -> tuple[LockfileStatus, str | None]:
+    clone_url = cast("str | None", getattr(repository, "clone_url", None))
+    if clone_url is None or default_branch is None:
+        return LockfileStatus.UNKNOWN, None
+    checkout_path = REPO_CHECKOUTS_BASE / repository_name
+    synced = sync_repository_checkout(
+        clone_url=clone_url,
+        default_branch=default_branch,
+        github_token=github_token,
+        checkout_path=checkout_path,
+    )
+    if synced is None:
+        return LockfileStatus.UNKNOWN, None
+    return detect_bazel_lockfile_ok(synced)
 
 
 def collect_volatile_metrics(
@@ -300,6 +340,7 @@ def cached_signals_for_repository(
     assert cached_entry is not None
     return {
         "is_bazel_repo": cached_entry.content.is_bazel_repo,
+        "has_bazel_module": cached_entry.content.has_bazel_module,
         "bazel_version": cached_entry.content.bazel_version,
         "codeowners": cached_entry.content.codeowners,
         "referenced_by_reference_integration": (
@@ -314,6 +355,8 @@ def cached_signals_for_repository(
         "has_coverage_config": cached_entry.content.has_coverage_config,
         "top_languages": cached_entry.content.top_languages,
         "bazel_deps": cached_entry.content.bazel_deps,
+        "bazel_lockfile_status": cached_entry.content.bazel_lockfile_status,
+        "bazel_lockfile_error_output": cached_entry.content.bazel_lockfile_error_output,
     }
 
 
@@ -403,6 +446,7 @@ def build_repo_entry(
         default_branch_sha=default_branch_sha,
         content=DeepContentSignals(
             is_bazel_repo=content_signals["is_bazel_repo"],
+            has_bazel_module=content_signals["has_bazel_module"],
             bazel_version=content_signals["bazel_version"],
             codeowners=content_signals["codeowners"],
             referenced_by_reference_integration=bool(
@@ -419,6 +463,8 @@ def build_repo_entry(
             has_coverage_config=content_signals["has_coverage_config"],
             top_languages=content_signals.get("top_languages", ()),
             bazel_deps=content_signals.get("bazel_deps", ()),
+            bazel_lockfile_status=content_signals.get("bazel_lockfile_status", LockfileStatus.UNKNOWN),
+            bazel_lockfile_error_output=content_signals.get("bazel_lockfile_error_output"),
         ),
         registry=registry_signals,
         volatile=VolatileMetricsSnapshot(

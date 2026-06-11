@@ -391,6 +391,7 @@ def fetch_repositories(
                     repository_name in reference_integration_repository_names
                 ),
                 workflow_signals=config.workflow_signals,
+                github_token=github_token,
             )
             futures[future] = (index, repository_name)
 

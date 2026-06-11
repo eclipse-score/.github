@@ -21,6 +21,7 @@ from .metrics_report import (
     parse_version_key,
     tracked_dep_label,
 )
+from .models import LockfileStatus
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot, TrackedDep
@@ -534,6 +535,7 @@ def _render_automation_sections(
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="lang">Language <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="bazel" class="text-center" title="Whether this repository uses Bazel as its build system.">Bazel <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="lockfile" class="text-center" title="Whether `bazel mod deps --lockfile_mode=error` passes — the Bazel lockfile is up to date.">Lockfile <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="gitlint" class="text-center" title="Whether this repository enforces commit message formatting rules (gitlint).">Gitlint <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="pyproject" class="text-center" title="Whether this repository has a pyproject.toml — the standard configuration file for Python projects.">Pyproject <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="precommit" class="text-center" title="Whether this repository runs automated checks (formatting, linting, etc.) before each commit is accepted.">Pre-commit <span class="sort-arrow"></span></th>\n'
@@ -546,6 +548,26 @@ def _render_automation_sections(
             f"</div>\n"
         )
     return "".join(parts)
+
+
+def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
+    status = entry.content.bazel_lockfile_status
+    has_error = bool(entry.content.bazel_lockfile_error_output)
+    url = f"{e(entry.name)}/index.html#lockfile-error"
+
+    if status == LockfileStatus.OK:
+        return '<span class="badge green">ok</span>', "The Bazel lockfile is up to date."
+    if status == LockfileStatus.MISSING:
+        cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">missing</a></span>'
+        return cell, "MODULE.bazel.lock does not exist — click for details."
+    if status == LockfileStatus.ERROR:
+        link_text = f'<a href="{url}" class="lockfile-error-link">error</a>' if has_error else "error"
+        return f'<span class="badge red">{link_text}</span>', "The Bazel lockfile is out of date — click to see the error."
+    if status == LockfileStatus.TIMEOUT:
+        return '<span class="badge yellow">timeout</span>', "Bazel lockfile check timed out."
+    if entry.content.has_bazel_module:
+        return '<span class="text-muted">n/a</span>', "Lockfile status not yet collected."
+    return '<span class="text-muted">—</span>', "Not a Bazel module repository."
 
 
 def _automation_row(
@@ -563,6 +585,8 @@ def _automation_row(
         if val:
             return '<span class="badge green">yes</span>'
         return '<span class="text-muted">no</span>'
+
+    lockfile_cell, lockfile_tip = _lockfile_cell(entry)
 
     tips = {
         "bazel": "This repository uses Bazel as its build system."
@@ -608,6 +632,7 @@ def _automation_row(
         f"      <td>{name_cell}</td>\n"
         f'      <td data-tooltip="{e(lang_tip)}">{lang_cell}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
+        f'      <td class="text-center" data-tooltip="{e(lockfile_tip)}">{lockfile_cell}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'

@@ -18,6 +18,7 @@ BAZEL_ICON = (
     ' alt="Bazel" class="icon-bazel">'
 )
 
+
 GITHUB_ICON = (
     '<svg viewBox="0 0 16 16" fill="currentColor">'
     '<path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17'
@@ -64,7 +65,7 @@ def language_badge(lang: str | None) -> str:
 
 
 def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) -> str:
-    detail_url = f"{e(entry.name)}/"
+    detail_url = f"{e(entry.name)}/index.html"
     github_url = f"https://github.com/{org_name}/{entry.name}"
     title_attr = f' title="{e(entry.description)}"' if entry.description else ""
     cell = f'<a href="{detail_url}"{title_attr}>{e(entry.name)}</a>'

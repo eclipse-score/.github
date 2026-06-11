@@ -244,6 +244,30 @@ a:hover { text-decoration: underline; }
   vertical-align: text-bottom;
 }
 
+
+a.lockfile-error-link {
+  color: inherit;
+  text-decoration: none;
+}
+a.lockfile-error-link:hover {
+  text-decoration: underline;
+}
+
+pre.lockfile-error {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--red);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  padding: 0.8rem 1rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .mono { font-family: var(--mono); font-size: 0.78rem; }
 .text-muted { color: var(--muted); }
 .text-right { text-align: right; }
