@@ -2,64 +2,46 @@
 applyTo: '**'
 ---
 
-# Coding Style
+# Coding Style — Eclipse S-CORE
 
-## Immutability (CRITICAL)
+## C++
 
-ALWAYS create new objects, NEVER mutate existing ones:
-- Return new instances rather than modifying in place
-- Use spread operators, `List.copyOf()`, `Map.copyOf()`, or equivalent
-- Mark fields `final` / `readonly` / `const` by default
+- Follow the project's clang-tidy configuration from `score_cpp_policies`
+- Use `const` by default for variables, parameters, and member functions
+- Prefer value semantics; avoid raw pointers — use `std::unique_ptr`, `std::shared_ptr`
+- Prefer `std::string_view`, `std::span` for non-owning references
+- Use `std::optional` for values that may be absent
+- Use `std::expected` or project error types instead of exceptions where module convention requires it
+- No C-style casts — use `static_cast`, `dynamic_cast`, `reinterpret_cast`
+- Header includes: project headers first, then third-party, then standard library
+- Use include guards or `#pragma once` per project convention
+- Avoid macros; use `constexpr`, templates, or inline functions instead
+- No `using namespace std;` in headers
 
-Rationale: Immutable data prevents hidden side effects, makes debugging easier, and enables safe concurrency.
+## Rust
 
-## File Organization
+- Follow the project's Clippy configuration from `score_rust_policies`
+- Strict policy (`clippy/strict/clippy.toml`) for safety-critical code: no `panic!`, `unwrap()`, `expect()`
+- Relaxed policy (`clippy/relaxed/clippy.toml`) for tooling and tests only
+- Prefer `&str` over `String` for function parameters where ownership is not needed
+- Use `Result<T, E>` for all fallible operations — propagate with `?`
+- Derive traits (`Debug`, `Clone`, `PartialEq`) where appropriate
+- Group imports: `std`, external crates, crate-internal — separated by blank lines
+- Use `#[must_use]` on functions where ignoring the return value is likely a bug
 
-MANY SMALL FILES > FEW LARGE FILES:
-- High cohesion, low coupling
-- 200-400 lines typical, 800 max
-- Extract utilities from large modules
-- Organize by feature/domain, not by type
+## Python
 
-## Function Size
+- Format with `ruff format`; lint with `ruff check`
+- Type-check with `basedpyright`
+- `snake_case` for functions/variables, `CapWords` for classes
+- Type hints on all public functions
+- Imports: standard library, third-party, local — separated by blank lines
+- Absolute imports only; no wildcard imports
 
-- Ideal: 3-10 lines, rarely more than 20
-- Max: 50 lines — split if exceeded
-- Single atomic step of logic per function
-- No flag arguments — split into separate functions
+## General
 
-## Nesting
-
-- Max 4 levels of nesting
-- Use guard clauses and early returns to flatten
-- Extract complex predicates into named boolean methods
-- Extract inner loops into helper functions
-
-## Error Handling
-
-ALWAYS handle errors comprehensively:
-- Handle errors explicitly at every level
-- Provide user-friendly error messages in UI-facing code
-- Log detailed error context on the server side
-- Never silently swallow errors
-
-## Input Validation
-
-ALWAYS validate at system boundaries:
-- Validate all user input before processing
-- Use schema-based validation where available
-- Fail fast with clear error messages
-- Never trust external data (API responses, user input, file content)
-
-## Code Quality Checklist
-
-Before marking work complete:
-- [ ] Code is readable and well-named
-- [ ] Functions are small (<50 lines)
-- [ ] Files are focused (<800 lines)
-- [ ] No deep nesting (>4 levels)
-- [ ] Proper error handling at every level
-- [ ] No hardcoded values (use constants or config)
-- [ ] No mutation (immutable patterns used)
-- [ ] No `console.log` / `System.out.println` in production code
-- [ ] No TODO/FIXME without a linked issue
+- Consistent indentation per language convention (project `.editorconfig` or formatter config)
+- Max line length per formatter config
+- No trailing whitespace
+- Files end with a single newline
+- Organize code by feature/domain, not by type
