@@ -1,0 +1,40 @@
+{
+  "$schema": "../references/repo-manifest.schema.json",
+  "version": 1,
+  "repository": {
+    "name": "score_github",
+    "language": "python",
+    "visibility": "public",
+    "tags": [
+      "bootstrap",
+      "github-profile"
+    ]
+  },
+  "bootstrap": {
+    "contract_version": "v0.1.0",
+    "template_version": "v0.1.0"
+  },
+  "execution": {
+    "build": {
+      "command": "uv build"
+    },
+    "test": {
+      "command": "uv run pytest"
+    },
+    "lint": {
+      "command": "uv run ruff check src tests scripts"
+    },
+    "typecheck": {
+      "command": "uv run basedpyright src tests scripts"
+    }
+  },
+  "mcp": {
+    "server_name": "score-repo-tools",
+    "tools": [
+      "build",
+      "test",
+      "lint",
+      "typecheck"
+    ]
+  }
+}
