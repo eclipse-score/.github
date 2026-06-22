@@ -321,6 +321,33 @@ class TestGroupingLevels:
         config = load_org_config(toml_path)
         assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
 
+    def test_entry_whitespace_only_default_is_skipped(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            property = "area"
+            default = "   "
+
+            [[grouping.levels]]
+            property = "team"
+            default = "Common"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (GroupingLevel(property="team", default="Common"),)
+
+    def test_grouping_as_scalar_raises(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+            grouping = "not-a-table"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        with pytest.raises(ValueError, match=r"grouping.*must be a table"):
+            load_org_config(toml_path)
+
 
 class TestReferenceIntegrationOrgName:
     def test_parse_github_remote_with_custom_org(self) -> None:

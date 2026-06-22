@@ -11,7 +11,8 @@ org_name = "eclipse-score"
 # Each level maps a GitHub repository custom property key to a fallback value
 # used when the property is absent or empty.
 #
-# 0 levels — repositories are not grouped; everything appears in a flat list.
+# 0 levels — all repositories fall back to the default label ("Uncategorized"),
+#             so they appear under a single section with no meaningful grouping.
 # 1 level  — repositories are grouped into top-level sections only.
 # 2 levels — repositories are grouped into sections and subsections (default).
 #

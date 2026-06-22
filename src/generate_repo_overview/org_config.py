@@ -59,8 +59,10 @@ def load_org_config(path: Path) -> OrgConfig:
                 f"{field_name} must be in 'org/repo' format, got '{field_value}'."
             )
 
-    grouping_section = cast("dict[str, Any]", raw.get("grouping", {}))
-    grouping_levels = _parse_grouping_levels(grouping_section.get("levels"))
+    raw_grouping = raw.get("grouping", {})
+    if not isinstance(raw_grouping, dict):
+        raise ValueError("'grouping' must be a table, not a scalar value.")
+    grouping_levels = _parse_grouping_levels(raw_grouping.get("levels"))
 
     return OrgConfig(
         org_name=org_name.strip(),
@@ -122,6 +124,7 @@ def _parse_grouping_levels(value: object) -> tuple[GroupingLevel, ...]:
             isinstance(property_, str)
             and property_.strip()
             and isinstance(default, str)
+            and default.strip()
         ):
             result.append(GroupingLevel(property=property_.strip(), default=default.strip()))
     if len(result) > 2:
