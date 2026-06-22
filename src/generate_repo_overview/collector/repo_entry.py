@@ -11,6 +11,7 @@ from generate_repo_overview.models import (
     DEFAULT_SUBCATEGORY,
     CustomPropertyValue,
     DeepContentSignals,
+    GroupingLevel,
     LockfileStatus,
     RegistrySignals,
     RepoEntry,
@@ -67,11 +68,24 @@ DEFAULT_VOLATILE_METRICS_TTL_MINUTES = 60
 VOLATILE_METRICS_TTL_ENV = "REPO_OVERVIEW_VOLATILE_TTL_MINUTES"
 
 
+def _resolve_grouping_value(
+    custom_properties: dict[str, CustomPropertyValue],
+    grouping_levels: tuple[GroupingLevel, ...],
+    index: int,
+    fallback: str,
+) -> str:
+    if index < len(grouping_levels):
+        level = grouping_levels[index]
+        return normalize_group_name(custom_properties.get(level.property), level.default)
+    return fallback
+
+
 def collect_repository_entry(
     *,
     repository_name: str,
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
+    grouping_levels: tuple[GroupingLevel, ...] = (),
     bazel_registry_metadata: RegistrySignalsPayload | None,
     cached_entry: RepoEntry | None,
     referenced_by_reference_integration: bool = False,
@@ -82,6 +96,7 @@ def collect_repository_entry(
         repository_name=repository_name,
         repository=repository,
         custom_properties=custom_properties,
+        grouping_levels=grouping_levels,
         bazel_registry_metadata=bazel_registry_metadata,
         referenced_by_reference_integration=referenced_by_reference_integration,
         cached_entry=cached_entry,
@@ -93,6 +108,7 @@ def collect_repository_entry(
         repository_name=repository_name,
         repository=repository,
         custom_properties=custom_properties,
+        grouping_levels=grouping_levels,
         bazel_registry_metadata=bazel_registry_metadata,
         referenced_by_reference_integration=referenced_by_reference_integration,
         cached_entry=cached_entry,
@@ -106,6 +122,7 @@ def maybe_collect_repository_entry_fast_path(
     repository_name: str,
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
+    grouping_levels: tuple[GroupingLevel, ...] = (),
     bazel_registry_metadata: RegistrySignalsPayload | None,
     referenced_by_reference_integration: bool,
     cached_entry: RepoEntry | None,
@@ -132,6 +149,7 @@ def maybe_collect_repository_entry_fast_path(
             repository_name=repository_name,
             description=cast("str | None", getattr(repository, "description", None)),
             custom_properties=custom_properties,
+            grouping_levels=grouping_levels,
             default_branch=default_branch,
             default_branch_sha=default_branch_sha,
             bazel_registry_metadata=bazel_registry_metadata,
@@ -160,6 +178,7 @@ def maybe_collect_repository_entry_fast_path(
         repository_name=repository_name,
         description=cast("str | None", getattr(repository, "description", None)),
         custom_properties=custom_properties,
+        grouping_levels=grouping_levels,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         content_signals=content_signals,
@@ -176,6 +195,7 @@ def collect_repository_entry_slow_path(
     repository_name: str,
     repository: Any,
     custom_properties: dict[str, CustomPropertyValue],
+    grouping_levels: tuple[GroupingLevel, ...] = (),
     bazel_registry_metadata: RegistrySignalsPayload | None,
     referenced_by_reference_integration: bool,
     cached_entry: RepoEntry | None,
@@ -202,17 +222,20 @@ def collect_repository_entry_slow_path(
             ref=default_branch_sha,
             workflow_signals=workflow_signals,
         )
-        if content_signals["has_bazel_module"]:
-            lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
-                repository_name=repository_name,
-                repository=repository,
-                default_branch=default_branch,
-                github_token=github_token,
-            )
-            content_signals["bazel_lockfile_status"] = lockfile_status
-            content_signals["bazel_lockfile_error_output"] = lockfile_error
     else:
         content_signals = cached_content_signals
+    if content_signals["has_bazel_module"] and (
+        cached_content_signals is None
+        or content_signals["bazel_lockfile_status"] == LockfileStatus.UNKNOWN
+    ):
+        lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
+            repository_name=repository_name,
+            repository=repository,
+            default_branch=default_branch,
+            github_token=github_token,
+        )
+        content_signals["bazel_lockfile_status"] = lockfile_status
+        content_signals["bazel_lockfile_error_output"] = lockfile_error
     content_signals["referenced_by_reference_integration"] = (
         referenced_by_reference_integration
     )
@@ -227,6 +250,7 @@ def collect_repository_entry_slow_path(
         repository_name=repository_name,
         description=cast("str | None", getattr(repository, "description", None)),
         custom_properties=custom_properties,
+        grouping_levels=grouping_levels,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         content_signals=content_signals,
@@ -386,6 +410,7 @@ def build_repo_entry_from_cached(
     repository_name: str,
     description: str | None,
     custom_properties: dict[str, CustomPropertyValue],
+    grouping_levels: tuple[GroupingLevel, ...] = (),
     default_branch: str | None,
     default_branch_sha: str | None,
     bazel_registry_metadata: RegistrySignalsPayload | None,
@@ -402,13 +427,8 @@ def build_repo_entry_from_cached(
         cached_entry,
         name=repository_name,
         description=description or "(no description)",
-        category=normalize_group_name(
-            custom_properties.get("category"), DEFAULT_CATEGORY
-        ),
-        subcategory=normalize_group_name(
-            custom_properties.get("subcategory"),
-            DEFAULT_SUBCATEGORY,
-        ),
+        category=_resolve_grouping_value(custom_properties, grouping_levels, 0, DEFAULT_CATEGORY),
+        subcategory=_resolve_grouping_value(custom_properties, grouping_levels, 1, DEFAULT_SUBCATEGORY),
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         content=content,
@@ -423,6 +443,7 @@ def build_repo_entry(
     description: str | None,
     custom_properties: dict[str, CustomPropertyValue],
     *,
+    grouping_levels: tuple[GroupingLevel, ...] = (),
     default_branch: str | None = None,
     default_branch_sha: str | None = None,
     content_signals: DeepContentPayload,
@@ -432,11 +453,8 @@ def build_repo_entry(
     stars: int = 0,
     forks: int = 0,
 ) -> RepoEntry:
-    category = normalize_group_name(custom_properties.get("category"), DEFAULT_CATEGORY)
-    subcategory = normalize_group_name(
-        custom_properties.get("subcategory"),
-        DEFAULT_SUBCATEGORY,
-    )
+    category = _resolve_grouping_value(custom_properties, grouping_levels, 0, DEFAULT_CATEGORY)
+    subcategory = _resolve_grouping_value(custom_properties, grouping_levels, 1, DEFAULT_SUBCATEGORY)
     return RepoEntry(
         name=repository_name,
         description=description or "(no description)",

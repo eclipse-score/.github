@@ -13,10 +13,12 @@ import generate_repo_overview.collector.registry_metadata as registry_metadata
 import generate_repo_overview.collector.repo_entry as repo_entry
 import generate_repo_overview.collector.signal_detection as signal_detection
 import generate_repo_overview.collector.snapshot_io as snapshot_io
+from generate_repo_overview.collector.signal_detection import default_content_signals
 from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    GroupingLevel,
     RegistrySignals,
     RepoEntry,
     RepoSnapshot,
@@ -380,6 +382,10 @@ def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None
         repository_name="tools",
         repository=repo,
         custom_properties={"category": "Engineering", "subcategory": "Platform"},
+        grouping_levels=(
+            GroupingLevel(property="category", default="Uncategorized"),
+            GroupingLevel(property="subcategory", default="General"),
+        ),
         bazel_registry_metadata={
             "maintainers_in_bazel_registry": ("New Maintainer",),
             "latest_bazel_registry_version": "0.2.0",
@@ -1591,6 +1597,112 @@ def test_metrics_report_automation_with_multiple_signals() -> None:
     assert "Daily Workflow" in markdown
     assert "Nightly Build" in markdown
     assert "| yes | no |" in markdown
+
+
+class TestBuildRepoEntryGroupingLevels:
+    """Tests for grouping_levels parameter on build_repo_entry."""
+
+    def _minimal_signals(self) -> "repo_entry.DeepContentPayload":
+        return default_content_signals()
+
+    def test_no_grouping_levels_returns_defaults(self) -> None:
+        entry = repo_entry.build_repo_entry(
+            "my-repo",
+            "A repo",
+            custom_properties={"category": "Infra", "subcategory": "Tooling"},
+            grouping_levels=(),
+            content_signals=self._minimal_signals(),
+            registry_signals=RegistrySignals(),
+            volatile_metrics=repo_entry.collect_volatile_metrics(
+                _FakeMinimalRepo(), default_branch=None, default_branch_sha=None
+            ),
+        )
+        from generate_repo_overview.models import DEFAULT_CATEGORY, DEFAULT_SUBCATEGORY
+        assert entry.category == DEFAULT_CATEGORY
+        assert entry.subcategory == DEFAULT_SUBCATEGORY
+
+    def test_one_grouping_level_resolves_category_only(self) -> None:
+        entry = repo_entry.build_repo_entry(
+            "my-repo",
+            "A repo",
+            custom_properties={"area": "Platform"},
+            grouping_levels=(GroupingLevel(property="area", default="Unknown"),),
+            content_signals=self._minimal_signals(),
+            registry_signals=RegistrySignals(),
+            volatile_metrics=repo_entry.collect_volatile_metrics(
+                _FakeMinimalRepo(), default_branch=None, default_branch_sha=None
+            ),
+        )
+        from generate_repo_overview.models import DEFAULT_SUBCATEGORY
+        assert entry.category == "Platform"
+        assert entry.subcategory == DEFAULT_SUBCATEGORY
+
+    def test_one_grouping_level_uses_level_default_on_missing_property(self) -> None:
+        entry = repo_entry.build_repo_entry(
+            "my-repo",
+            "A repo",
+            custom_properties={},
+            grouping_levels=(GroupingLevel(property="area", default="Unknown"),),
+            content_signals=self._minimal_signals(),
+            registry_signals=RegistrySignals(),
+            volatile_metrics=repo_entry.collect_volatile_metrics(
+                _FakeMinimalRepo(), default_branch=None, default_branch_sha=None
+            ),
+        )
+        assert entry.category == "Unknown"
+
+    def test_two_custom_grouping_levels_both_resolved(self) -> None:
+        entry = repo_entry.build_repo_entry(
+            "my-repo",
+            "A repo",
+            custom_properties={"area": "Platform", "team": "Core"},
+            grouping_levels=(
+                GroupingLevel(property="area", default="Unknown"),
+                GroupingLevel(property="team", default="Common"),
+            ),
+            content_signals=self._minimal_signals(),
+            registry_signals=RegistrySignals(),
+            volatile_metrics=repo_entry.collect_volatile_metrics(
+                _FakeMinimalRepo(), default_branch=None, default_branch_sha=None
+            ),
+        )
+        assert entry.category == "Platform"
+        assert entry.subcategory == "Core"
+
+    def test_classic_grouping_levels_match_old_hardcoded_behavior(self) -> None:
+        entry = repo_entry.build_repo_entry(
+            "my-repo",
+            "A repo",
+            custom_properties={"category": "Infra", "subcategory": "Tooling"},
+            grouping_levels=(
+                GroupingLevel(property="category", default="Uncategorized"),
+                GroupingLevel(property="subcategory", default="General"),
+            ),
+            content_signals=self._minimal_signals(),
+            registry_signals=RegistrySignals(),
+            volatile_metrics=repo_entry.collect_volatile_metrics(
+                _FakeMinimalRepo(), default_branch=None, default_branch_sha=None
+            ),
+        )
+        assert entry.category == "Infra"
+        assert entry.subcategory == "Tooling"
+
+
+class _FakeMinimalRepo:
+    """Minimal repo stub for volatile metrics collection with no API calls."""
+    open_issues_count = 0
+    pushed_at = None
+    stargazers_count = 0
+    forks_count = 0
+
+    def get_branch(self, _: str) -> None:
+        return None
+
+    def get_pulls(self, *_: Any, **__: Any) -> list[Any]:
+        return []
+
+    def get_latest_release(self) -> None:
+        return None
 
 
 def test_snapshot_from_dict_filters_empty_tracked_deps() -> None:
