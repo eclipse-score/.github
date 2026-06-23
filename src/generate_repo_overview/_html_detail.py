@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from ._html_common import BAZEL_ICON, CSS, GITHUB_ICON, e, language_badge, version_badge
 from .metrics_report import tracked_dep_label
-from .models import LockfileStatus
+from .models import DEFAULT_CATEGORY, DEFAULT_SUBCATEGORY, LockfileStatus
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot
@@ -44,9 +44,11 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
     if entry.content.is_bazel_repo:
         name_html += f" {BAZEL_ICON}"
 
-    chips = f'<span class="badge muted">{e(entry.category)}</span>'
-    if entry.subcategory and entry.subcategory != entry.category:
-        chips += f' <span class="badge muted">{e(entry.subcategory)}</span>'
+    chips = ""
+    if entry.category != DEFAULT_CATEGORY:
+        chips += f'<span class="badge muted">{e(entry.category)}</span>'
+        if entry.subcategory != DEFAULT_SUBCATEGORY:
+            chips += f' <span class="badge muted">{e(entry.subcategory)}</span>'
     for lang in entry.content.top_languages:
         chips += f" {language_badge(lang)}"
 

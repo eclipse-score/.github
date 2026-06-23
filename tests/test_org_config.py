@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from generate_repo_overview.models import TrackedDep, WorkflowSignal
+from generate_repo_overview.models import GroupingLevel, TrackedDep, WorkflowSignal
 from generate_repo_overview.org_config import OrgConfig, load_org_config
 
 if TYPE_CHECKING:
@@ -24,6 +24,10 @@ class TestOrgConfigDefaults:
         assert config.workflow_signals == ()
         assert config.reference_integration_repo == ""
         assert config.registry_repo == ""
+
+    def test_grouping_levels_default_is_empty(self) -> None:
+        config = OrgConfig(org_name="my-org")
+        assert config.grouping_levels == ()
 
 
 class TestLoadOrgConfig:
@@ -198,6 +202,151 @@ class TestConfigValidation:
         config = load_org_config(toml_path)
         assert len(config.workflow_signals) == 1
         assert config.workflow_signals[0].label == "Valid"
+
+
+class TestGroupingLevels:
+    def test_absent_grouping_section_returns_empty_tuple(self, tmp_path: Path) -> None:
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text('org_name = "test"\n', encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == ()
+
+    def test_empty_levels_list_returns_empty_tuple(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+            [grouping]
+            levels = []
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == ()
+
+    def test_one_grouping_level(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            property = "area"
+            default = "Unknown"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
+
+    def test_two_grouping_levels_eclipse_score_style(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "eclipse-score"
+
+            [[grouping.levels]]
+            property = "category"
+            default = "Uncategorized"
+
+            [[grouping.levels]]
+            property = "subcategory"
+            default = "General"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (
+            GroupingLevel(property="category", default="Uncategorized"),
+            GroupingLevel(property="subcategory", default="General"),
+        )
+
+    def test_three_grouping_levels_raises(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            property = "a"
+            default = "A"
+
+            [[grouping.levels]]
+            property = "b"
+            default = "B"
+
+            [[grouping.levels]]
+            property = "c"
+            default = "C"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        with pytest.raises(ValueError, match="at most 2"):
+            load_org_config(toml_path)
+
+    def test_entry_missing_property_is_skipped(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            default = "Fallback"
+
+            [[grouping.levels]]
+            property = "area"
+            default = "Unknown"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
+
+    def test_entry_missing_default_is_skipped(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            property = "area"
+
+            [[grouping.levels]]
+            property = "team"
+            default = "Common"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (GroupingLevel(property="team", default="Common"),)
+
+    def test_property_and_default_are_stripped(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            property = "  area  "
+            default = "  Unknown  "
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
+
+    def test_entry_whitespace_only_default_is_skipped(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+
+            [[grouping.levels]]
+            property = "area"
+            default = "   "
+
+            [[grouping.levels]]
+            property = "team"
+            default = "Common"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        config = load_org_config(toml_path)
+        assert config.grouping_levels == (GroupingLevel(property="team", default="Common"),)
+
+    def test_grouping_as_scalar_raises(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+            grouping = "not-a-table"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        with pytest.raises(ValueError, match=r"grouping.*must be a table"):
+            load_org_config(toml_path)
 
 
 class TestReferenceIntegrationOrgName:
