@@ -59,9 +59,8 @@ Repositories for experimental or early-stage features.
 |------------|-------------|
 | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module |
 | [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) | Incubation repository for diagnostics feature |
-| [inc_os_autosd](https://github.com/eclipse-score/inc_os_autosd) | Incubation repository for AutoSD Development Platform |
 | [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | Incubation repository for SOME/IP gateway feature |
-| [inc_time](https://github.com/eclipse-score/inc_time) | incubation repo for time sync module |
+| [time](https://github.com/eclipse-score/time) | Time synchronization module |
 
 ---
 
@@ -89,6 +88,7 @@ Infrastructure repositories that do not need a more specific subgroup.
 | [.github](https://github.com/eclipse-score/.github) | Houses the organisation README |
 | [infrastructure](https://github.com/eclipse-score/infrastructure) | All general information related to the development and integration infrastructure |
 | [module_template](https://github.com/eclipse-score/module_template) | C++ & Rust Bazel Template Repository |
+| [os_autosd](https://github.com/eclipse-score/os_autosd) | Repository for the AutoSD Platform and associated Tooling |
 | [sbom-tool](https://github.com/eclipse-score/sbom-tool) | Home of the SBOM generation tool |
 | [tooling](https://github.com/eclipse-score/tooling) | Tooling for Eclipse S-CORE |
 | [tools](https://github.com/eclipse-score/tools) | Home of score-tools, the new pypi based tools approach |
