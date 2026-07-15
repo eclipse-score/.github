@@ -24,12 +24,12 @@ body:
       label: Feature Request / Modification Description
       description: |
         - Use following template within a PR and link it to this issue
-          [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_feature_template.html) needs to be used
+          [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_decision_record_template.html) needs to be used
     validations:
       required: true
   - type: checkboxes
     attributes:
-      label: Expected Changes ot work products
+      label: Expected Changes of work products
       options:
         - label: Requirements
         - label: Architecture
