@@ -24,7 +24,7 @@ body:
       label: Feature Request / Modification Description
       description: |
         - Use following template within a PR and link it to this issue, if a new Feature is requested or the scope of an existing one is changed, otherwise just file a Task or Bug issue
-          [Change Management Feature Request Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_decision_record_template.html)
+          [Change Management Decision Record Template](https://eclipse-score.github.io/process_description/main/process_areas/change_management/guidance/change_management_decision_record_template.html)
     validations:
       required: true
   - type: checkboxes
