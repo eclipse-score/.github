@@ -21,6 +21,7 @@ from generate_repo_overview.collector.repo_entry import (
 from generate_repo_overview.console import print_status
 from generate_repo_overview.models import (
     CategoryConfig,
+    GroupingLevel,
     ReadmeConfig,
     RegistrySignals,
     RepoEntry,
@@ -110,6 +111,10 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
         repository_name="tools",
         description=None,
         custom_properties={"category": "Infrastructure", "subcategory": None},
+        grouping_levels=(
+            GroupingLevel(property="category", default="Uncategorized"),
+            GroupingLevel(property="subcategory", default="General"),
+        ),
         content_signals=signal_detection.default_content_signals(),
         registry_signals=RegistrySignals(),
         volatile_metrics={

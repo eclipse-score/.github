@@ -7,6 +7,28 @@
 
 org_name = "eclipse-score"
 
+# Grouping levels control how repositories are grouped in the rendered output.
+# Each level maps a GitHub repository custom property key to a fallback value
+# used when the property is absent or empty.
+#
+# 0 levels — all repositories fall back to the default label ("Uncategorized"),
+#             so they appear under a single section with no meaningful grouping.
+# 1 level  — repositories are grouped into top-level sections only.
+# 2 levels — repositories are grouped into sections and subsections (default).
+#
+# property: the GitHub custom property key to read from each repository.
+# default:  the fallback label shown when a repository has no value for that property.
+#
+# Remove or comment out one entry to use only one level of grouping.
+# Remove both entries (or omit the [grouping] section) for no grouping.
+[[grouping.levels]]
+property = "category"
+default = "Uncategorized"
+
+[[grouping.levels]]
+property = "subcategory"
+default = "General"
+
 # Optional fnmatch glob patterns to limit which repositories are included.
 # When empty (or omitted), all non-archived repositories in the org are included.
 # Example: repo_include_patterns = ["my-prefix-*", "another-repo"]
