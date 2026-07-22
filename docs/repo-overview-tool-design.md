@@ -12,7 +12,7 @@
 The tool is split into three layers:
 
 1. `org_config.py`
-   - Loads organization-specific settings from `org_config.toml`: org name, repo include patterns, tracked Bazel deps, workflow signals, reference integration repo, and registry repo.
+   - Loads organization-specific settings from `org_config.toml`: org name, repo include patterns, grouping levels, tracked Bazel deps, workflow signals, reference integration repo, and registry repo.
 2. `collector/`
    - Connects to GitHub.
    - Loads active repositories and custom properties.

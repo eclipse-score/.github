@@ -21,6 +21,14 @@ SNAPSHOT_SCHEMA_VERSION = 22
 
 
 @dataclass(frozen=True, slots=True)
+class GroupingLevel:
+    """A grouping dimension mapped to a GitHub custom property key."""
+
+    property: str
+    default: str
+
+
+@dataclass(frozen=True, slots=True)
 class TrackedDep:
     """A Bazel dependency tracked across all repositories."""
 
