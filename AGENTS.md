@@ -29,6 +29,7 @@ tests/
   test_cli_render.py  — render output tests
   test_org_config.py  — org config loading/validation tests
   test_repo_overview.py — collector and snapshot round-trip tests
+  test_traceability.py — traceability metrics parsing tests
 ```
 
 ## Website rendering notes

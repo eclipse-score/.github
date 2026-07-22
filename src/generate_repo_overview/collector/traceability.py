@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from generate_repo_overview.models import RepoEntry
 
 _METRICS_TIMEOUT_SECONDS = 10
+_SUPPORTED_METRICS_SCHEMA_VERSION = "2"
 
 
 def fetch_traceability_metrics(
@@ -38,25 +39,30 @@ def fetch_traceability_metrics(
 def _parse_metrics_by_type(data: Any) -> tuple[TraceabilityTypeMetrics, ...]:
     if not isinstance(data, dict):
         return ()
+    if data.get("schema_version") != _SUPPORTED_METRICS_SCHEMA_VERSION:
+        return ()
     metrics_by_type = data.get("metrics_by_type")
     if not isinstance(metrics_by_type, dict):
         return ()
+
+    # Top-level "tests" is shared across all requirement types in schema v2.
+    top_tests = data.get("tests")
+    tests_total = _int(top_tests.get("total")) if isinstance(top_tests, dict) else 0
+    tests_linked = _int(top_tests.get("linked_to_requirements")) if isinstance(top_tests, dict) else 0
 
     result: list[TraceabilityTypeMetrics] = []
     for type_key, type_data in cast("dict[str, Any]", metrics_by_type).items():
         if not isinstance(type_data, dict):
             continue
-        req = type_data.get("requirements", {})
-        tests = type_data.get("tests", {})
         result.append(
             TraceabilityTypeMetrics(
                 type_name=type_key,
-                req_total=_int(req.get("total")),
-                req_with_code_link=_int(req.get("with_code_link")),
-                req_with_test_link=_int(req.get("with_test_link")),
-                req_fully_linked=_int(req.get("fully_linked")),
-                tests_total=_int(tests.get("total")),
-                tests_linked=_int(tests.get("linked_to_requirements")),
+                req_total=_int(type_data.get("total")),
+                req_with_code_link=_int(type_data.get("with_code_link")),
+                req_with_test_link=_int(type_data.get("with_test_link")),
+                req_fully_linked=_int(type_data.get("fully_linked")),
+                tests_total=tests_total,
+                tests_linked=tests_linked,
             )
         )
     return tuple(result)

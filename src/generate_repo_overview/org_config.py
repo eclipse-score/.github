@@ -5,7 +5,7 @@ import tomllib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
-from generate_repo_overview.models import TrackedDep, WorkflowSignal
+from generate_repo_overview.models import GroupingLevel, TrackedDep, WorkflowSignal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -21,6 +21,7 @@ class OrgConfig:
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     reference_integration_repo: str = ""
     registry_repo: str = ""
+    grouping_levels: tuple[GroupingLevel, ...] = ()
 
     def repo_matches_filter(self, repo_name: str) -> bool:
         if not self.repo_include_patterns:
@@ -58,6 +59,11 @@ def load_org_config(path: Path) -> OrgConfig:
                 f"{field_name} must be in 'org/repo' format, got '{field_value}'."
             )
 
+    raw_grouping = raw.get("grouping", {})
+    if not isinstance(raw_grouping, dict):
+        raise ValueError("'grouping' must be a table, not a scalar value.")
+    grouping_levels = _parse_grouping_levels(raw_grouping.get("levels"))
+
     return OrgConfig(
         org_name=org_name.strip(),
         repo_include_patterns=_parse_string_list(raw.get("repo_include_patterns")),
@@ -65,6 +71,7 @@ def load_org_config(path: Path) -> OrgConfig:
         workflow_signals=_parse_workflow_signals(signals.get("workflow_signals")),
         reference_integration_repo=reference_integration_repo,
         registry_repo=registry_repo,
+        grouping_levels=grouping_levels,
     )
 
 
@@ -101,6 +108,29 @@ def _parse_tracked_deps(value: object) -> tuple[TrackedDep, ...]:
             and module_name.strip()
         ):
             result.append(TrackedDep(repo=repo.strip(), module_name=module_name.strip()))
+    return tuple(result)
+
+
+def _parse_grouping_levels(value: object) -> tuple[GroupingLevel, ...]:
+    if not isinstance(value, list):
+        return ()
+    result: list[GroupingLevel] = []
+    for item in cast("list[Any]", value):
+        if not isinstance(item, dict):
+            continue
+        property_ = item.get("property")
+        default = item.get("default")
+        if (
+            isinstance(property_, str)
+            and property_.strip()
+            and isinstance(default, str)
+            and default.strip()
+        ):
+            result.append(GroupingLevel(property=property_.strip(), default=default.strip()))
+    if len(result) > 2:
+        raise ValueError(
+            f"grouping.levels supports at most 2 entries, got {len(result)}."
+        )
     return tuple(result)
 
 

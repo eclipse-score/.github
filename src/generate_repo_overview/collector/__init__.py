@@ -383,6 +383,7 @@ def fetch_repositories(
                 repository_name=repository_name,
                 repository=repository_data.repository,
                 custom_properties=repository_data.custom_properties,
+                grouping_levels=config.grouping_levels,
                 bazel_registry_metadata=bazel_registry_metadata_by_repo.get(
                     repository_name
                 ),

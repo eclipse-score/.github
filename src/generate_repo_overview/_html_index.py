@@ -564,7 +564,8 @@ def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
         link_text = f'<a href="{url}" class="lockfile-error-link">error</a>' if has_error else "error"
         return f'<span class="badge red">{link_text}</span>', "The Bazel lockfile is out of date — click to see the error."
     if status == LockfileStatus.TIMEOUT:
-        return '<span class="badge yellow">timeout</span>', "Bazel lockfile check timed out."
+        cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">timeout</a></span>'
+        return cell, "Bazel lockfile check timed out — click for details."
     if entry.content.has_bazel_module:
         return '<span class="text-muted">n/a</span>', "Lockfile status not yet collected."
     return '<span class="text-muted">—</span>', "Not a Bazel module repository."
