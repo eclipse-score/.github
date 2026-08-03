@@ -10,16 +10,16 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-name: "Component Requirements Inspection"
-description: Tracks the formal S-CORE Component Requirements Inspection for a component.
-title: "Component Requirements Inspection - <component>"
+name: "Work Product Inspection"
+description: Tracks the formal S-CORE Work Product Inspection for a component.
+title: "<Platform|Feature|Component Requirements|Architecture or Implementation> Inspection - <platform|feature|component>"
 labels: ["safety-inspection"]
 body:
   - type: input
     id: component
     attributes:
-      label: Component Name
-      description: The name of the component whose requirements are being inspected.
+      label: Element Name
+      description: The name of the SW element whose work product(S) are being inspected.
       placeholder: e.g. json
     validations:
       required: true
@@ -28,9 +28,17 @@ body:
     attributes:
       label: Description
       value: |
-        This issue tracks the formal Component Requirements Inspection for the component specified above, according to the S-CORE process.
+        This issue tracks a formal Inspection for the SW element specified above, according to the S-CORE process.
 
-        The inspection validates that the component's requirements meet quality, completeness, and testability criteria before the work product is marked as `valid(inspected)`.
+        The inspection validates that the work product(s) meet quality and safety criteria before the work product is marked as `valid(inspected)`.
+
+        Inspection Work Product Type (select the applicable type):
+        - [ ] Platform Requirements (and AoU)
+        - [ ] Feature Requirements (and AoU)
+        - [ ] Component Requirements (and AoU)
+        - [ ] Feature Architecture
+        - [ ] Component Architecture
+        - [ ] Implementation
 
         References:
         - [S-CORE Inspection Conduct](https://eclipse-score.github.io/process_description/main/general_concepts/score_review_concept.html#inspection-conduct)
@@ -48,12 +56,11 @@ body:
 
         #### Reviewer(s)
         - [ ] Review all component requirements against each inspection checklist item
-        - [ ] For each failing item, open a GitHub issue to track the required correction; link it in the PR comment
         - [ ] Add findings as PR comments (pass or fail, with rationale and link to correction issue where applicable)
         - [ ] Set PR to "Request Changes" if findings exist
         - [ ] Re-review after the author addresses findings; update verdict accordingly
 
-        #### Test Expert
+        #### Test Expert (mandatory only for requirements inspections)
         - [ ] Review requirements from a testability perspective (focus: REQ_08_01 checklist item)
         - [ ] Verify that test cases can be derived from each requirement and that verification criteria are clear
         - [ ] Add testability findings as PR comments
@@ -61,8 +68,7 @@ body:
 
         #### Content Responsible (Author)
         - [ ] Analyze all findings and linked correction issues documented in the PR
-        - [ ] Respond to each finding with an explanation or a proposed correction
-        - [ ] Commit corrections to address all findings
+        - [ ] Respond to each finding with an explanation or a proposed correction (by adding a commit, creating a seperate PR or a GitHub issue to track, document in PR)
         - [ ] Request re-review from the Reviewer(s) and Test Expert
         - [ ] Address any follow-up comments until all reviewers approve
 
