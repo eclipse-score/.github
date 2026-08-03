@@ -11,7 +11,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 name: "Work Product Inspection"
-description: Tracks the formal S-CORE Work Product Inspection for a component.
+description: Tracks the formal S-CORE Work Product Inspection.
 title: "<Platform|Feature|Component Requirements|Architecture or Implementation> Inspection - <platform|feature|component>"
 labels: ["safety-inspection"]
 body:
@@ -33,7 +33,7 @@ body:
     id: component
     attributes:
       label: Element Name
-      description: The name of the SW element whose work product(S) are being inspected.
+      description: The name of the SW element whose work product(s) are being inspected.
       placeholder: e.g. json
     validations:
       required: true
