@@ -36,7 +36,7 @@ jobs:
 
       - name: Collect metrics
         env:
-          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
+          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}
         run: uv run generate-repo-overview collect --org-config org_config.toml
 
       - name: Render overview (MD)
@@ -55,7 +55,7 @@ jobs:
           base: main
           branch: bot/status-update
         env:
-          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_PAT }}
+          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}
 
       - name: Render details (HTML)
         run: uv run generate-repo-overview render-details
