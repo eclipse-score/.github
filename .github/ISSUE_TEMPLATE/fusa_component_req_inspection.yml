@@ -15,6 +15,20 @@ description: Tracks the formal S-CORE Work Product Inspection for a component.
 title: "<Platform|Feature|Component Requirements|Architecture or Implementation> Inspection - <platform|feature|component>"
 labels: ["safety-inspection"]
 body:
+  - type: dropdown
+    id: work_product_type
+    attributes:
+      label: Inspection Work Product Type
+      description: Select the appropriate inspection work product type.
+      options:
+        - Platform Requirements (and AoU)
+        - Feature Requirements (and AoU)
+        - Component Requirements (and AoU)
+        - Feature Architecture
+        - Component Architecture
+        - Implementation
+    validations:
+      required: true
   - type: input
     id: component
     attributes:
@@ -31,14 +45,6 @@ body:
         This issue tracks a formal Inspection for the SW element specified above, according to the S-CORE process.
 
         The inspection validates that the work product(s) meet quality and safety criteria before the work product is marked as `valid(inspected)`.
-
-        Inspection Work Product Type (select the applicable type):
-        - [ ] Platform Requirements (and AoU)
-        - [ ] Feature Requirements (and AoU)
-        - [ ] Component Requirements (and AoU)
-        - [ ] Feature Architecture
-        - [ ] Component Architecture
-        - [ ] Implementation
 
         References:
         - [S-CORE Inspection Conduct](https://eclipse-score.github.io/process_description/main/general_concepts/score_review_concept.html#inspection-conduct)
