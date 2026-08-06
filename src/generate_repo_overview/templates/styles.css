@@ -288,6 +288,7 @@ footer {
 .gh-link { color: var(--muted); margin-left: 0.3rem; vertical-align: middle; display: inline-flex; cursor: alias; }
 .gh-link:hover { color: var(--accent); text-decoration: none; }
 .gh-link svg { width: 13px; height: 13px; }
+.repo-desc { color: var(--muted); font-size: 0.78rem; margin-left: 0.5rem; }
 
 .breadcrumb { font-size: 0.82rem; color: var(--muted); margin-bottom: 0.8rem; }
 .breadcrumb a { color: var(--accent); }
