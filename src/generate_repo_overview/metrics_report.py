@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
+from ._icons import _bazel_svg
 from ._text_utils import escape_markdown_table_cell
 
 if TYPE_CHECKING:
@@ -12,13 +13,6 @@ if TYPE_CHECKING:
 
 
 HANDLE_PATTERN = re.compile(r"@[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?")
-BAZEL_ICON_SVG = (
-    '<svg viewBox="0 0 72 72" width="16" height="16" aria-label="Bazel">'
-    '<polygon points="36,4 60,16 68,40 52,64 20,64 4,40 12,16" fill="#43A047"/>'
-    '<polygon points="36,18 50,24 54,40 44,54 28,54 18,40 22,24" fill="#76D275"/>'
-    '<polygon points="36,28 44,32 46,40 40,48 32,48 26,40 28,32" fill="#fff"/>'
-    "</svg>"
-)
 
 
 def render_metrics_report(snapshot: RepoSnapshot) -> str:
@@ -312,7 +306,7 @@ def render_bazel_version_column_header() -> str:
 
 
 def render_bazel_icon() -> str:
-    return BAZEL_ICON_SVG
+    return _bazel_svg('width="16" height="16"')
 
 
 def render_presence(value: bool, *, icon: str) -> str:
