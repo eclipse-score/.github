@@ -1235,14 +1235,12 @@ def test_metrics_report_renders_summary_and_table() -> None:
     assert "## Ownership With Versions" not in markdown
     assert "## Delivery And Automation" in markdown
     assert "### Infrastructure" in markdown
+    from generate_repo_overview.metrics_report import render_bazel_icon
+
     assert (
         "| [tools](https://github.com/eclipse-score/tools) "
-        '<svg viewBox="0 0 72 72" width="16" height="16" aria-label="Bazel">'
-        '<polygon points="36,4 60,16 68,40 52,64 20,64 4,40 12,16" fill="#43A047"/>'
-        '<polygon points="36,18 50,24 54,40 44,54 28,54 18,40 22,24" fill="#76D275"/>'
-        '<polygon points="36,28 44,32 46,40 40,48 32,48 26,40 28,32" fill="#fff"/>'
-        "</svg>"
-        " | "
+        + render_bazel_icon()
+        + " | "
         "<small><sub><small>Codeowners: @docs-team, @platform-team, @infra-team, @qa-team<br><br>"
         "Maintainers In Bazel Registry: @4og, @nradakovic, @pawelrutkaq</small></sub></small> | "
         "🔥 11 | 2 / 1+1 | v1.2.3 + 🟡 7 | 3 / 4 |" in markdown
