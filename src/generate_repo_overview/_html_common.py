@@ -14,8 +14,13 @@ _TEMPLATES = Path(__file__).parent / "templates"
 CSS = (_TEMPLATES / "styles.css").read_text(encoding="utf-8")
 
 BAZEL_ICON = (
-    '<img src="https://bazel.build/_pwa/bazel/icons/icon-72x72.png"'
-    ' alt="Bazel" class="icon-bazel">'
+    '<svg viewBox="0 0 72 72" class="icon-bazel" aria-label="Bazel">'
+    '<polygon points="36,4 60,16 68,40 52,64 20,64 4,40 12,16" fill="#43A047"/>'
+    '<polygon points="36,4 60,16 68,40 52,64 20,64 4,40 12,16" fill="none"'
+    ' stroke="#2E7D32" stroke-width="2"/>'
+    '<polygon points="36,18 50,24 54,40 44,54 28,54 18,40 22,24" fill="#76D275"/>'
+    '<polygon points="36,28 44,32 46,40 40,48 32,48 26,40 28,32" fill="#fff"/>'
+    "</svg>"
 )
 
 
