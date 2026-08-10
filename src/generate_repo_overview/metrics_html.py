@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from ._html_detail import render_detail_page
@@ -9,6 +10,8 @@ from .metrics_report import get_latest_tracked_dep_version, get_max_bazel_versio
 
 if TYPE_CHECKING:
     from .models import RepoSnapshot
+
+_TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
 def render_all_pages(snapshot: RepoSnapshot) -> dict[str, str]:
@@ -22,6 +25,7 @@ def render_all_pages(snapshot: RepoSnapshot) -> dict[str, str]:
     pages: dict[str, str] = {
         "index.html": render_index_page(snapshot),
         "data.json": json.dumps(snapshot.to_dict(), indent=2, sort_keys=True) + "\n",
+        "bazel_logo.svg": (_TEMPLATE_DIR / "bazel_logo.svg").read_text(encoding="utf-8"),
     }
     for entry in repos:
         pages[f"{entry.name}/index.html"] = render_detail_page(

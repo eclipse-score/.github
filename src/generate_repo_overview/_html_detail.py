@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ._html_common import BAZEL_ICON, CSS, DOCS_ICON, GITHUB_ICON, docs_url, e, language_badge, version_badge
+from ._html_common import (
+    BAZEL_DETAIL_ICON,
+    CSS,
+    DOCS_ICON,
+    GITHUB_ICON,
+    docs_url,
+    e,
+    language_badge,
+    version_badge,
+)
 from .metrics_report import tracked_dep_label
 from .models import DEFAULT_CATEGORY, DEFAULT_SUBCATEGORY, LockfileStatus
 
@@ -42,7 +51,7 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
     github_url = f"https://github.com/{org_name}/{entry.name}"
     name_html = e(entry.name)
     if entry.content.is_bazel_repo:
-        name_html += f" {BAZEL_ICON}"
+        name_html += f" {BAZEL_DETAIL_ICON}"
 
     chips = ""
     if entry.category != DEFAULT_CATEGORY:
