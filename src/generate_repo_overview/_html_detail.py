@@ -74,6 +74,7 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
         f' <a href="{e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
         f' target="_blank" rel="noopener">{GITHUB_ICON}</a>'
         f' <a href="{e(docs_url_str)}" class="docs-link" title="Documentation ↗"'
+        f' aria-label="Documentation ↗"'
         f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
         f"</h1>\n"
         f'  <p class="subtitle">{desc}</p>\n'

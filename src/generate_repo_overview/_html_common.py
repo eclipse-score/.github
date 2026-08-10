@@ -93,6 +93,7 @@ def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) 
     )
     cell += (
         f' <a href="{e(docs_link_str)}" class="docs-link" title="Documentation ↗"'
+        f' aria-label="Documentation ↗"'
         f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
     )
     if entry.description:

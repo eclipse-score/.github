@@ -111,6 +111,9 @@ def test_render_details_writes_repo_detail_pages(tmp_path: Path) -> None:
     assert "../" in detail_content
     assert "<!DOCTYPE html>" in detail_content
 
+    bazel_icon = output_dir / "bazel_logo.svg"
+    assert bazel_icon.exists()
+
 
 def test_render_detail_page_shows_tracked_dep_versions(tmp_path: Path) -> None:
     snapshot_path = tmp_path / "repo_overview.json"
