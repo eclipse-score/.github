@@ -65,6 +65,13 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
     desc = e(entry.description) if entry.description else ""
 
     docs_url_str = docs_url(org_name, entry.name)
+    docs_link = (
+        f' <a href="{e(docs_url_str)}" class="docs-link" title="Documentation ↗"'
+        f' aria-label="Documentation ↗"'
+        f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
+        if uses_docs_as_code(entry)
+        else ""
+    )
     return (
         "<header>\n"
         '  <nav class="breadcrumb">\n'
@@ -74,13 +81,7 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
         f"  <h1>{name_html}"
         f' <a href="{e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
         f' target="_blank" rel="noopener">{GITHUB_ICON}</a>'
-        + (
-            f' <a href="{e(docs_url_str)}" class="docs-link" title="Documentation ↗"'
-            f' aria-label="Documentation ↗"'
-            f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
-            if uses_docs_as_code(entry)
-            else ""
-        )
+        f"{docs_link}"
         f"</h1>\n"
         f'  <p class="subtitle">{desc}</p>\n'
         f'  <div class="meta-chips">{chips}</div>\n'
