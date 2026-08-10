@@ -38,6 +38,7 @@ GITHUB_ICON = (
 )
 
 DOCS_ICON = "📑"
+DOCS_AS_CODE_MODULE = "score_docs_as_code"
 
 
 def docs_url(org_name: str, repo_name: str) -> str:
@@ -46,6 +47,13 @@ def docs_url(org_name: str, repo_name: str) -> str:
     https://github.com/{org}/{repo} → https://{org}.github.io/{repo}
     """
     return f"https://{org_name}.github.io/{repo_name}"
+
+
+def uses_docs_as_code(entry: RepoEntry) -> bool:
+    return any(
+        module_name == DOCS_AS_CODE_MODULE
+        for module_name, _ in entry.content.bazel_deps
+    )
 
 
 
@@ -91,11 +99,12 @@ def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) 
         f' <a href="{e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
         f' target="_blank" rel="noopener">{GITHUB_ICON}</a>'
     )
-    cell += (
-        f' <a href="{e(docs_link_str)}" class="docs-link" title="Documentation ↗"'
-        f' aria-label="Documentation ↗"'
-        f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
-    )
+    if uses_docs_as_code(entry):
+        cell += (
+            f' <a href="{e(docs_link_str)}" class="docs-link" title="Documentation ↗"'
+            f' aria-label="Documentation ↗"'
+            f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
+        )
     if entry.description:
         cell += f' <span class="repo-desc">{e(entry.description)}</span>'
     return cell

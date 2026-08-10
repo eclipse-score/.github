@@ -10,6 +10,7 @@ from ._html_common import (
     docs_url,
     e,
     language_badge,
+    uses_docs_as_code,
     version_badge,
 )
 from .metrics_report import tracked_dep_label
@@ -73,9 +74,13 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
         f"  <h1>{name_html}"
         f' <a href="{e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
         f' target="_blank" rel="noopener">{GITHUB_ICON}</a>'
-        f' <a href="{e(docs_url_str)}" class="docs-link" title="Documentation ↗"'
-        f' aria-label="Documentation ↗"'
-        f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
+        + (
+            f' <a href="{e(docs_url_str)}" class="docs-link" title="Documentation ↗"'
+            f' aria-label="Documentation ↗"'
+            f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
+            if uses_docs_as_code(entry)
+            else ""
+        )
         f"</h1>\n"
         f'  <p class="subtitle">{desc}</p>\n'
         f'  <div class="meta-chips">{chips}</div>\n'
