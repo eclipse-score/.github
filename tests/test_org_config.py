@@ -24,6 +24,7 @@ class TestOrgConfigDefaults:
         assert config.workflow_signals == ()
         assert config.reference_integration_repo == ""
         assert config.registry_repo == ""
+        assert config.platform_repos == ()
 
     def test_grouping_levels_default_is_empty(self) -> None:
         config = OrgConfig(org_name="my-org")
@@ -53,6 +54,10 @@ class TestLoadOrgConfig:
             [signals]
             reference_integration_repo = "other-org/ref-int"
             registry_repo = "other-org/my_registry"
+            platform_repos = [
+              "other-org/public-platform",
+              "other-org/private-platform",
+            ]
 
             [[signals.tracked_deps]]
             repo = "other-org/my-docs"
@@ -78,6 +83,10 @@ class TestLoadOrgConfig:
         )
         assert config.reference_integration_repo == "other-org/ref-int"
         assert config.registry_repo == "other-org/my_registry"
+        assert config.platform_repos == (
+            "other-org/public-platform",
+            "other-org/private-platform",
+        )
 
     def test_missing_signals_section_uses_empty_defaults(self, tmp_path: Path) -> None:
         content = dedent("""\
@@ -124,7 +133,9 @@ class TestConfigValidation:
         with pytest.raises(ValueError, match="org_name is required"):
             load_org_config(toml_path)
 
-    def test_repo_include_patterns_string_instead_of_list_errors(self, tmp_path: Path) -> None:
+    def test_repo_include_patterns_string_instead_of_list_errors(
+        self, tmp_path: Path
+    ) -> None:
         content = dedent("""\
             org_name = "test"
             repo_include_patterns = "single-pattern"
@@ -134,7 +145,9 @@ class TestConfigValidation:
         with pytest.raises(ValueError, match="Expected a list"):
             load_org_config(toml_path)
 
-    def test_repo_without_slash_in_reference_integration_repo_errors(self, tmp_path: Path) -> None:
+    def test_repo_without_slash_in_reference_integration_repo_errors(
+        self, tmp_path: Path
+    ) -> None:
         content = dedent("""\
             org_name = "test"
             [signals]
@@ -155,12 +168,22 @@ class TestConfigValidation:
         config = load_org_config(toml_path)
         assert config.repo_include_patterns == ("lib-*", "tool-*")
 
-
     def test_registry_repo_without_slash_errors(self, tmp_path: Path) -> None:
         content = dedent("""\
             org_name = "test"
             [signals]
             registry_repo = "just-a-name"
+        """)
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        with pytest.raises(ValueError, match="org/repo"):
+            load_org_config(toml_path)
+
+    def test_platform_repo_without_slash_errors(self, tmp_path: Path) -> None:
+        content = dedent("""\
+            org_name = "test"
+            [signals]
+            platform_repos = ["valid/public", "invalid"]
         """)
         toml_path = tmp_path / "org.toml"
         toml_path.write_text(content, encoding="utf-8")
@@ -185,7 +208,9 @@ class TestConfigValidation:
         assert len(config.tracked_deps) == 1
         assert config.tracked_deps[0].repo == "org/valid"
 
-    def test_malformed_workflow_signals_entries_are_skipped(self, tmp_path: Path) -> None:
+    def test_malformed_workflow_signals_entries_are_skipped(
+        self, tmp_path: Path
+    ) -> None:
         content = dedent("""\
             org_name = "test"
             [signals]
@@ -233,7 +258,9 @@ class TestGroupingLevels:
         toml_path = tmp_path / "org.toml"
         toml_path.write_text(content, encoding="utf-8")
         config = load_org_config(toml_path)
-        assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
+        assert config.grouping_levels == (
+            GroupingLevel(property="area", default="Unknown"),
+        )
 
     def test_two_grouping_levels_eclipse_score_style(self, tmp_path: Path) -> None:
         content = dedent("""\
@@ -290,7 +317,9 @@ class TestGroupingLevels:
         toml_path = tmp_path / "org.toml"
         toml_path.write_text(content, encoding="utf-8")
         config = load_org_config(toml_path)
-        assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
+        assert config.grouping_levels == (
+            GroupingLevel(property="area", default="Unknown"),
+        )
 
     def test_entry_missing_default_is_skipped(self, tmp_path: Path) -> None:
         content = dedent("""\
@@ -306,7 +335,9 @@ class TestGroupingLevels:
         toml_path = tmp_path / "org.toml"
         toml_path.write_text(content, encoding="utf-8")
         config = load_org_config(toml_path)
-        assert config.grouping_levels == (GroupingLevel(property="team", default="Common"),)
+        assert config.grouping_levels == (
+            GroupingLevel(property="team", default="Common"),
+        )
 
     def test_property_and_default_are_stripped(self, tmp_path: Path) -> None:
         content = dedent("""\
@@ -319,7 +350,9 @@ class TestGroupingLevels:
         toml_path = tmp_path / "org.toml"
         toml_path.write_text(content, encoding="utf-8")
         config = load_org_config(toml_path)
-        assert config.grouping_levels == (GroupingLevel(property="area", default="Unknown"),)
+        assert config.grouping_levels == (
+            GroupingLevel(property="area", default="Unknown"),
+        )
 
     def test_entry_whitespace_only_default_is_skipped(self, tmp_path: Path) -> None:
         content = dedent("""\
@@ -336,7 +369,9 @@ class TestGroupingLevels:
         toml_path = tmp_path / "org.toml"
         toml_path.write_text(content, encoding="utf-8")
         config = load_org_config(toml_path)
-        assert config.grouping_levels == (GroupingLevel(property="team", default="Common"),)
+        assert config.grouping_levels == (
+            GroupingLevel(property="team", default="Common"),
+        )
 
     def test_grouping_as_scalar_raises(self, tmp_path: Path) -> None:
         content = dedent("""\

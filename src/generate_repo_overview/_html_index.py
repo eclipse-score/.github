@@ -22,9 +22,10 @@ from .metrics_report import (
     tracked_dep_label,
 )
 from .models import LockfileStatus
+from .module_name_matching import NameMatch, classify_repository_name_match
 
 if TYPE_CHECKING:
-    from .models import RepoEntry, RepoSnapshot, TrackedDep
+    from .models import RepoEntry, RepoSnapshot, SphinxItem, TrackedDep
 
 from .models import is_tracked_dep_repo
 
@@ -51,6 +52,7 @@ def render_index_page(snapshot: RepoSnapshot) -> str:
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, snapshot)
         + _render_automation_sections(categories, snapshot)
+        + _render_naming_sections(categories, snapshot)
         + _render_traceability_section(repos, snapshot)
         + "</div>\n"
         + _render_footer(snapshot)
@@ -107,6 +109,7 @@ def _render_tab_bar() -> str:
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
         '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
+        '  <button class="tab-btn" data-tab="naming">Naming</button>\n'
         '  <button class="tab-btn" data-tab="traceability">Traceability</button>\n'
         "</div>\n\n"
     )
@@ -166,7 +169,9 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
     if cnt == 0:
         merged_tip = "No pull requests were merged in the last 30 days."
     elif cnt >= 10:
-        merged_tip = f"\U0001f525 {cnt} pull requests merged in the last 30 days — very active!"
+        merged_tip = (
+            f"\U0001f525 {cnt} pull requests merged in the last 30 days — very active!"
+        )
     else:
         merged_tip = (
             f"{cnt} pull request{'s' if cnt != 1 else ''} merged in the last 30 days."
@@ -250,9 +255,6 @@ def _render_release(version: str | None, commits_since: int | None) -> str:
     )
 
 
-
-
-
 def _build_version_tooltip(
     *,
     dependency_version_as_used_on_main_branch: str | None,
@@ -299,7 +301,9 @@ def _build_version_tooltip(
 
     # Handle missing latest version (no comparison possible)
     if latest_available_dependency_version is None:
-        return f"{component_name} {dependency_version_as_used_on_main_branch} is in use."
+        return (
+            f"{component_name} {dependency_version_as_used_on_main_branch} is in use."
+        )
 
     # Build intro: note if version changed between the last release and main
     version_changed = (
@@ -319,7 +323,11 @@ def _build_version_tooltip(
 
     # Append up-to-date status
     if dependency_version_as_used_on_main_branch == latest_available_dependency_version:
-        tip += " — now up to date." if version_changed else " — up to date (latest known version)."
+        tip += (
+            " — now up to date."
+            if version_changed
+            else " — up to date (latest known version)."
+        )
     else:
         current_parts = parse_version_key(dependency_version_as_used_on_main_branch)
         latest_parts = parse_version_key(latest_available_dependency_version)
@@ -333,7 +341,9 @@ def _build_version_tooltip(
         if is_patch_only:
             tip += f" — a patch update to {latest_available_dependency_version} is available."
         else:
-            tip += f" — an update to {latest_available_dependency_version} is available."
+            tip += (
+                f" — an update to {latest_available_dependency_version} is available."
+            )
 
     return tip
 
@@ -343,7 +353,10 @@ def _render_dep_changes(
 ) -> tuple[str, str]:
     """Return (cell_html, tooltip) for the Other Dep Changes column."""
     if entry.volatile.latest_release_version is None:
-        return '<span class="text-muted">—</span>', "No release has been published — nothing to compare against."
+        return (
+            '<span class="text-muted">—</span>',
+            "No release has been published — nothing to compare against.",
+        )
 
     head_deps = dict(entry.content.bazel_deps)
     release_deps = dict(entry.volatile.release_bazel_deps)
@@ -446,7 +459,9 @@ def _versions_row(
         head_ver = lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name)
         release_ver = release_deps.get(dep.module_name)
         latest_ver = latest_dep_versions.get(dep.module_name)
-        cell = version_badge(head_ver, None, latest_dep_version=latest_ver, is_bazel=False)
+        cell = version_badge(
+            head_ver, None, latest_dep_version=latest_ver, is_bazel=False
+        )
         if release_ver and release_ver != head_ver:
             cell = f'<span class="mono text-muted">{e(release_ver)}</span> → {cell}'
         tip = _build_version_tooltip(
@@ -516,9 +531,7 @@ def _render_automation_sections(
     org_name = snapshot.org_name
     parts: list[str] = []
     for category, cat_repos in categories:
-        rows = "\n".join(
-            _automation_row(r, org_name, signal_labels) for r in cat_repos
-        )
+        rows = "\n".join(_automation_row(r, org_name, signal_labels) for r in cat_repos)
         signal_headers = "".join(
             f'      <th data-sort="signal-{i}" class="text-center" title="Whether this repository matches the {e(label)} workflow signal.">'
             f'{e(label)} <span class="sort-arrow"></span></th>\n'
@@ -556,18 +569,31 @@ def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
     url = f"{e(entry.name)}/index.html#lockfile-error"
 
     if status == LockfileStatus.OK:
-        return '<span class="badge green">ok</span>', "The Bazel lockfile is up to date."
+        return (
+            '<span class="badge green">ok</span>',
+            "The Bazel lockfile is up to date.",
+        )
     if status == LockfileStatus.MISSING:
         cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">missing</a></span>'
         return cell, "MODULE.bazel.lock does not exist — click for details."
     if status == LockfileStatus.ERROR:
-        link_text = f'<a href="{url}" class="lockfile-error-link">error</a>' if has_error else "error"
-        return f'<span class="badge red">{link_text}</span>', "The Bazel lockfile is out of date — click to see the error."
+        link_text = (
+            f'<a href="{url}" class="lockfile-error-link">error</a>'
+            if has_error
+            else "error"
+        )
+        return (
+            f'<span class="badge red">{link_text}</span>',
+            "The Bazel lockfile is out of date — click to see the error.",
+        )
     if status == LockfileStatus.TIMEOUT:
         cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">timeout</a></span>'
         return cell, "Bazel lockfile check timed out — click for details."
     if entry.content.has_bazel_module:
-        return '<span class="text-muted">n/a</span>', "Lockfile status not yet collected."
+        return (
+            '<span class="text-muted">n/a</span>',
+            "Lockfile status not yet collected.",
+        )
     return '<span class="text-muted">—</span>', "Not a Bazel module repository."
 
 
@@ -646,12 +672,299 @@ def _automation_row(
 
 def _trace_progress_cell(count: int, total: int) -> str:
     pct = (count / total * 100) if total > 0 else 0.0
-    color = "var(--green)" if pct >= 80 else ("var(--yellow)" if pct >= 40 else "var(--red)")
+    color = (
+        "var(--green)"
+        if pct >= 80
+        else ("var(--yellow)" if pct >= 40 else "var(--red)")
+    )
     return (
         f'{count} <span class="text-muted">({pct:.0f}%)</span>'
         f'<div class="trace-bar"><div class="trace-bar-fill" '
         f'style="width:{pct:.1f}%;background:{color}"></div></div>'
     )
+
+
+def _render_naming_sections(
+    categories: list[tuple[str, list[RepoEntry]]],
+    snapshot: RepoSnapshot,
+) -> str:
+    parts: list[str] = []
+    platform_sources = {
+        item.source_repo
+        for _, cat_repos in categories
+        for entry in cat_repos
+        for item in (*entry.content.sphinx_features, *entry.content.sphinx_modules)
+        if item.source_repo
+    }
+    for category, cat_repos in categories:
+        bazel_repos = [entry for entry in cat_repos if entry.content.is_bazel_repo]
+        if not bazel_repos:
+            continue
+        rows = "\n".join(
+            _naming_row(
+                entry,
+                snapshot.org_name,
+                is_platform_source=(
+                    f"{snapshot.org_name}/{entry.name}" in platform_sources
+                ),
+            )
+            for entry in bazel_repos
+        )
+        parts.append(
+            f'<div class="section naming-section hidden" data-tab="naming" '
+            f'data-category="{e(category)}">\n'
+            f'  <div class="section-header">\n'
+            f'    <span class="section-title">{e(category)}</span>\n'
+            f'    <span class="module-match-legend">'
+            f"{_match_legend_item(NameMatch.EXACT, 'Exact')}"
+            f"{_match_legend_item(NameMatch.CLOSE, 'Close')}"
+            f"{_match_legend_item(NameMatch.DIFFERENT, 'Different')}"
+            f"</span>\n"
+            f'    <span class="section-count">{len(bazel_repos)}</span>\n'
+            f"  </div>\n"
+            f'  <table class="naming-table">\n'
+            f"    <thead><tr>\n"
+            + _module_header(
+                "name",
+                "Repository",
+                "Bazel repository name. Other name columns are color-coded against this value.",
+            )
+            + _module_header(
+                "platform-repo",
+                "Platform Docs",
+                "Configured public or private platform repository that contains the Sphinx declaration.",
+            )
+            + _module_header(
+                "feature-path",
+                "Platform Feature Path",
+                "Feature directory below docs/features in the platform repository. Green means its leaf folder matches the repository name; yellow is a close match; red differs.",
+            )
+            + _module_header(
+                "sphinx-feature",
+                "Sphinx Feature",
+                "Feature declarations from platform and repository documentation. Features belong in the platform; a repository declaration is marked with a warning.",
+            )
+            + _module_header(
+                "bazel-module",
+                "Bazel Module",
+                "Name from the root module(...) declaration in MODULE.bazel, compared with the repository name.",
+            )
+            + _module_header(
+                "sphinx-module",
+                "Sphinx Module",
+                "Module declarations from repository and platform documentation. Modules belong in the repository; a platform declaration is marked with a warning.",
+            )
+            + _module_header(
+                "repo-feature-path",
+                "Repo Feature Path",
+                "Feature-name folders below docs/features in the module repository. A bare docs/features path denotes the module-template single-feature variant, which intentionally carries no separate folder name.",
+            )
+            + _module_header(
+                "sphinx-config",
+                "Sphinx Config",
+                "The project and project_prefix names declared in docs/conf.py (or docs/sphinx/conf.py), each compared with the repository name.",
+            )
+            + f"    </tr></thead>\n"
+            f"    <tbody>\n{rows}\n    </tbody>\n"
+            f"  </table>\n"
+            f"</div>\n"
+        )
+    return "".join(parts)
+
+
+def _naming_row(
+    entry: RepoEntry,
+    org_name: str,
+    *,
+    is_platform_source: bool,
+) -> str:
+    not_applicable = (
+        '<span class="text-muted" title="Not applicable to a platform '
+        'documentation repository.">—</span>'
+    )
+    sphinx_feature = (
+        not_applicable
+        if is_platform_source
+        else _render_sphinx_mapping(
+            entry,
+            preferred_items=entry.content.sphinx_features,
+            preferred_label="Platform",
+            misplaced_items=entry.content.repo_sphinx_features,
+            misplaced_label="Repo",
+            warning="Feature declarations belong in the platform documentation.",
+        )
+    )
+    repo_feature_path = (
+        not_applicable if is_platform_source else _render_repo_feature_paths(entry)
+    )
+    return (
+        f"    <tr>\n"
+        f"      <td>{repo_name_cell(entry, org_name, bazel_icon=False)}</td>\n"
+        f"      <td>{_render_platform_repos((*entry.content.sphinx_features, *entry.content.sphinx_modules))}</td>\n"
+        f"      <td>{_render_sphinx_paths(entry)}</td>\n"
+        f"      <td>{sphinx_feature}</td>\n"
+        f"      <td>{_mono_or_missing(entry, entry.content.bazel_module_name)}</td>\n"
+        f"      <td>{_render_sphinx_mapping(entry, preferred_items=entry.content.repo_sphinx_modules, preferred_label='Repo', misplaced_items=entry.content.sphinx_modules, misplaced_label='Platform', warning='Module declarations belong in the module repository.')}</td>\n"
+        f"      <td>{repo_feature_path}</td>\n"
+        f"      <td>{_render_sphinx_config(entry)}</td>\n"
+        f"    </tr>"
+    )
+
+
+def _module_header(
+    sort_key: str,
+    label: str,
+    tooltip: str,
+    *,
+    center: bool = False,
+) -> str:
+    class_attr = ' class="text-center"' if center else ""
+    return (
+        f'      <th data-sort="{e(sort_key)}"{class_attr} '
+        f'data-tooltip="{e(tooltip)}">{e(label)} '
+        f'<span class="sort-arrow"></span></th>\n'
+    )
+
+
+def _match_legend_item(match: NameMatch, label: str) -> str:
+    return f'<span class="name-match {match.value}">{e(label)}</span>'
+
+
+def _render_platform_repos(items: tuple[SphinxItem, ...]) -> str:
+    values = sorted({item.source_repo for item in items if item.source_repo})
+    if not values:
+        return '<span class="text-muted">—</span>'
+    return "<br>".join(f'<code class="mono">{e(value)}</code>' for value in values)
+
+
+def _render_sphinx_paths(entry: RepoEntry) -> str:
+    if not entry.content.sphinx_features:
+        return '<span class="text-muted">—</span>'
+    values: list[str] = []
+    for item in entry.content.sphinx_features:
+        path = item.path.removeprefix("docs/features/")
+        values.append(
+            _name_match_span(
+                entry.name,
+                (path.rsplit("/", maxsplit=1)[-1],),
+                f'<code class="mono">{e(path)}</code>',
+            )
+        )
+    return "<br>".join(values)
+
+
+def _render_sphinx_items(
+    entry: RepoEntry,
+    items: tuple[SphinxItem, ...],
+) -> str:
+    values: list[str] = []
+    for item in items:
+        content = e(item.title) + (
+            f' <span class="mono text-muted">({e(item.identifier)})</span>'
+            if item.identifier
+            else ""
+        )
+        values.append(
+            _name_match_span(
+                entry.name,
+                (item.title, item.identifier),
+                content,
+            )
+        )
+    return "<br>".join(values) if values else '<span class="text-muted">—</span>'
+
+
+def _render_sphinx_mapping(
+    entry: RepoEntry,
+    *,
+    preferred_items: tuple[SphinxItem, ...],
+    preferred_label: str,
+    misplaced_items: tuple[SphinxItem, ...],
+    misplaced_label: str,
+    warning: str,
+) -> str:
+    groups: list[str] = []
+    if preferred_items:
+        groups.append(
+            f'<div class="sphinx-source"><span class="sphinx-source-label">'
+            f"{e(preferred_label)}:</span> "
+            f"{_render_sphinx_items(entry, preferred_items)}</div>"
+        )
+    if misplaced_items:
+        groups.append(
+            f'<div class="sphinx-source misplaced">'
+            f'<span class="mapping-warning" title="{e(warning)}">&#9888;</span> '
+            f'<span class="sphinx-source-label">{e(misplaced_label)}:</span> '
+            f"{_render_sphinx_items(entry, misplaced_items)}</div>"
+        )
+    return "".join(groups) if groups else '<span class="text-muted">—</span>'
+
+
+def _mono_or_missing(entry: RepoEntry, value: str | None) -> str:
+    if not value:
+        return '<span class="text-muted">—</span>'
+    return _name_match_span(
+        entry.name,
+        (value,),
+        f'<code class="mono">{e(value)}</code>',
+    )
+
+
+def _name_match_span(
+    repository_name: str,
+    candidate_values: tuple[str, ...],
+    content: str,
+) -> str:
+    match = classify_repository_name_match(repository_name, candidate_values)
+    explanations = {
+        NameMatch.EXACT: "Exact normalized match with the repository name.",
+        NameMatch.CLOSE: "Close but not exact match with the repository name.",
+        NameMatch.DIFFERENT: "Different from the repository name.",
+    }
+    return (
+        f'<span class="name-match {match.value}" '
+        f'title="{e(explanations[match])}">{content}</span>'
+    )
+
+
+def _render_repo_feature_paths(entry: RepoEntry) -> str:
+    values: list[str] = []
+    for path in entry.content.docs_feature_paths:
+        if path == "docs/features":
+            values.append(
+                '<span class="name-match exact" '
+                'title="The module-template single-feature layout derives the feature name '
+                'from the repository or module name.">'
+                "(single-feature layout; no folder name)</span>"
+            )
+            continue
+        leaf = path.rsplit("/", maxsplit=1)[-1]
+        values.append(
+            _name_match_span(
+                entry.name,
+                (leaf,),
+                f'<code class="mono">{e(path)}</code>',
+            )
+        )
+    return "<br>".join(values) if values else '<span class="text-muted">—</span>'
+
+
+def _render_sphinx_config(entry: RepoEntry) -> str:
+    values: list[str] = []
+    for label, value in (
+        ("project", entry.content.sphinx_project_name),
+        ("prefix", entry.content.sphinx_project_prefix),
+    ):
+        if value:
+            values.append(
+                f'<span class="text-muted">{label}:</span> '
+                + _name_match_span(
+                    entry.name,
+                    (value,),
+                    f'<code class="mono">{e(value)}</code>',
+                )
+            )
+    return "<br>".join(values) if values else '<span class="text-muted">—</span>'
 
 
 def _format_type_name(key: str) -> str:
@@ -720,13 +1033,15 @@ def _render_traceability_section(
                     f"<td{rowspan}>{name_cell}</td>{cells}</tr>"
                 )
             else:
-                row_parts.append(f"    <tr data-repo=\"{e(r.name)}\">{cells}</tr>")
+                row_parts.append(f'    <tr data-repo="{e(r.name)}">{cells}</tr>')
 
     rows = "\n".join(row_parts)
 
     code_cov = f"{total_code_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
     test_cov = f"{total_test_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
-    fully_cov = f"{total_fully_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
+    fully_cov = (
+        f"{total_fully_linked / total_reqs * 100:.0f}%" if total_reqs > 0 else "—"
+    )
 
     return (
         f'<div class="section hidden" data-tab="traceability">\n'
@@ -746,7 +1061,7 @@ def _render_traceability_section(
         f"  <table>\n"
         f"    <thead><tr>\n"
         f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
-        f'      <th>Type</th>\n'
+        f"      <th>Type</th>\n"
         f'      <th data-sort="req-total" class="text-right">Requirements <span class="sort-arrow"></span></th>\n'
         f'      <th data-sort="code-link" class="text-right">Code Links <span class="sort-arrow"></span></th>\n'
         f'      <th data-sort="test-link" class="text-right">Test Links <span class="sort-arrow"></span></th>\n'

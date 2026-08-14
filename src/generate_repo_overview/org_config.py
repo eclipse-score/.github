@@ -21,6 +21,7 @@ class OrgConfig:
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     reference_integration_repo: str = ""
     registry_repo: str = ""
+    platform_repos: tuple[str, ...] = ()
     grouping_levels: tuple[GroupingLevel, ...] = ()
 
     def repo_matches_filter(self, repo_name: str) -> bool:
@@ -46,10 +47,12 @@ def load_org_config(path: Path) -> OrgConfig:
     if not isinstance(org_name, str) or not org_name.strip():
         raise ValueError("org_name is required in the config file.")
 
-    reference_integration_repo = _str_or(
-        signals.get("reference_integration_repo"), ""
-    )
+    reference_integration_repo = _str_or(signals.get("reference_integration_repo"), "")
     registry_repo = _str_or(signals.get("registry_repo"), "")
+    platform_repos = _parse_repo_list(
+        signals.get("platform_repos"),
+        field_name="platform_repos",
+    )
     for field_name, field_value in (
         ("reference_integration_repo", reference_integration_repo),
         ("registry_repo", registry_repo),
@@ -71,6 +74,7 @@ def load_org_config(path: Path) -> OrgConfig:
         workflow_signals=_parse_workflow_signals(signals.get("workflow_signals")),
         reference_integration_repo=reference_integration_repo,
         registry_repo=registry_repo,
+        platform_repos=platform_repos,
         grouping_levels=grouping_levels,
     )
 
@@ -85,10 +89,10 @@ def _parse_string_list(value: object) -> tuple[str, ...]:
     if value is None:
         return ()
     if not isinstance(value, list):
-        raise ValueError(
-            f"Expected a list of strings, got {type(value).__name__}."
-        )
-    return tuple(item.strip() for item in value if isinstance(item, str) and item.strip())
+        raise ValueError(f"Expected a list of strings, got {type(value).__name__}.")
+    return tuple(
+        item.strip() for item in value if isinstance(item, str) and item.strip()
+    )
 
 
 def _parse_tracked_deps(value: object) -> tuple[TrackedDep, ...]:
@@ -107,8 +111,20 @@ def _parse_tracked_deps(value: object) -> tuple[TrackedDep, ...]:
             and isinstance(module_name, str)
             and module_name.strip()
         ):
-            result.append(TrackedDep(repo=repo.strip(), module_name=module_name.strip()))
+            result.append(
+                TrackedDep(repo=repo.strip(), module_name=module_name.strip())
+            )
     return tuple(result)
+
+
+def _parse_repo_list(value: object, *, field_name: str) -> tuple[str, ...]:
+    repos = _parse_string_list(value)
+    for repo in repos:
+        if "/" not in repo:
+            raise ValueError(
+                f"{field_name} entries must be in 'org/repo' format, got '{repo}'."
+            )
+    return tuple(dict.fromkeys(repos))
 
 
 def _parse_grouping_levels(value: object) -> tuple[GroupingLevel, ...]:
@@ -126,7 +142,9 @@ def _parse_grouping_levels(value: object) -> tuple[GroupingLevel, ...]:
             and isinstance(default, str)
             and default.strip()
         ):
-            result.append(GroupingLevel(property=property_.strip(), default=default.strip()))
+            result.append(
+                GroupingLevel(property=property_.strip(), default=default.strip())
+            )
     if len(result) > 2:
         raise ValueError(
             f"grouping.levels supports at most 2 entries, got {len(result)}."
@@ -146,5 +164,7 @@ def _parse_workflow_signals(value: object) -> tuple[WorkflowSignal, ...]:
             continue
         reference = item.get("reference")
         if isinstance(reference, str) and reference.strip():
-            result.append(WorkflowSignal(label=label.strip(), reference=reference.strip()))
+            result.append(
+                WorkflowSignal(label=label.strip(), reference=reference.strip())
+            )
     return tuple(result)

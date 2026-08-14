@@ -46,6 +46,10 @@ reference_integration_repo = "eclipse-score/reference_integration"
 # Leave empty if there is no Bazel registry.
 registry_repo = "eclipse-score/bazel_registry"
 
+# Platform documentation repositories. Multiple entries may provide public and
+# private feature trees in parallel; their discovered metadata is merged.
+platform_repos = ["eclipse-score/score"]
+
 # Tracked Bazel dependencies.  Each entry maps a source repository (org/repo)
 # to its Bazel module name.  The tool looks up each module_name in every
 # repository's MODULE.bazel to report dependency versions.

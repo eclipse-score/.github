@@ -1,6 +1,7 @@
 # AGENTS.md
 
-Context file for AI coding assistants. See `docs/repo-overview-tool-design.md` for architecture, data model, and caching details.
+Context file for AI coding assistants. See `docs/repo-overview-tool-design.md`
+for the repo overview documentation index.
 
 ## Quick reference
 

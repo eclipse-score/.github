@@ -1,8 +1,9 @@
 // Tab switching with URL hash
-const TAB_IDS = ['overview', 'versions', 'tech-stack', 'traceability'];
+const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability'];
 
 function getHashTab() {
   const h = location.hash.slice(1);
+  if (h === 'modules') return 'naming';
   return TAB_IDS.includes(h) ? h : 'overview';
 }
 
@@ -73,4 +74,3 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
     rows.forEach(r => tbody.appendChild(r));
   });
 });
-

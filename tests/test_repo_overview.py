@@ -1,5 +1,6 @@
 import sys
 import time
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -22,6 +23,7 @@ from generate_repo_overview.models import (
     RegistrySignals,
     RepoEntry,
     RepoSnapshot,
+    SphinxItem,
     TrackedDep,
     VolatileMetricsSnapshot,
     WorkflowSignal,
@@ -44,6 +46,8 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
                 default_branch_sha="abc123",
                 content=DeepContentSignals(
                     is_bazel_repo=True,
+                    has_bazel_module=True,
+                    bazel_module_name="score_tools",
                     bazel_version="8.4.2",
                     codeowners=("@infra-team",),
                     referenced_by_reference_integration=True,
@@ -54,6 +58,23 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
                     has_ci=True,
                     matched_workflow_signals=("Daily Workflow",),
                     has_coverage_config=False,
+                    sphinx_features=(
+                        SphinxItem(
+                            path="docs/features/tools",
+                            title="Tools",
+                            identifier="feat__tools",
+                            source_repo="eclipse-score/score",
+                        ),
+                    ),
+                    sphinx_modules=(
+                        SphinxItem(
+                            path="docs/modules/tools",
+                            title="Tools",
+                            identifier="mod__tools",
+                            source_repo="eclipse-score/score",
+                        ),
+                    ),
+                    docs_feature_paths=("docs/features/tools",),
                 ),
                 registry=RegistrySignals(
                     maintainers_in_bazel_registry=("Andrey Babanin (@4og)",),
@@ -749,6 +770,90 @@ def test_get_all_bazel_dep_versions_returns_empty_for_no_deps() -> None:
     assert signal_detection.get_all_bazel_dep_versions("# no deps\n") == ()
 
 
+def test_get_bazel_module_name_extracts_root_module_name() -> None:
+    assert (
+        signal_detection.get_bazel_module_name(
+            'module(\n    name = "score_logging",\n    version = "1.0.0",\n)\n'
+            'bazel_dep(name = "score_tooling", version = "2.0.0")\n'
+        )
+        == "score_logging"
+    )
+
+
+def test_get_bazel_module_name_returns_none_without_module_declaration() -> None:
+    assert (
+        signal_detection.get_bazel_module_name(
+            'bazel_dep(name = "score_tooling", version = "2.0.0")\n'
+        )
+        is None
+    )
+
+
+def test_detect_docs_feature_paths_uses_named_feature_folders() -> None:
+    assert signal_detection.detect_docs_feature_paths(
+        {
+            "docs/features/logging/index.rst",
+            "docs/features/tracing/architecture/index.rst",
+        }
+    ) == ("docs/features/logging", "docs/features/tracing")
+
+
+def test_detect_docs_feature_paths_recognizes_single_feature_variant() -> None:
+    assert signal_detection.detect_docs_feature_paths(
+        {
+            "docs/features/architecture/index.rst",
+            "docs/features/safety_analysis/fmea.rst",
+            "docs/module/index.rst",
+        }
+    ) == ("docs/features",)
+
+
+def test_parse_sphinx_config_names_extracts_project_and_prefix() -> None:
+    assert signal_detection.parse_sphinx_config_names(
+        'project = "S-CORE Logging"\nproject_prefix = "LOGGING_"\n'
+    ) == ("S-CORE Logging", "LOGGING_")
+
+
+def test_detect_sphinx_config_names_uses_legacy_fallback_path() -> None:
+    assert signal_detection.detect_sphinx_config_names(
+        tree_paths={"docs/sphinx/conf.py"},
+        read_text=lambda path: (
+            'project = "S-CORE Logging"\nproject_prefix = "LOGGING_"\n'
+            if path == "docs/sphinx/conf.py"
+            else None
+        ),
+    ) == ("S-CORE Logging", "LOGGING_")
+
+
+def test_detect_repo_sphinx_items_reads_feature_architecture() -> None:
+    features, modules = signal_detection.detect_repo_sphinx_items(
+        tree_paths={"docs/features/architecture/index.rst"},
+        read_text=lambda path: (
+            ".. feat:: Logging Feature\n"
+            "   :id: feat__logging_repo\n\n"
+            ".. mod:: Logging\n"
+            "   :id: mod__logging_repo\n"
+            if path == "docs/features/architecture/index.rst"
+            else None
+        ),
+    )
+
+    assert features == (
+        SphinxItem(
+            path="docs/features/architecture/index.rst",
+            title="Logging Feature",
+            identifier="feat__logging_repo",
+        ),
+    )
+    assert modules == (
+        SphinxItem(
+            path="docs/features/architecture/index.rst",
+            title="Logging",
+            identifier="mod__logging_repo",
+        ),
+    )
+
+
 def test_reference_integration_reads_recursive_included_module_files(
     tmp_path: Path,
 ) -> None:
@@ -906,22 +1011,15 @@ def test_merge_bazel_registry_metadata_combines_owners_and_keeps_latest_version(
 def test_detect_matched_workflow_signals_detects_shared_workflow_reference() -> None:
     from generate_repo_overview.models import WorkflowSignal
 
-    class FakeRepo:
-        def get_contents(self, path: str, ref: str) -> SimpleNamespace:
-            assert path == ".github/workflows/nightly.yml"
-            assert ref == "abc123"
-            return SimpleNamespace(
-                decoded_content=(
-                    b"jobs:\n"
-                    b"  daily:\n"
-                    b"    uses: eclipse-score/cicd-workflows/.github/workflows/daily.yml@main\n"
-                )
-            )
-
     assert signal_detection.detect_matched_workflow_signals(
-        FakeRepo(),
         tree_paths={".github/workflows/nightly.yml"},
-        ref="abc123",
+        read_text=lambda path: (
+            "jobs:\n"
+            "  daily:\n"
+            "    uses: eclipse-score/cicd-workflows/.github/workflows/daily.yml@main\n"
+            if path == ".github/workflows/nightly.yml"
+            else None
+        ),
         workflow_signals=(
             WorkflowSignal(
                 label="Daily Workflow",
@@ -934,20 +1032,13 @@ def test_detect_matched_workflow_signals_detects_shared_workflow_reference() -> 
 def test_detect_matched_workflow_signals_multiple_signals_partial_match() -> None:
     from generate_repo_overview.models import WorkflowSignal
 
-    class FakeRepo:
-        def get_contents(self, path: str, ref: str) -> SimpleNamespace:
-            return SimpleNamespace(
-                decoded_content=(
-                    b"jobs:\n"
-                    b"  daily:\n"
-                    b"    uses: org/workflows/.github/workflows/daily.yml@main\n"
-                )
-            )
-
     result = signal_detection.detect_matched_workflow_signals(
-        FakeRepo(),
         tree_paths={".github/workflows/ci.yml"},
-        ref="abc",
+        read_text=lambda _: (
+            "jobs:\n"
+            "  daily:\n"
+            "    uses: org/workflows/.github/workflows/daily.yml@main\n"
+        ),
         workflow_signals=(
             WorkflowSignal(
                 label="Daily Workflow",
@@ -1098,6 +1189,99 @@ def test_fetch_repositories_reports_per_repository_progress(
     assert "Found 2 active repositories" in captured.err
     assert "Extracted custom properties for 0 repositories" in captured.err
     assert "Collecting repository details with up to 2 parallel workers" in captured.err
+
+
+def test_platform_docs_loads_all_configured_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repos = [
+        RepoEntry(
+            "logging",
+            "",
+            "Modules",
+            "General",
+            content=DeepContentSignals(
+                sphinx_features=(
+                    SphinxItem(
+                        "docs/features/removed",
+                        "Removed",
+                        "feat__removed",
+                        "removed/source",
+                    ),
+                ),
+            ),
+        )
+    ]
+    resolved: list[str] = []
+
+    class Resolver:
+        def get_repo(self, full_name_or_id: str) -> object:
+            resolved.append(full_name_or_id)
+            return SimpleNamespace(
+                full_name=full_name_or_id,
+                clone_url=f"https://github.com/{full_name_or_id}.git",
+                default_branch="main",
+            )
+
+    resolver = Resolver()
+
+    def fake_enrich(
+        repos: list[RepoEntry],
+        *,
+        checkout_path: Path,
+        source_repo: str,
+    ) -> list[RepoEntry]:
+        assert checkout_path.name == source_repo.rsplit("/", maxsplit=1)[-1]
+        return [
+            replace(
+                entry,
+                content=replace(
+                    entry.content,
+                    sphinx_features=(
+                        *entry.content.sphinx_features,
+                        SphinxItem(
+                            "docs/features/logging",
+                            "Logging",
+                            "feat__logging",
+                            source_repo,
+                        ),
+                    ),
+                ),
+            )
+            if entry.name == "logging"
+            else entry
+            for entry in repos
+        ]
+
+    monkeypatch.setattr(
+        collector.platform_docs,
+        "enrich_repositories_from_platform_docs",
+        fake_enrich,
+    )
+    monkeypatch.setattr(
+        collector,
+        "sync_repository_checkout",
+        lambda **kwargs: Path(kwargs["checkout_path"]),
+    )
+
+    enriched = collector.enrich_repositories_with_platform_docs(
+        repos,
+        github=resolver,
+        platform_repos=(
+            "eclipse-score/score",
+            "example/private-features",
+        ),
+        status_prefix="test",
+    )
+
+    assert resolved == [
+        "eclipse-score/score",
+        "example/private-features",
+    ]
+    assert tuple(item.source_repo for item in enriched[0].content.sphinx_features) == (
+        "eclipse-score/score",
+        "example/private-features",
+    )
 
 
 def test_fetch_repositories_preserves_sorted_output_with_parallel_collection() -> None:
@@ -1618,6 +1802,7 @@ class TestBuildRepoEntryGroupingLevels:
             ),
         )
         from generate_repo_overview.models import DEFAULT_CATEGORY, DEFAULT_SUBCATEGORY
+
         assert entry.category == DEFAULT_CATEGORY
         assert entry.subcategory == DEFAULT_SUBCATEGORY
 
@@ -1634,6 +1819,7 @@ class TestBuildRepoEntryGroupingLevels:
             ),
         )
         from generate_repo_overview.models import DEFAULT_SUBCATEGORY
+
         assert entry.category == "Platform"
         assert entry.subcategory == DEFAULT_SUBCATEGORY
 
@@ -1690,6 +1876,7 @@ class TestBuildRepoEntryGroupingLevels:
 
 class _FakeMinimalRepo:
     """Minimal repo stub for volatile metrics collection with no API calls."""
+
     open_issues_count = 0
     pushed_at = None
     stargazers_count = 0

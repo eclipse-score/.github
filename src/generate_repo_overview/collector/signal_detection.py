@@ -5,9 +5,13 @@ import re
 import subprocess
 from typing import TYPE_CHECKING, Any, TypedDict
 
-from generate_repo_overview.models import LockfileStatus
+from generate_repo_overview.models import LockfileStatus, SphinxItem
+
+from .git_checkout import list_repository_paths, read_repository_text
+from .sphinx import parse_sphinx_directives
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from generate_repo_overview.models import WorkflowSignal
@@ -16,6 +20,7 @@ if TYPE_CHECKING:
 class DeepContentPayload(TypedDict):
     is_bazel_repo: bool
     has_bazel_module: bool
+    bazel_module_name: str | None
     bazel_version: str | None
     codeowners: tuple[str, ...]
     referenced_by_reference_integration: bool
@@ -30,6 +35,11 @@ class DeepContentPayload(TypedDict):
     bazel_deps: tuple[tuple[str, str], ...]
     bazel_lockfile_status: LockfileStatus
     bazel_lockfile_error_output: str | None
+    docs_feature_paths: tuple[str, ...]
+    repo_sphinx_features: tuple[SphinxItem, ...]
+    repo_sphinx_modules: tuple[SphinxItem, ...]
+    sphinx_project_name: str | None
+    sphinx_project_prefix: str | None
 
 
 GITLINT_PATHS = (".gitlint",)
@@ -49,6 +59,14 @@ BAZEL_REPO_MARKER_PATHS = (
     )
 )
 CODEOWNERS_PATH = ".github/CODEOWNERS"
+SINGLE_FEATURE_DOC_SECTIONS = (
+    "architecture",
+    "safety_analysis",
+    "safety_planning",
+    "security_analysis",
+    "security_planning",
+)
+SPHINX_CONFIG_PATHS = ("docs/conf.py", "docs/sphinx/conf.py")
 WORKFLOW_PATH_PREFIX = ".github/workflows/"
 WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
 VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
@@ -99,27 +117,61 @@ def inspect_repository_content_slow(
     tree_paths = fetch_repository_tree_paths(repository, ref=ref)
     if not tree_paths:
         return default_content_signals()
+    return _inspect_repository_content(
+        tree_paths,
+        lambda path: fetch_text_file(repository, path, ref=ref),
+        workflow_signals=workflow_signals,
+        top_languages=detect_top_languages(repository, n=3),
+    )
 
+
+def inspect_repository_checkout(
+    checkout_path: Path,
+    *,
+    workflow_signals: tuple[WorkflowSignal, ...] = (),
+    top_languages: tuple[str, ...] = (),
+) -> DeepContentPayload:
+    tree_paths = list_repository_paths(checkout_path)
+    if not tree_paths:
+        raise RuntimeError(f"Could not inspect Git checkout {checkout_path}.")
+    return _inspect_repository_content(
+        tree_paths,
+        lambda path: read_repository_text(checkout_path, path),
+        workflow_signals=workflow_signals,
+        top_languages=top_languages,
+    )
+
+
+def _inspect_repository_content(
+    tree_paths: set[str],
+    read_text: Callable[[str], str | None],
+    *,
+    workflow_signals: tuple[WorkflowSignal, ...],
+    top_languages: tuple[str, ...],
+) -> DeepContentPayload:
+    module_content = (
+        read_text(MODULE_PATHS[0])
+        if tree_contains_path(tree_paths, MODULE_PATHS[0])
+        else None
+    )
+    docs_feature_paths = detect_docs_feature_paths(tree_paths)
+    repo_sphinx_features, repo_sphinx_modules = detect_repo_sphinx_items(
+        tree_paths=tree_paths,
+        read_text=read_text,
+    )
+    sphinx_project_name, sphinx_project_prefix = detect_sphinx_config_names(
+        tree_paths=tree_paths,
+        read_text=read_text,
+    )
     return {
         "is_bazel_repo": detect_is_bazel_repo(tree_paths),
         "has_bazel_module": any(
             tree_contains_path(tree_paths, p) for p in MODULE_PATHS
         ),
-        "bazel_version": detect_bazel_version(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-        ),
-        "codeowners": detect_codeowners(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-        ),
-        "bazel_deps": detect_all_bazel_deps(
-            repository,
-            tree_paths=tree_paths,
-            ref=ref,
-        ),
+        "bazel_module_name": get_bazel_module_name(module_content),
+        "bazel_version": detect_bazel_version_from_reader(tree_paths, read_text),
+        "codeowners": detect_codeowners_from_reader(tree_paths, read_text),
+        "bazel_deps": get_all_bazel_dep_versions(module_content),
         "referenced_by_reference_integration": False,
         "has_gitlint_config": any(
             tree_contains_path(tree_paths, path) for path in GITLINT_PATHS
@@ -135,17 +187,21 @@ def inspect_repository_content_slow(
         ),
         "has_ci": any(tree_contains_path(tree_paths, path) for path in CI_PATHS),
         "matched_workflow_signals": detect_matched_workflow_signals(
-            repository,
             tree_paths=tree_paths,
-            ref=ref,
+            read_text=read_text,
             workflow_signals=workflow_signals,
         ),
         "has_coverage_config": any(
             tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
         ),
-        "top_languages": detect_top_languages(repository, n=3),
+        "top_languages": top_languages,
         "bazel_lockfile_status": LockfileStatus.UNKNOWN,
         "bazel_lockfile_error_output": None,
+        "docs_feature_paths": docs_feature_paths,
+        "repo_sphinx_features": repo_sphinx_features,
+        "repo_sphinx_modules": repo_sphinx_modules,
+        "sphinx_project_name": sphinx_project_name,
+        "sphinx_project_prefix": sphinx_project_prefix,
     }
 
 
@@ -153,6 +209,7 @@ def default_content_signals() -> DeepContentPayload:
     return {
         "is_bazel_repo": False,
         "has_bazel_module": False,
+        "bazel_module_name": None,
         "bazel_version": None,
         "codeowners": (),
         "bazel_deps": (),
@@ -167,6 +224,11 @@ def default_content_signals() -> DeepContentPayload:
         "top_languages": (),
         "bazel_lockfile_status": LockfileStatus.UNKNOWN,
         "bazel_lockfile_error_output": None,
+        "docs_feature_paths": (),
+        "repo_sphinx_features": (),
+        "repo_sphinx_modules": (),
+        "sphinx_project_name": None,
+        "sphinx_project_prefix": None,
     }
 
 
@@ -183,6 +245,85 @@ def detect_top_languages(repository: Any, *, n: int = 3) -> tuple[str, ...]:
         reverse=True,
     )
     return tuple(lang for lang, _ in sorted_langs[:n] if isinstance(lang, str))
+
+
+def detect_docs_feature_paths(tree_paths: set[str]) -> tuple[str, ...]:
+    prefix = "docs/features/"
+    children = {
+        remainder.split("/", maxsplit=1)[0]
+        for path in tree_paths
+        if path.startswith(prefix)
+        and (remainder := path.removeprefix(prefix))
+        and "/" in remainder
+    }
+    named_features = sorted(children - set(SINGLE_FEATURE_DOC_SECTIONS))
+    if named_features:
+        return tuple(f"docs/features/{name}" for name in named_features)
+    if children & set(SINGLE_FEATURE_DOC_SECTIONS):
+        return ("docs/features",)
+    return ()
+
+
+def detect_repo_sphinx_items(
+    *,
+    tree_paths: set[str],
+    read_text: Callable[[str], str | None],
+) -> tuple[tuple[SphinxItem, ...], tuple[SphinxItem, ...]]:
+    candidate_paths = sorted(
+        path
+        for path in tree_paths
+        if path == "docs/module/index.rst"
+        or path == "docs/architecture/features.rst"
+        or (
+            path.startswith("docs/features/")
+            and path.endswith(
+                (
+                    "/architecture/index.rst",
+                    "/architecture/feature_architecture.rst",
+                )
+            )
+        )
+    )
+    features: list[SphinxItem] = []
+    modules: list[SphinxItem] = []
+    for path in candidate_paths:
+        text = read_text(path)
+        features.extend(parse_sphinx_directives(text, "feat", path=path))
+        modules.extend(parse_sphinx_directives(text, "mod", path=path))
+    return (_dedupe_sphinx_items(features), _dedupe_sphinx_items(modules))
+
+
+def detect_sphinx_config_names(
+    *,
+    tree_paths: set[str],
+    read_text: Callable[[str], str | None],
+) -> tuple[str | None, str | None]:
+    for path in SPHINX_CONFIG_PATHS:
+        if path not in tree_paths:
+            continue
+        return parse_sphinx_config_names(read_text(path))
+    return (None, None)
+
+
+def parse_sphinx_config_names(text: str | None) -> tuple[str | None, str | None]:
+    if not text:
+        return (None, None)
+
+    def assignment(name: str) -> str | None:
+        match = re.search(
+            rf"^\s*{re.escape(name)}\s*=\s*([\"'])(?P<value>.*?)\1\s*$",
+            text,
+            re.MULTILINE,
+        )
+        return match.group("value").strip() or None if match else None
+
+    return (assignment("project"), assignment("project_prefix"))
+
+
+def _dedupe_sphinx_items(items: list[SphinxItem]) -> tuple[SphinxItem, ...]:
+    return tuple(
+        {(item.path, item.identifier or item.title): item for item in items}.values()
+    )
 
 
 def fetch_repository_tree_paths(repository: Any, *, ref: str | None) -> set[str]:
@@ -214,10 +355,20 @@ def detect_bazel_version(
     tree_paths: set[str],
     ref: str | None,
 ) -> str | None:
+    return detect_bazel_version_from_reader(
+        tree_paths,
+        lambda path: fetch_text_file(repository, path, ref=ref),
+    )
+
+
+def detect_bazel_version_from_reader(
+    tree_paths: set[str],
+    read_text: Callable[[str], str | None],
+) -> str | None:
     for candidate in BAZEL_VERSION_PATHS:
         if not tree_contains_path(tree_paths, candidate):
             continue
-        content = fetch_text_file(repository, candidate, ref=ref)
+        content = read_text(candidate)
         version = first_non_comment_line(content)
         if version:
             return version
@@ -252,10 +403,20 @@ def detect_codeowners(
     tree_paths: set[str],
     ref: str | None,
 ) -> tuple[str, ...]:
+    return detect_codeowners_from_reader(
+        tree_paths,
+        lambda path: fetch_text_file(repository, path, ref=ref),
+    )
+
+
+def detect_codeowners_from_reader(
+    tree_paths: set[str],
+    read_text: Callable[[str], str | None],
+) -> tuple[str, ...]:
     if not tree_contains_path(tree_paths, CODEOWNERS_PATH):
         return ()
 
-    content = fetch_text_file(repository, CODEOWNERS_PATH, ref=ref)
+    content = read_text(CODEOWNERS_PATH)
     return get_codeowners_for_path(content, target_path=CODEOWNERS_PATH)
 
 
@@ -336,11 +497,26 @@ def get_all_bazel_dep_versions(text: str | None) -> tuple[tuple[str, str], ...]:
     return tuple(sorted(result, key=lambda x: x[0]))
 
 
+def get_bazel_module_name(text: str | None) -> str | None:
+    if not text:
+        return None
+
+    module_match = re.search(r"\bmodule\s*\((?P<body>.*?)\)", text, re.DOTALL)
+    if module_match is None:
+        return None
+    name_match = re.search(
+        r'\bname\s*=\s*"(?P<name>[^"]+)"',
+        module_match.group("body"),
+    )
+    if name_match is None:
+        return None
+    return name_match.group("name").strip() or None
+
+
 def detect_matched_workflow_signals(
-    repository: Any,
     *,
     tree_paths: set[str],
-    ref: str | None,
+    read_text: Callable[[str], str | None],
     workflow_signals: tuple[WorkflowSignal, ...] = (),
 ) -> tuple[str, ...]:
     """Return labels of workflow signals whose reference string appears in any workflow file."""
@@ -355,7 +531,7 @@ def detect_matched_workflow_signals(
         and path.endswith(WORKFLOW_FILE_SUFFIXES)
     )
     for workflow_path in workflow_paths:
-        content = fetch_text_file(repository, workflow_path, ref=ref)
+        content = read_text(workflow_path)
         if content is not None:
             workflow_contents.append(content)
 

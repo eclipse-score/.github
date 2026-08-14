@@ -34,6 +34,13 @@ jobs:
           key: snapshot-${{ github.run_id }}
           restore-keys: snapshot-
 
+      - name: Restore repository checkout cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/repo-cache
+          key: repo-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: repo-cache-${{ runner.os }}-
+
       - name: Collect metrics
         env:
           GITHUB_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}

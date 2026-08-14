@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, cast
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+
 class LockfileStatus(StrEnum):
     OK = "ok"
     MISSING = "missing"
@@ -17,7 +18,7 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 22
+SNAPSHOT_SCHEMA_VERSION = 28
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,11 +66,31 @@ class WorkflowSignal:
 
 
 @dataclass(frozen=True, slots=True)
+class SphinxItem:
+    """A feature or module declared in the platform Sphinx documentation."""
+
+    path: str
+    title: str
+    identifier: str
+    source_repo: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> SphinxItem:
+        return cls(
+            path=cast("str", data.get("path", "")),
+            title=cast("str", data.get("title", "")),
+            identifier=cast("str", data.get("identifier", "")),
+            source_repo=cast("str", data.get("source_repo", "")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class DeepContentSignals:
     """Deep, slow-to-collect content signals from default-branch tree inspection."""
 
     is_bazel_repo: bool = False
     has_bazel_module: bool = False
+    bazel_module_name: str | None = None
     bazel_version: str | None = None
     codeowners: tuple[str, ...] = ()
     referenced_by_reference_integration: bool = False
@@ -84,12 +105,20 @@ class DeepContentSignals:
     bazel_deps: tuple[tuple[str, str], ...] = ()
     bazel_lockfile_status: LockfileStatus = LockfileStatus.UNKNOWN
     bazel_lockfile_error_output: str | None = None
+    sphinx_features: tuple[SphinxItem, ...] = ()
+    sphinx_modules: tuple[SphinxItem, ...] = ()
+    docs_feature_paths: tuple[str, ...] = ()
+    repo_sphinx_features: tuple[SphinxItem, ...] = ()
+    repo_sphinx_modules: tuple[SphinxItem, ...] = ()
+    sphinx_project_name: str | None = None
+    sphinx_project_prefix: str | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
         return cls(
             is_bazel_repo=bool(data.get("is_bazel_repo", False)),
             has_bazel_module=bool(data.get("has_bazel_module", False)),
+            bazel_module_name=cast("str | None", data.get("bazel_module_name")),
             bazel_version=cast("str | None", data.get("bazel_version")),
             codeowners=normalize_string_tuple(data.get("codeowners")),
             referenced_by_reference_integration=bool(
@@ -106,8 +135,19 @@ class DeepContentSignals:
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
-            bazel_lockfile_status=_parse_lockfile_status(data.get("bazel_lockfile_status")),
-            bazel_lockfile_error_output=cast("str | None", data.get("bazel_lockfile_error_output")),
+            bazel_lockfile_status=_parse_lockfile_status(
+                data.get("bazel_lockfile_status")
+            ),
+            bazel_lockfile_error_output=cast(
+                "str | None", data.get("bazel_lockfile_error_output")
+            ),
+            sphinx_features=_parse_sphinx_items(data.get("sphinx_features")),
+            sphinx_modules=_parse_sphinx_items(data.get("sphinx_modules")),
+            docs_feature_paths=normalize_string_tuple(data.get("docs_feature_paths")),
+            repo_sphinx_features=_parse_sphinx_items(data.get("repo_sphinx_features")),
+            repo_sphinx_modules=_parse_sphinx_items(data.get("repo_sphinx_modules")),
+            sphinx_project_name=cast("str | None", data.get("sphinx_project_name")),
+            sphinx_project_prefix=cast("str | None", data.get("sphinx_project_prefix")),
         )
 
 
@@ -313,15 +353,19 @@ class RepoSnapshot:
             TrackedDep.from_dict(cast("Mapping[str, Any]", item))
             for item in (data.get("tracked_deps") or ())
             if isinstance(item, dict)
-            and isinstance(item.get("repo"), str) and item["repo"]
-            and isinstance(item.get("module_name"), str) and item["module_name"]
+            and isinstance(item.get("repo"), str)
+            and item["repo"]
+            and isinstance(item.get("module_name"), str)
+            and item["module_name"]
         )
         workflow_signals = tuple(
             WorkflowSignal.from_dict(cast("Mapping[str, Any]", item))
             for item in (data.get("workflow_signals") or ())
             if isinstance(item, dict)
-            and isinstance(item.get("label"), str) and item["label"]
-            and isinstance(item.get("reference"), str) and item["reference"]
+            and isinstance(item.get("label"), str)
+            and item["label"]
+            and isinstance(item.get("reference"), str)
+            and item["reference"]
         )
 
         return cls(
@@ -362,7 +406,9 @@ def normalize_string_pairs(value: object) -> tuple[tuple[str, str], ...]:
     items = cast("list[object]", list(value))
     result: list[tuple[str, str]] = []
     for raw in items:
-        pair = cast("list[object]", list(raw)) if isinstance(raw, (list, tuple)) else None
+        pair = (
+            cast("list[object]", list(raw)) if isinstance(raw, (list, tuple)) else None
+        )
         if pair is None or len(pair) != 2:
             continue
         name, ver = pair[0], pair[1]
@@ -378,6 +424,16 @@ def normalize_string_tuple(value: object) -> tuple[str, ...]:
         sequence_items = cast("list[object]", value)
         return tuple(item for item in sequence_items if isinstance(item, str))
     return ()
+
+
+def _parse_sphinx_items(value: object) -> tuple[SphinxItem, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(
+        SphinxItem.from_dict(cast("Mapping[str, Any]", item))
+        for item in value
+        if isinstance(item, dict)
+    )
 
 
 def lookup_bazel_dep_version(

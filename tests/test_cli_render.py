@@ -7,6 +7,7 @@ from generate_repo_overview.models import (
     DeepContentSignals,
     RepoEntry,
     RepoSnapshot,
+    SphinxItem,
     TraceabilityTypeMetrics,
     TrackedDep,
     VolatileMetricsSnapshot,
@@ -41,6 +42,68 @@ def _make_snapshot() -> RepoSnapshot:
                 ),
                 stars=3,
                 forks=4,
+            ),
+            RepoEntry(
+                name="logging",
+                description="Logging module",
+                category="Modules",
+                subcategory="General",
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    has_bazel_module=True,
+                    bazel_module_name="score_logging",
+                    sphinx_features=(
+                        SphinxItem(
+                            path="docs/features/log_trace/logging",
+                            title="Logging",
+                            identifier="feat__logging",
+                            source_repo="eclipse-score/score",
+                        ),
+                    ),
+                    sphinx_modules=(
+                        SphinxItem(
+                            path="docs/modules/logging",
+                            title="Logging",
+                            identifier="mod__logging",
+                            source_repo="eclipse-score/score",
+                        ),
+                    ),
+                    docs_feature_paths=("docs/features/logging", "docs/features"),
+                    repo_sphinx_features=(
+                        SphinxItem(
+                            path="docs/features/logging/architecture/index.rst",
+                            title="Logging",
+                            identifier="feat__logging_repo",
+                        ),
+                    ),
+                    repo_sphinx_modules=(
+                        SphinxItem(
+                            path="docs/module/index.rst",
+                            title="Logging",
+                            identifier="mod__logging_repo",
+                        ),
+                    ),
+                    sphinx_project_name="S-CORE Logging",
+                    sphinx_project_prefix="LOGGING_",
+                ),
+            ),
+            RepoEntry(
+                name="score",
+                description="Platform documentation",
+                category="General",
+                subcategory="General",
+                content=DeepContentSignals(
+                    is_bazel_repo=True,
+                    bazel_module_name="score_platform",
+                    docs_feature_paths=("docs/features/should-not-show",),
+                    repo_sphinx_features=(
+                        SphinxItem(
+                            path="docs/features/should-not-show/architecture/index.rst",
+                            title="Platform-only Feature",
+                            identifier="feat__should_not_show",
+                        ),
+                    ),
+                ),
             ),
         ),
     )
@@ -152,7 +215,9 @@ def _make_snapshot_with_dac() -> RepoSnapshot:
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
         tracked_deps=(
-            TrackedDep(repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"),
+            TrackedDep(
+                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
+            ),
         ),
         repos=(
             RepoEntry(
@@ -212,6 +277,77 @@ def test_render_details_traceability_tab(tmp_path: Path) -> None:
     # No client-side fetch variables
     assert "traceabilityRepos" not in content
     assert "orgName" not in content
+
+
+def test_render_details_naming_tab_includes_all_bazel_repositories(
+    tmp_path: Path,
+) -> None:
+    snapshot_path = tmp_path / "repo_overview.json"
+    output_dir = tmp_path / "_site"
+    write_snapshot(_make_snapshot(), snapshot_path)
+
+    cli.main(
+        [
+            "render-details",
+            "--input",
+            str(snapshot_path),
+            "--output",
+            str(output_dir),
+        ]
+    )
+
+    content = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert 'data-tab="naming">Naming</button>' in content
+    assert "if (h === 'modules') return 'naming';" in content
+    assert "Platform Feature Path" in content
+    assert "Platform Docs" in content
+    assert "eclipse-score/score" in content
+    assert "log_trace/logging" in content
+    assert "feat__logging" in content
+    assert "score_logging" in content
+    assert "mod__logging" in content
+    assert "Repo Feature Path" in content
+    assert "docs/features/logging" in content
+    assert "Sphinx Feature" in content
+    assert "feat__logging_repo" in content
+    assert "Sphinx Module" in content
+    assert "mod__logging_repo" in content
+    assert content.count('class="mapping-warning"') == 2
+    assert "Feature declarations belong in the platform documentation." in content
+    assert "Module declarations belong in the module repository." in content
+    assert "Sphinx Config" in content
+    assert "S-CORE Logging" in content
+    assert "LOGGING_" in content
+    assert (
+        '<span class="name-match exact" '
+        'title="The module-template single-feature layout derives the feature name '
+        'from the repository or module name.">'
+        "(single-feature layout; no folder name)</span>"
+    ) in content
+    assert '<code class="mono">docs/features</code>' not in content
+    assert 'class="name-match exact"' in content
+    assert 'data-tooltip="Bazel repository name.' in content
+    naming_content = content.split(
+        '<div class="section naming-section hidden" data-tab="naming"',
+        maxsplit=1,
+    )[1].split(
+        '<div class="section hidden" data-tab="traceability">',
+        maxsplit=1,
+    )[0]
+    assert naming_content.count('data-tab="naming"') == 2
+    assert naming_content.count('<table class="naming-table">') == 3
+    assert naming_content.count("<th ") == 24
+    assert naming_content.count("data-tooltip=") == 24
+    assert 'data-category="Infrastructure"' in naming_content
+    assert "tools" in naming_content
+    assert "Platform-only Feature" not in naming_content
+    assert "docs/features/should-not-show" not in naming_content
+    assert (
+        naming_content.count(
+            'title="Not applicable to a platform documentation repository."'
+        )
+        == 2
+    )
 
 
 def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:

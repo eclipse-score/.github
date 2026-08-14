@@ -285,6 +285,52 @@ footer {
 }
 .machine-readable { margin-top: 0.4rem; }
 
+.naming-section { overflow-x: auto; }
+.naming-table { min-width: 1500px; }
+.naming-table th[data-tooltip]::after {
+  white-space: normal;
+  width: 260px;
+}
+.module-match-legend {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+.name-match {
+  border: 1px solid;
+  border-radius: 4px;
+  display: inline-block;
+  padding: 0.12rem 0.3rem;
+}
+.name-match.exact {
+  background: #3fb95011;
+  border-color: #3fb95055;
+  color: var(--green);
+}
+.name-match.close {
+  background: #d2992211;
+  border-color: #d2992255;
+  color: var(--yellow);
+}
+.name-match.different {
+  background: #f8514911;
+  border-color: #f8514955;
+  color: var(--red);
+}
+.name-match .text-muted { color: inherit; opacity: 0.75; }
+.sphinx-source + .sphinx-source { margin-top: 0.3rem; }
+.sphinx-source-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.mapping-warning {
+  color: var(--yellow);
+  cursor: help;
+  font-size: 1rem;
+}
+
 .gh-link { color: var(--muted); margin-left: 0.3rem; vertical-align: middle; display: inline-flex; cursor: alias; }
 .gh-link:hover { color: var(--accent); text-decoration: none; }
 .gh-link svg { width: 13px; height: 13px; }

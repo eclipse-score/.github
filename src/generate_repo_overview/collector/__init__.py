@@ -13,6 +13,7 @@ from tqdm import tqdm
 from generate_repo_overview.console import print_status
 from generate_repo_overview.constants import (
     DEFAULT_CACHE,
+    DEFAULT_REPOSITORY_CHECKOUTS,
     DEFAULT_TOKEN_ENV,
 )
 from generate_repo_overview.models import (
@@ -23,7 +24,14 @@ from generate_repo_overview.models import (
 )
 from generate_repo_overview.org_config import OrgConfig
 
-from . import reference_integration, registry_metadata, repo_entry, traceability
+from . import (
+    platform_docs,
+    reference_integration,
+    registry_metadata,
+    repo_entry,
+    traceability,
+)
+from .git_checkout import sync_repository_checkout
 from .registry_metadata import RegistrySignalsPayload
 from .snapshot_io import load_snapshot, load_snapshot_if_present, write_snapshot
 
@@ -40,6 +48,10 @@ class OrganizationLike(Protocol):
 
 class GitHubClientLike(Protocol):
     def get_rate_limit(self) -> object: ...
+
+
+class RepositoryResolverLike(Protocol):
+    def get_repo(self, full_name_or_id: str) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +193,14 @@ def collect_snapshot(
             registry_repository=registry_repository,
         )
 
+        repos = enrich_repositories_with_platform_docs(
+            repos,
+            github=github,
+            platform_repos=config.platform_repos,
+            github_token=token,
+            status_prefix=status_prefix,
+        )
+
         trace_by_repo = traceability.fetch_all_traceability_metrics(
             org_name,
             repos,
@@ -213,6 +233,57 @@ def collect_snapshot(
             when="after collection",
             status_prefix=status_prefix,
         )
+
+
+def enrich_repositories_with_platform_docs(
+    repos: list[RepoEntry],
+    *,
+    github: RepositoryResolverLike,
+    platform_repos: tuple[str, ...],
+    github_token: str | None = None,
+    status_prefix: str,
+) -> list[RepoEntry]:
+    enriched = [
+        replace(
+            entry,
+            content=replace(
+                entry.content,
+                sphinx_features=(),
+                sphinx_modules=(),
+            ),
+        )
+        if entry.category.casefold() == "modules"
+        else entry
+        for entry in repos
+    ]
+    for full_name in platform_repos:
+        print_status(
+            f"Loading Sphinx module metadata from {full_name}",
+            prefix=status_prefix,
+        )
+        repository = github.get_repo(full_name)
+        clone_url = cast("str | None", getattr(repository, "clone_url", None))
+        default_branch = cast("str | None", getattr(repository, "default_branch", None))
+        if clone_url is None or default_branch is None:
+            raise RuntimeError(
+                f"Configured platform repository {full_name} has no clone metadata."
+            )
+        checkout_path = sync_repository_checkout(
+            clone_url=clone_url,
+            default_branch=default_branch,
+            github_token=github_token,
+            checkout_path=DEFAULT_REPOSITORY_CHECKOUTS / full_name,
+        )
+        if checkout_path is None:
+            raise RuntimeError(
+                f"Could not synchronize configured platform repository {full_name}."
+            )
+        enriched = platform_docs.enrich_repositories_from_platform_docs(
+            enriched,
+            checkout_path=checkout_path,
+            source_repo=full_name,
+        )
+    return enriched
 
 
 def print_rest_api_rate_limit(
@@ -292,7 +363,9 @@ def fetch_repositories(
         prefix=status_prefix,
     )
 
-    bazel_registry_metadata_by_repo: dict[str, registry_metadata.RegistrySignalsPayload] = {}
+    bazel_registry_metadata_by_repo: dict[
+        str, registry_metadata.RegistrySignalsPayload
+    ] = {}
     if config.registry_repo:
         print_status(
             f"Loading maintainers in {config.registry_repo}",

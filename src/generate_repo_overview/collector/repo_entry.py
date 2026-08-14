@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
+from generate_repo_overview.constants import DEFAULT_REPOSITORY_CHECKOUTS
 from generate_repo_overview.models import (
     DEFAULT_CATEGORY,
     DEFAULT_SUBCATEGORY,
@@ -19,19 +19,29 @@ from generate_repo_overview.models import (
     WorkflowSignal,
 )
 
-from .git_checkout import sync_repository_checkout
+from .git_checkout import (
+    fetch_repository_ref,
+    get_checkout_head_date,
+    get_checkout_head_sha,
+    read_repository_text_at_ref,
+    sync_repository_checkout,
+)
 from .signal_detection import (
     DeepContentPayload,
     detect_all_bazel_deps,
     detect_bazel_lockfile_ok,
     detect_bazel_version,
+    detect_top_languages,
     fetch_repository_tree_paths,
+    first_non_comment_line,
+    get_all_bazel_dep_versions,
+    inspect_repository_checkout,
     inspect_repository_content_slow,
 )
 
-REPO_CHECKOUTS_BASE = Path(".cache/repo_checkouts")
-
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from .registry_metadata import RegistrySignalsPayload
 
 
@@ -76,7 +86,9 @@ def _resolve_grouping_value(
 ) -> str:
     if index < len(grouping_levels):
         level = grouping_levels[index]
-        return normalize_group_name(custom_properties.get(level.property), level.default)
+        return normalize_group_name(
+            custom_properties.get(level.property), level.default
+        )
     return fallback
 
 
@@ -92,6 +104,13 @@ def collect_repository_entry(
     workflow_signals: tuple[WorkflowSignal, ...] = (),
     github_token: str | None = None,
 ) -> RepoEntry:
+    default_branch = cast("str | None", getattr(repository, "default_branch", None))
+    checkout_path, default_branch_sha = _sync_content_checkout(
+        repository_name=repository_name,
+        repository=repository,
+        default_branch=default_branch,
+        github_token=github_token,
+    )
     fast_entry = maybe_collect_repository_entry_fast_path(
         repository_name=repository_name,
         repository=repository,
@@ -100,6 +119,10 @@ def collect_repository_entry(
         bazel_registry_metadata=bazel_registry_metadata,
         referenced_by_reference_integration=referenced_by_reference_integration,
         cached_entry=cached_entry,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
+        checkout_path=checkout_path,
+        github_token=github_token,
     )
     if fast_entry is not None:
         return fast_entry
@@ -114,6 +137,9 @@ def collect_repository_entry(
         cached_entry=cached_entry,
         workflow_signals=workflow_signals,
         github_token=github_token,
+        checkout_path=checkout_path,
+        default_branch=default_branch,
+        default_branch_sha=default_branch_sha,
     )
 
 
@@ -126,13 +152,15 @@ def maybe_collect_repository_entry_fast_path(
     bazel_registry_metadata: RegistrySignalsPayload | None,
     referenced_by_reference_integration: bool,
     cached_entry: RepoEntry | None,
+    default_branch: str | None = None,
+    default_branch_sha: str | None = None,
+    checkout_path: Path | None = None,
+    github_token: str | None = None,
 ) -> RepoEntry | None:
     """Attempt a fast collection path that avoids deep content inspection.
 
     Returns ``None`` when the fast path is not applicable.
     """
-    default_branch = cast("str | None", getattr(repository, "default_branch", None))
-    default_branch_sha = get_default_branch_sha(repository, default_branch)
     cache_matches_default_branch = cached_entry_matches_default_branch(
         cached_entry,
         default_branch=default_branch,
@@ -172,6 +200,8 @@ def maybe_collect_repository_entry_fast_path(
         repository,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
+        checkout_path=checkout_path,
+        github_token=github_token,
     )
     registry_signals = build_registry_signals(bazel_registry_metadata)
     return build_repo_entry(
@@ -201,15 +231,15 @@ def collect_repository_entry_slow_path(
     cached_entry: RepoEntry | None,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
     github_token: str | None = None,
+    checkout_path: Path | None = None,
+    default_branch: str | None = None,
+    default_branch_sha: str | None = None,
 ) -> RepoEntry:
     """Collect a repository entry with deep content inspection.
 
     Reuses cached content signals when the default-branch SHA matches the
     cached entry.  Always refreshes volatile metrics and registry signals.
     """
-    default_branch = cast("str | None", getattr(repository, "default_branch", None))
-    default_branch_sha = get_default_branch_sha(repository, default_branch)
-
     cached_content_signals = cached_signals_for_repository(
         cached_entry,
         default_branch=default_branch,
@@ -217,11 +247,18 @@ def collect_repository_entry_slow_path(
     )
 
     if cached_content_signals is None:
-        content_signals = inspect_repository_content_slow(
-            repository,
-            ref=default_branch_sha,
-            workflow_signals=workflow_signals,
-        )
+        if checkout_path is not None:
+            content_signals = inspect_repository_checkout(
+                checkout_path,
+                workflow_signals=workflow_signals,
+                top_languages=detect_top_languages(repository, n=3),
+            )
+        else:
+            content_signals = inspect_repository_content_slow(
+                repository,
+                ref=default_branch_sha,
+                workflow_signals=workflow_signals,
+            )
     else:
         content_signals = cached_content_signals
     if content_signals["has_bazel_module"] and (
@@ -233,6 +270,7 @@ def collect_repository_entry_slow_path(
             repository=repository,
             default_branch=default_branch,
             github_token=github_token,
+            checkout_path=checkout_path,
         )
         content_signals["bazel_lockfile_status"] = lockfile_status
         content_signals["bazel_lockfile_error_output"] = lockfile_error
@@ -243,6 +281,8 @@ def collect_repository_entry_slow_path(
         repository,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
+        checkout_path=checkout_path,
+        github_token=github_token,
     )
     registry_signals = build_registry_signals(bazel_registry_metadata)
 
@@ -262,17 +302,49 @@ def collect_repository_entry_slow_path(
     )
 
 
+def _sync_content_checkout(
+    *,
+    repository_name: str,
+    repository: Any,
+    default_branch: str | None,
+    github_token: str | None,
+) -> tuple[Path | None, str | None]:
+    clone_url = cast("str | None", getattr(repository, "clone_url", None))
+    if clone_url is None or default_branch is None:
+        return (None, get_default_branch_sha(repository, default_branch))
+
+    full_name = cast("str | None", getattr(repository, "full_name", None))
+    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / (full_name or repository_name)
+    synced = sync_repository_checkout(
+        clone_url=clone_url,
+        default_branch=default_branch,
+        github_token=github_token,
+        checkout_path=checkout_path,
+    )
+    if synced is None:
+        raise RuntimeError(f"Could not synchronize repository {repository_name}.")
+    default_branch_sha = get_checkout_head_sha(synced)
+    if default_branch_sha is None:
+        raise RuntimeError(
+            f"Could not resolve default-branch SHA for repository {repository_name}."
+        )
+    return (synced, default_branch_sha)
+
+
 def _detect_lockfile_ok_for_repo(
     *,
     repository_name: str,
     repository: Any,
     default_branch: str | None,
     github_token: str | None,
+    checkout_path: Path | None = None,
 ) -> tuple[LockfileStatus, str | None]:
+    if checkout_path is not None:
+        return detect_bazel_lockfile_ok(checkout_path)
     clone_url = cast("str | None", getattr(repository, "clone_url", None))
     if clone_url is None or default_branch is None:
         return LockfileStatus.UNKNOWN, None
-    checkout_path = REPO_CHECKOUTS_BASE / repository_name
+    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / repository_name
     synced = sync_repository_checkout(
         clone_url=clone_url,
         default_branch=default_branch,
@@ -289,6 +361,8 @@ def collect_volatile_metrics(
     *,
     default_branch: str | None,
     default_branch_sha: str | None,
+    checkout_path: Path | None = None,
+    github_token: str | None = None,
 ) -> VolatileMetricsPayload:
     """Collect volatile metrics from live API calls.
 
@@ -304,10 +378,13 @@ def collect_volatile_metrics(
         repository,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
+        checkout_path=checkout_path,
+        github_token=github_token,
     )
     last_commit_date = get_default_branch_last_commit_date(
         repository,
         default_branch=default_branch,
+        checkout_path=checkout_path,
     )
     return {
         "last_push_date": last_commit_date
@@ -332,7 +409,10 @@ def get_default_branch_last_commit_date(
     repository: Any,
     *,
     default_branch: str | None,
+    checkout_path: Path | None = None,
 ) -> str | None:
+    if checkout_path is not None:
+        return get_checkout_head_date(checkout_path)
     if not default_branch:
         return None
 
@@ -365,6 +445,7 @@ def cached_signals_for_repository(
     return {
         "is_bazel_repo": cached_entry.content.is_bazel_repo,
         "has_bazel_module": cached_entry.content.has_bazel_module,
+        "bazel_module_name": cached_entry.content.bazel_module_name,
         "bazel_version": cached_entry.content.bazel_version,
         "codeowners": cached_entry.content.codeowners,
         "referenced_by_reference_integration": (
@@ -381,6 +462,11 @@ def cached_signals_for_repository(
         "bazel_deps": cached_entry.content.bazel_deps,
         "bazel_lockfile_status": cached_entry.content.bazel_lockfile_status,
         "bazel_lockfile_error_output": cached_entry.content.bazel_lockfile_error_output,
+        "docs_feature_paths": cached_entry.content.docs_feature_paths,
+        "repo_sphinx_features": cached_entry.content.repo_sphinx_features,
+        "repo_sphinx_modules": cached_entry.content.repo_sphinx_modules,
+        "sphinx_project_name": cached_entry.content.sphinx_project_name,
+        "sphinx_project_prefix": cached_entry.content.sphinx_project_prefix,
     }
 
 
@@ -427,8 +513,12 @@ def build_repo_entry_from_cached(
         cached_entry,
         name=repository_name,
         description=description or "(no description)",
-        category=_resolve_grouping_value(custom_properties, grouping_levels, 0, DEFAULT_CATEGORY),
-        subcategory=_resolve_grouping_value(custom_properties, grouping_levels, 1, DEFAULT_SUBCATEGORY),
+        category=_resolve_grouping_value(
+            custom_properties, grouping_levels, 0, DEFAULT_CATEGORY
+        ),
+        subcategory=_resolve_grouping_value(
+            custom_properties, grouping_levels, 1, DEFAULT_SUBCATEGORY
+        ),
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
         content=content,
@@ -453,8 +543,12 @@ def build_repo_entry(
     stars: int = 0,
     forks: int = 0,
 ) -> RepoEntry:
-    category = _resolve_grouping_value(custom_properties, grouping_levels, 0, DEFAULT_CATEGORY)
-    subcategory = _resolve_grouping_value(custom_properties, grouping_levels, 1, DEFAULT_SUBCATEGORY)
+    category = _resolve_grouping_value(
+        custom_properties, grouping_levels, 0, DEFAULT_CATEGORY
+    )
+    subcategory = _resolve_grouping_value(
+        custom_properties, grouping_levels, 1, DEFAULT_SUBCATEGORY
+    )
     return RepoEntry(
         name=repository_name,
         description=description or "(no description)",
@@ -465,6 +559,7 @@ def build_repo_entry(
         content=DeepContentSignals(
             is_bazel_repo=content_signals["is_bazel_repo"],
             has_bazel_module=content_signals["has_bazel_module"],
+            bazel_module_name=content_signals["bazel_module_name"],
             bazel_version=content_signals["bazel_version"],
             codeowners=content_signals["codeowners"],
             referenced_by_reference_integration=bool(
@@ -481,8 +576,17 @@ def build_repo_entry(
             has_coverage_config=content_signals["has_coverage_config"],
             top_languages=content_signals.get("top_languages", ()),
             bazel_deps=content_signals.get("bazel_deps", ()),
-            bazel_lockfile_status=content_signals.get("bazel_lockfile_status", LockfileStatus.UNKNOWN),
-            bazel_lockfile_error_output=content_signals.get("bazel_lockfile_error_output"),
+            bazel_lockfile_status=content_signals.get(
+                "bazel_lockfile_status", LockfileStatus.UNKNOWN
+            ),
+            bazel_lockfile_error_output=content_signals.get(
+                "bazel_lockfile_error_output"
+            ),
+            docs_feature_paths=content_signals["docs_feature_paths"],
+            repo_sphinx_features=content_signals["repo_sphinx_features"],
+            repo_sphinx_modules=content_signals["repo_sphinx_modules"],
+            sphinx_project_name=content_signals["sphinx_project_name"],
+            sphinx_project_prefix=content_signals["sphinx_project_prefix"],
         ),
         registry=registry_signals,
         volatile=VolatileMetricsSnapshot(
@@ -685,6 +789,8 @@ def get_latest_release_details(
     *,
     default_branch: str | None,
     default_branch_sha: str | None,
+    checkout_path: Path | None = None,
+    github_token: str | None = None,
 ) -> LatestReleaseDetails:
     if not hasattr(repository, "get_latest_release"):
         return default_latest_release_details()
@@ -694,6 +800,41 @@ def get_latest_release_details(
         return default_latest_release_details()
 
     release_tag = get_latest_release_version(release)
+    if release_tag and checkout_path is not None:
+        release_ref = fetch_repository_ref(
+            checkout_path,
+            release_tag,
+            github_token=github_token,
+        )
+        if release_ref is None:
+            raise RuntimeError(f"Could not fetch release ref {release_tag}.")
+        bazel_version = first_non_comment_line(
+            read_repository_text_at_ref(
+                checkout_path,
+                release_ref,
+                ".bazelversion",
+            )
+        )
+        bazel_deps = get_all_bazel_dep_versions(
+            read_repository_text_at_ref(
+                checkout_path,
+                release_ref,
+                "MODULE.bazel",
+            )
+        )
+        return {
+            "version": release_tag,
+            "date": get_release_date(release),
+            "commits_since_release": get_commits_since_release(
+                repository,
+                release=release,
+                default_branch=default_branch,
+                default_branch_sha=default_branch_sha,
+            ),
+            "release_bazel_version": bazel_version,
+            "release_bazel_deps": bazel_deps,
+        }
+
     release_tree = fetch_repository_tree_paths(repository, ref=release_tag)
     return {
         "version": release_tag,
