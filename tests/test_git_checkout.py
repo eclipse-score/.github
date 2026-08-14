@@ -10,6 +10,7 @@ from generate_repo_overview.collector.git_checkout import (
     list_repository_paths,
     read_repository_text,
     read_repository_text_at_ref,
+    remote_repository_has_refs,
     sync_repository_checkout,
 )
 from generate_repo_overview.constants import default_repository_checkout_cache
@@ -81,6 +82,23 @@ def test_checkout_syncs_branch_and_reads_release_ref(tmp_path: Path) -> None:
             "MODULE.bazel",
         )
         == 'module(name = "score_example")'
+    )
+
+
+def test_empty_repository_has_no_remote_refs(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    checkout = tmp_path / "checkout"
+    _git(source.parent, "init", "--initial-branch=main", str(source))
+
+    assert remote_repository_has_refs(str(source), github_token=None) is False
+    assert (
+        sync_repository_checkout(
+            clone_url=str(source),
+            default_branch="main",
+            github_token=None,
+            checkout_path=checkout,
+        )
+        is None
     )
 
 

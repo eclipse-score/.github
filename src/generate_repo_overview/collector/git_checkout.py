@@ -125,6 +125,26 @@ def get_checkout_head_date(checkout_path: Path) -> str | None:
     return timestamp[:10] if timestamp else None
 
 
+def remote_repository_has_refs(
+    clone_url: str,
+    *,
+    github_token: str | None,
+) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", clone_url],
+            check=False,
+            capture_output=True,
+            text=True,
+            env=_git_environment(github_token),
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return bool(result.stdout.strip())
+
+
 def fetch_repository_ref(
     checkout_path: Path,
     ref: str,

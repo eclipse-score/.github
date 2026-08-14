@@ -24,6 +24,7 @@ from .git_checkout import (
     get_checkout_head_date,
     get_checkout_head_sha,
     read_repository_text_at_ref,
+    remote_repository_has_refs,
     sync_repository_checkout,
 )
 from .signal_detection import (
@@ -322,6 +323,14 @@ def _sync_content_checkout(
         checkout_path=checkout_path,
     )
     if synced is None:
+        if (
+            remote_repository_has_refs(
+                clone_url,
+                github_token=github_token,
+            )
+            is False
+        ):
+            return (None, None)
         raise RuntimeError(f"Could not synchronize repository {repository_name}.")
     default_branch_sha = get_checkout_head_sha(synced)
     if default_branch_sha is None:

@@ -55,6 +55,12 @@ cache is shared with other repository tools such as `score-repo-policy-sync`.
 Authentication is passed through a transient Git HTTP header and is not written
 into the remote URL.
 
+For a repository without any commits, GitHub may report a default-branch name
+even though the Git remote has no references. A failed branch checkout is
+therefore followed by an authenticated `ls-remote` check. A reachable remote
+without references is collected as an empty repository with neutral content
+signals; transport errors and non-empty checkout failures remain errors.
+
 ## Schema Changes
 
 The loader accepts only the current snapshot schema version. An incompatible

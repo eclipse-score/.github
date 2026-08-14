@@ -1,3 +1,4 @@
+import subprocess
 import sys
 import time
 from dataclasses import replace
@@ -455,6 +456,61 @@ def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None
         stars=12,
         forks=3,
     )
+
+
+def test_collect_repository_entry_accepts_repository_without_commits(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    subprocess.run(
+        ["git", "init", "--initial-branch=main", str(source)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    class EmptyRepo:
+        clone_url = str(source)
+        default_branch = "main"
+        description = "Reserved repository"
+        forks_count = 0
+        full_name = "eclipse-score/empty"
+        open_issues_count = 0
+        pushed_at = None
+        stargazers_count = 0
+
+        def get_branch(self, branch_name: str) -> object:
+            raise RuntimeError(f"Branch {branch_name} does not exist")
+
+        def get_languages(self) -> dict[str, int]:
+            return {}
+
+        def get_latest_release(self) -> object:
+            raise RuntimeError("No releases")
+
+        def get_pulls(self, **_: Any) -> list[object]:
+            return []
+
+    monkeypatch.setattr(
+        repo_entry,
+        "DEFAULT_REPOSITORY_CHECKOUTS",
+        tmp_path / "checkouts",
+    )
+
+    entry = repo_entry.collect_repository_entry(
+        repository_name="empty",
+        repository=EmptyRepo(),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=None,
+    )
+
+    assert entry.name == "empty"
+    assert entry.default_branch == "main"
+    assert entry.default_branch_sha is None
+    assert entry.content == DeepContentSignals()
+    assert entry.volatile.last_push_date is None
 
 
 def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_missing() -> (
