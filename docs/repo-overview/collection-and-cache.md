@@ -56,10 +56,12 @@ Authentication is passed through a transient Git HTTP header and is not written
 into the remote URL.
 
 For a repository without any commits, GitHub may report a default-branch name
-even though the Git remote has no references. A failed branch checkout is
-therefore followed by an authenticated `ls-remote` check. A reachable remote
-without references is collected as an empty repository with neutral content
-signals; transport errors and non-empty checkout failures remain errors.
+even though that branch cannot be resolved. After a failed checkout, the
+collector checks the default branch through the GitHub API before falling back
+to an authenticated `ls-remote` check. A missing default branch, or a reachable
+remote without references, is collected as an empty repository with neutral
+content signals; transport errors and non-empty checkout failures remain
+errors.
 
 ## Schema Changes
 

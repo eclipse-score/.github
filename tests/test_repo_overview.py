@@ -32,6 +32,15 @@ from generate_repo_overview.models import (
 from generate_repo_overview.org_config import OrgConfig
 
 
+def _run_git(cwd: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", "-C", str(cwd), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> None:
     snapshot = RepoSnapshot(
         schema_version=SNAPSHOT_SCHEMA_VERSION,
@@ -511,6 +520,66 @@ def test_collect_repository_entry_accepts_repository_without_commits(
     assert entry.default_branch_sha is None
     assert entry.content == DeepContentSignals()
     assert entry.volatile.last_push_date is None
+
+
+def test_collect_repository_entry_accepts_repository_without_default_branch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    subprocess.run(
+        ["git", "init", "--initial-branch=main", str(source)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    _run_git(source, "config", "user.name", "Test User")
+    _run_git(source, "config", "user.email", "test@example.com")
+    (source / "README.md").write_text("reserved\n", encoding="utf-8")
+    _run_git(source, "add", "README.md")
+    _run_git(source, "commit", "-m", "initial")
+    _run_git(source, "tag", "v0.0.0")
+    _run_git(source, "update-ref", "-d", "refs/heads/main")
+
+    class RepositoryWithoutDefaultBranch:
+        clone_url = str(source)
+        default_branch = "main"
+        description = "Reserved repository"
+        forks_count = 0
+        full_name = "eclipse-score/empty-no-default-branch"
+        open_issues_count = 0
+        pushed_at = None
+        stargazers_count = 0
+
+        def get_branch(self, branch_name: str) -> object:
+            raise RuntimeError(f"Branch {branch_name} does not exist")
+
+        def get_languages(self) -> dict[str, int]:
+            return {}
+
+        def get_latest_release(self) -> object:
+            raise RuntimeError("No releases")
+
+        def get_pulls(self, **_: Any) -> list[object]:
+            return []
+
+    monkeypatch.setattr(
+        repo_entry,
+        "DEFAULT_REPOSITORY_CHECKOUTS",
+        tmp_path / "checkouts",
+    )
+
+    entry = repo_entry.collect_repository_entry(
+        repository_name="empty-no-default-branch",
+        repository=RepositoryWithoutDefaultBranch(),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=None,
+    )
+
+    assert entry.default_branch == "main"
+    assert entry.default_branch_sha is None
+    assert entry.content == DeepContentSignals()
 
 
 def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_missing() -> (

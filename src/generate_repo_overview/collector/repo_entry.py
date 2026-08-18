@@ -323,6 +323,15 @@ def _sync_content_checkout(
         checkout_path=checkout_path,
     )
     if synced is None:
+        # GitHub can expose a repository's configured default-branch name even
+        # after that branch has never been created.  In that case a remote may
+        # still have unrelated refs (for example a tag), so ls-remote alone is
+        # not sufficient to identify an empty repository.
+        if (
+            hasattr(repository, "get_branch")
+            and get_default_branch_sha(repository, default_branch) is None
+        ):
+            return (None, None)
         if (
             remote_repository_has_refs(
                 clone_url,
