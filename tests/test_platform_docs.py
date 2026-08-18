@@ -163,6 +163,40 @@ def test_enrichment_keeps_same_feature_from_public_and_private_sources(
     )
 
 
+def test_enrichment_associates_platform_docs_without_modules_category(
+    tmp_path: Path,
+) -> None:
+    contents = {
+        "docs/features/logging/architecture/index.rst": (
+            ".. feat:: Logging\n   :id: feat__logging\n"
+        ),
+    }
+    _write_contents(tmp_path, contents)
+
+    repo = RepoEntry(
+        name="logging",
+        description="logging",
+        category="COM",
+        subcategory="General",
+        content=DeepContentSignals(bazel_module_name="score_logging"),
+    )
+
+    enriched = enrich_repositories_from_platform_docs(
+        [repo],
+        checkout_path=tmp_path,
+        source_repo="eclipse-score/score",
+    )
+
+    assert enriched[0].content.sphinx_features == (
+        SphinxItem(
+            path="docs/features/logging",
+            title="Logging",
+            identifier="feat__logging",
+            source_repo="eclipse-score/score",
+        ),
+    )
+
+
 def test_association_skips_ambiguous_matches() -> None:
     item = SphinxItem(
         path="docs/features/logging",

@@ -41,9 +41,8 @@ def enrich_repositories_from_platform_docs(
         tree_paths=tree_paths,
         source_repo=source_repo,
     )
-    module_repos = [entry for entry in repos if entry.category.casefold() == "modules"]
-    features_by_repo = associate_sphinx_items(features, module_repos)
-    modules_by_repo = associate_sphinx_items(modules, module_repos)
+    features_by_repo = associate_sphinx_items(features, repos)
+    modules_by_repo = associate_sphinx_items(modules, repos)
 
     return [
         replace(
@@ -60,8 +59,6 @@ def enrich_repositories_from_platform_docs(
                 ),
             ),
         )
-        if entry.category.casefold() == "modules"
-        else entry
         for entry in repos
     ]
 

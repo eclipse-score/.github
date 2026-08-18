@@ -252,8 +252,6 @@ def enrich_repositories_with_platform_docs(
                 sphinx_modules=(),
             ),
         )
-        if entry.category.casefold() == "modules"
-        else entry
         for entry in repos
     ]
     for full_name in platform_repos:
