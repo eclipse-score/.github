@@ -64,3 +64,15 @@ module_name = "score_docs_as_code"
 [[signals.workflow_signals]]
 label = "Daily Workflow"
 reference = "eclipse-score/cicd-workflows/.github/workflows/daily.yml@"
+
+[[signals.workflow_signals]]
+label = "Docs"
+reference = "eclipse-score/cicd-workflows/.github/workflows/docs.yml@"
+
+[[signals.workflow_signals]]
+label = "Docs Publish"
+reference = "eclipse-score/cicd-workflows/.github/workflows/docs-publish.yml@"
+
+[[signals.workflow_signals]]
+label = "On-PR"
+reference = "eclipse-score/cicd-workflows/.github/workflows/on-pr.yml@"
