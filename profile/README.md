@@ -43,6 +43,7 @@ Core S-CORE modules, libraries, and APIs.
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
+| [inc_ecu_model](https://github.com/eclipse-score/inc_ecu_model) | Repository for an ECU model |
 | [inc_security_crypto](https://github.com/eclipse-score/inc_security_crypto) | Incubation repository for Security & Cryptography feature |
 | [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
@@ -124,9 +125,7 @@ Toolchain repositories for compilers, linters, and other development tools.
 | [rules_rust](https://github.com/eclipse-score/rules_rust) | S-CORE fork of bazelbuild/rules_rust |
 | [score_cpp_policies](https://github.com/eclipse-score/score_cpp_policies) | Centralized C++ quality tool policies for S-CORE, including sanitizer configurations and safety-critical guidelines. |
 | [score_rust_policies](https://github.com/eclipse-score/score_rust_policies) | Centralized Rust linting and formatting policies for S-CORE, including safety-critical guidelines. |
-| [toolchains_gcc](https://github.com/eclipse-score/toolchains_gcc) | Bazel toolchains for GNU GCC |
 | [toolchains_gcc_packages](https://github.com/eclipse-score/toolchains_gcc_packages) | Bazel toolchains for GNU GCC |
-| [toolchains_qnx](https://github.com/eclipse-score/toolchains_qnx) | Bazel toolchains for QNX |
 | [toolchains_rust](https://github.com/eclipse-score/toolchains_rust) | Rust toolchains |
 
 #### Tooling
