@@ -334,6 +334,10 @@ def test_render_details_naming_tab_includes_all_bazel_repositories(
         '<div class="section hidden" data-tab="traceability">',
         maxsplit=1,
     )[0]
+    naming_content = naming_content.split(
+        '<div class="section hidden" data-tab="policy-sync">',
+        maxsplit=1,
+    )[0]
     assert naming_content.count('data-tab="naming"') == 2
     assert naming_content.count('<table class="naming-table">') == 3
     assert naming_content.count("<th ") == 24

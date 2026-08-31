@@ -2,14 +2,69 @@ from __future__ import annotations
 
 import fnmatch
 import tomllib
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, cast
 
+from generate_repo_overview.constants import (
+    DEFAULT_POLICY_DEFINITIONS_PATH,
+    DEFAULT_POLICY_DESCRIPTIONS_CACHE,
+    DEFAULT_POLICY_REPORT_CACHE,
+    DEFAULT_POLICY_REPORT_FILENAME,
+)
 from generate_repo_overview.models import GroupingLevel, TrackedDep, WorkflowSignal
 
-if TYPE_CHECKING:
-    from pathlib import Path
 
+@dataclass(frozen=True, slots=True)
+class PolicyReportConfig:
+    """Settings for the optional policy-sync report integration."""
+
+    source_repo: str = ""
+    workflow: str = ""
+    artifact: str = ""
+    filename: str = DEFAULT_POLICY_REPORT_FILENAME
+    cache_path: Path = DEFAULT_POLICY_REPORT_CACHE
+    definitions_path: str = str(DEFAULT_POLICY_DEFINITIONS_PATH)
+    descriptions_cache_path: Path = DEFAULT_POLICY_DESCRIPTIONS_CACHE
+
+    @property
+    def enabled(self) -> bool:
+        """Whether a source workflow is configured for this organization."""
+
+        return bool(self.source_repo and self.workflow and self.artifact)
+
+    # These aliases keep the field names convenient for callers that describe
+    # the value as a JSON/report filename or a local path.
+    @property
+    def report_filename(self) -> str:
+        return self.filename
+
+    @property
+    def json_filename(self) -> str:
+        return self.filename
+
+    @property
+    def local_path(self) -> Path:
+        return self.cache_path
+
+    @property
+    def report_path(self) -> Path:
+        return self.cache_path
+
+    @property
+    def source_repository(self) -> str:
+        return self.source_repo
+
+    @property
+    def workflow_file(self) -> str:
+        return self.workflow
+
+    @property
+    def artifact_name(self) -> str:
+        return self.artifact
+
+PolicySyncReportConfig = PolicyReportConfig
+PolicySyncConfig = PolicyReportConfig
 
 @dataclass(frozen=True, slots=True)
 class OrgConfig:
@@ -23,6 +78,7 @@ class OrgConfig:
     registry_repo: str = ""
     platform_repos: tuple[str, ...] = ()
     grouping_levels: tuple[GroupingLevel, ...] = ()
+    policy_report: PolicyReportConfig = field(default_factory=PolicyReportConfig)
 
     def repo_matches_filter(self, repo_name: str) -> bool:
         if not self.repo_include_patterns:
@@ -31,6 +87,32 @@ class OrgConfig:
             fnmatch.fnmatch(repo_name, pattern)
             for pattern in self.repo_include_patterns
         )
+
+    @property
+    def policy_sync_report(self) -> PolicyReportConfig:
+        """Alias for callers that use the upstream tool's terminology."""
+
+        return self.policy_report
+
+    @property
+    def policy_report_source_repo(self) -> str:
+        return self.policy_report.source_repo
+
+    @property
+    def policy_report_workflow(self) -> str:
+        return self.policy_report.workflow
+
+    @property
+    def policy_report_artifact(self) -> str:
+        return self.policy_report.artifact
+
+    @property
+    def policy_report_filename(self) -> str:
+        return self.policy_report.filename
+
+    @property
+    def policy_report_cache_path(self) -> Path:
+        return self.policy_report.cache_path
 
 
 def load_org_config(path: Path) -> OrgConfig:
@@ -66,6 +148,7 @@ def load_org_config(path: Path) -> OrgConfig:
     if not isinstance(raw_grouping, dict):
         raise ValueError("'grouping' must be a table, not a scalar value.")
     grouping_levels = _parse_grouping_levels(raw_grouping.get("levels"))
+    policy_report = _parse_policy_report(raw)
 
     return OrgConfig(
         org_name=org_name.strip(),
@@ -76,6 +159,7 @@ def load_org_config(path: Path) -> OrgConfig:
         registry_repo=registry_repo,
         platform_repos=platform_repos,
         grouping_levels=grouping_levels,
+        policy_report=policy_report,
     )
 
 
@@ -168,3 +252,171 @@ def _parse_workflow_signals(value: object) -> tuple[WorkflowSignal, ...]:
                 WorkflowSignal(label=label.strip(), reference=reference.strip())
             )
     return tuple(result)
+
+
+def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C901
+    """Parse the optional policy report table with strict validation."""
+
+    section_names = ("policy_report", "policy-report", "policy_sync_report", "policy-sync-report")
+    present_sections = [name for name in section_names if raw.get(name) is not None]
+    if len(present_sections) > 1:
+        raise ValueError(
+            "Use only one policy report table in the config file: "
+            + ", ".join(present_sections)
+        )
+    value = raw.get(present_sections[0]) if present_sections else None
+    if value is None:
+        return PolicyReportConfig()
+    if not isinstance(value, dict):
+        raise ValueError("'policy_report' must be a table, not a scalar value.")
+
+    allowed = {
+        "source_repo",
+        "source_repository",
+        "workflow",
+        "workflow_file",
+        "artifact",
+        "artifact_name",
+        "filename",
+        "report_filename",
+        "json_filename",
+        "report_file",
+        "cache_path",
+        "local_path",
+        "local_cache_path",
+        "report_path",
+        "cache_file",
+        "definitions_path",
+        "policy_definitions_path",
+        "descriptions_cache_path",
+        "policy_descriptions_cache_path",
+    }
+    unknown = sorted(set(value) - allowed)
+    if unknown:
+        raise ValueError(
+            "Unknown policy_report setting(s): " + ", ".join(str(key) for key in unknown)
+        )
+
+    source_repo = _policy_report_alias_string(
+        value,
+        ("source_repo", "source_repository"),
+        default="",
+        label="source repository",
+    )
+    workflow = _policy_report_alias_string(
+        value,
+        ("workflow", "workflow_file"),
+        default="",
+        label="workflow",
+    )
+    artifact = _policy_report_alias_string(
+        value,
+        ("artifact", "artifact_name"),
+        default="",
+        label="artifact",
+    )
+    filename = _policy_report_alias_string(
+        value,
+        ("filename", "report_filename", "json_filename", "report_file"),
+        default=DEFAULT_POLICY_REPORT_FILENAME,
+        label="JSON filename",
+    )
+    cache_value = _policy_report_alias_string(
+        value,
+        ("cache_path", "local_path", "local_cache_path", "report_path", "cache_file"),
+        default=str(DEFAULT_POLICY_REPORT_CACHE),
+        label="cache path",
+    )
+    definitions_path = _policy_report_alias_string(
+        value,
+        ("definitions_path", "policy_definitions_path"),
+        default=str(DEFAULT_POLICY_DEFINITIONS_PATH),
+        label="policy definitions path",
+    )
+    descriptions_cache_value = _policy_report_alias_string(
+        value,
+        ("descriptions_cache_path", "policy_descriptions_cache_path"),
+        default=str(DEFAULT_POLICY_DESCRIPTIONS_CACHE),
+        label="policy descriptions cache path",
+    )
+
+    configured_core = any((source_repo, workflow, artifact))
+    if configured_core and not all((source_repo, workflow, artifact)):
+        raise ValueError(
+            "policy_report requires source_repo, workflow, and artifact together."
+        )
+    if source_repo:
+        source_parts = source_repo.split("/")
+        if len(source_parts) != 2 or not all(source_parts):
+            raise ValueError(
+                "policy_report.source_repo must be in 'org/repo' format, "
+                f"got '{source_repo}'."
+            )
+    if workflow and (
+        "/" in workflow
+        or "\\" in workflow
+        or ".." in workflow
+        or not workflow.endswith((".yml", ".yaml"))
+    ):
+        raise ValueError(
+            "policy_report.workflow must be a workflow filename ending in .yml or .yaml."
+        )
+    if artifact and any(character.isspace() for character in artifact):
+        raise ValueError("policy_report.artifact must not contain whitespace.")
+    if not filename.endswith(".json") or Path(filename).name != filename:
+        raise ValueError(
+            "policy_report filename must be a JSON filename without directory components."
+        )
+
+    cache_path = Path(cache_value)
+    if cache_path.is_absolute() or ".." in cache_path.parts or cache_path == Path("."):
+        raise ValueError(
+            "policy_report cache_path must be a non-empty relative path without '..'."
+        )
+    definitions_path_obj = Path(definitions_path)
+    if (
+        definitions_path_obj.is_absolute()
+        or ".." in definitions_path_obj.parts
+        or definitions_path_obj == Path(".")
+        or "\\" in definitions_path
+    ):
+        raise ValueError(
+            "policy_report definitions_path must be a relative path without '..'."
+        )
+    descriptions_cache_path = Path(descriptions_cache_value)
+    if (
+        descriptions_cache_path.is_absolute()
+        or ".." in descriptions_cache_path.parts
+        or descriptions_cache_path == Path(".")
+    ):
+        raise ValueError(
+            "policy_report descriptions_cache_path must be a non-empty relative path without '..'."
+        )
+
+    return PolicyReportConfig(
+        source_repo=source_repo,
+        workflow=workflow,
+        artifact=artifact,
+        filename=filename,
+        cache_path=cache_path,
+        definitions_path=definitions_path,
+        descriptions_cache_path=descriptions_cache_path,
+    )
+
+
+def _policy_report_alias_string(
+    table: dict[str, Any], keys: tuple[str, ...], *, default: str, label: str
+) -> str:
+    present = [key for key in keys if key in table]
+    if len(present) > 1:
+        raise ValueError(
+            f"Specify only one policy_report setting for {label}: "
+            + ", ".join(present)
+        )
+    if not present:
+        return default
+    key = present[0]
+    value = table[key]
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"policy_report.{key} must be a non-empty string.")
+    return value.strip()

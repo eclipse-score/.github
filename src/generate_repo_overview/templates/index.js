@@ -1,5 +1,5 @@
 // Tab switching with URL hash
-const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability'];
+const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability', 'policy-sync'];
 
 function getHashTab() {
   const h = location.hash.slice(1);
@@ -18,7 +18,7 @@ function applyVisibility() {
 function activateTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.getElementById('filters').style.display = tab === 'traceability' ? 'none' : '';
+  document.getElementById('filters').style.display = ['traceability', 'policy-sync'].includes(tab) ? 'none' : '';
   applyVisibility();
 }
 

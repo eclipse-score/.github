@@ -410,7 +410,10 @@ th[data-tooltip]::after, td[data-tooltip]::after {
   text-transform: none;
   letter-spacing: 0;
   padding: 0.5rem 0.85rem;
-  white-space: nowrap;
+  max-width: min(32rem, calc(100vw - 2rem));
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  text-align: left;
   z-index: 100;
   pointer-events: none;
   box-shadow: 0 6px 20px rgba(0,0,0,0.55);
@@ -420,6 +423,8 @@ th[data-tooltip]::after, td[data-tooltip]::after {
 th[data-tooltip]::after { top: calc(100% + 6px); }
 td[data-tooltip]::after { bottom: calc(100% + 6px); }
 th[data-tooltip]:hover::after, td[data-tooltip]:hover::after { opacity: 1; }
+th[data-tooltip]:focus::after, td[data-tooltip]:focus::after { opacity: 1; }
+.policy-matrix-cell:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* Traceability tab */
 .trace-bar {
@@ -438,3 +443,38 @@ th[data-tooltip]:hover::after, td[data-tooltip]:hover::after { opacity: 1; }
 #trace-summary .stat-grid {
   margin: 0 0 1rem;
 }
+
+/* Policy Sync tab */
+.policy-sync-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.1rem 0;
+}
+.policy-raw-link { font-size: 0.78rem; }
+.policy-sync-summary { margin: 1rem 1.1rem; }
+.policy-stat-card { min-width: 125px; }
+.policy-sync-matrix { padding: 0 1.1rem 1rem; }
+.policy-sync-matrix h3 {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.policy-matrix { min-width: 600px; }
+.policy-matrix th:not(:first-child), .policy-matrix td { text-align: center; }
+.policy-matrix-cell { outline: none; }
+.policy-status {
+  display: inline-block;
+  min-width: 2.1rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.policy-status.compliant { color: var(--green); background: #23863633; }
+.policy-status.changes-required { color: var(--red); background: #da363333; }
+.policy-status.not-applicable, .policy-status.not-evaluated { color: var(--muted); background: #8b949e22; }
+.policy-status.error, .policy-status.unknown { color: var(--orange); background: #d2992233; }
+.policy-sync-unavailable { padding: 1.2rem 1.1rem; display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: baseline; }
