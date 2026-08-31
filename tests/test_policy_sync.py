@@ -379,10 +379,13 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert '<span class="policy-status changes-required" aria-label="Changes Needed">!</span>' in page
     assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Open PRs</span>' in page
     assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Merged PRs</span>' in page
-    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Closed PRs</span>' in page
-    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">No PRs</span>' in page
     assert "Repositories" not in page
     assert "Evaluations" not in page
+    assert "Closed PRs" not in page
+    assert "No PRs" not in page
+    assert "Evaluation Errors" not in page
+    assert "Sync Failures" not in page
+    assert "Skipped" not in page
     assert "Actions in this run" not in page
     assert 'class="policy-pr-badge policy-pr-open"' in page
     assert '>Open</a>' in page

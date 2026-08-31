@@ -673,9 +673,9 @@ def render_policy_sync_section(
         + _policy_stat(summary.compliant, "Compliant", "compliant", "✓")
         + _policy_stat(summary.drifted, "Changes Needed", "changes-required", "!")
         + _policy_stat(summary.not_applicable, "Not Applicable", "not-applicable", "N/A")
-        + _policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "!")
-        + _policy_stat(summary.sync_failures, "Sync Failures", "error", "!")
-        + _policy_stat(summary.skipped, "Skipped", "not-evaluated", "—")
+        + _optional_policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "!")
+        + _optional_policy_stat(summary.sync_failures, "Sync Failures", "error", "!")
+        + _optional_policy_stat(summary.skipped, "Skipped", "not-evaluated", "—")
         + "      </div>\n"
         '    </div>\n'
         '    <div class="policy-sync-stat-group">\n'
@@ -683,8 +683,6 @@ def render_policy_sync_section(
         '      <div class="policy-sync-stat-list">\n'
         + _policy_pr_stat("open", pull_request_states["open"])
         + _policy_pr_stat("merged", pull_request_states["merged"])
-        + _policy_pr_stat("closed", pull_request_states["closed"])
-        + _policy_pr_stat("none", pull_request_states["none"])
         + "      </div>\n"
         '    </div>\n'
         "  </div>\n"
@@ -742,22 +740,11 @@ def _pull_request_state_counts(
 ) -> dict[str, int]:
     """Count the PR states reported for policy evaluations."""
 
-    counts = {
-        "open": 0,
-        "merged": 0,
-        "closed": 0,
-        "none": 0,
-        "not checked": 0,
-        "other": 0,
-    }
+    counts = {"open": 0, "merged": 0}
     for outcome in outcomes:
         state = outcome.policy_pr_status
-        if state is None:
-            counts["not checked"] += 1
-        elif state in {"open", "merged", "closed", "none"}:
+        if state in counts:
             counts[state] += 1
-        else:
-            counts["other"] += 1
     return counts
 
 
@@ -819,6 +806,12 @@ def _policy_stat(value: int, label: str, status_class: str, marker: str) -> str:
         f'<span class="policy-sync-stat-label">{e(label)}</span>'
         "</span>\n"
     )
+
+
+def _optional_policy_stat(
+    value: int, label: str, status_class: str, marker: str
+) -> str:
+    return _policy_stat(value, label, status_class, marker) if value else ""
 
 
 def _policy_pr_stat(state: str, value: int) -> str:
