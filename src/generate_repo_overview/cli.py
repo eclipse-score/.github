@@ -10,11 +10,17 @@ from .console import print_status
 from .constants import (
     DEFAULT_CACHE,
     DEFAULT_METRICS_HTML_OUTPUT,
+    DEFAULT_ORG_CONFIG,
     DEFAULT_OUTPUT,
+    DEFAULT_POLICY_REPORT_FILENAME,
     DEFAULT_TOKEN_ENV,
 )
 from .metrics_html import render_all_pages
 from .org_config import load_org_config
+from .policy_sync import (
+    fetch_policy_report,
+    load_policy_sync_report,
+)
 from .profile_readme import load_config, load_template, render_readme
 
 if TYPE_CHECKING:
@@ -34,6 +40,9 @@ CLI_EPILOG = dedent(
 
       uv run generate-repo-overview render-details
           Re-render the HTML metrics page from the local cache.
+
+      uv run generate-repo-overview fetch-policy-report
+          Fetch the configured policy-sync report for the HTML metrics page.
 
     Defaults:
       Cache:   {DEFAULT_CACHE}
@@ -125,6 +134,29 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_METRICS_HTML_OUTPUT,
         help="Output directory for HTML pages",
     )
+    details_parser.add_argument(
+        "--org-config",
+        type=Path,
+        default=DEFAULT_ORG_CONFIG,
+        help="Organization config used to discover the optional policy-sync report",
+    )
+
+    subparsers.add_parser(
+        "fetch-policy-report",
+        aliases=["fetch-policy-sync-report", "fetch-policy-sync"],
+        help="Fetch the configured policy-sync report (best effort).",
+    ).add_argument(
+        "--org-config",
+        type=Path,
+        default=DEFAULT_ORG_CONFIG,
+        help="Path to an org_config.toml file with policy-report settings",
+    )
+    fetch_parser = subparsers.choices["fetch-policy-report"]
+    fetch_parser.add_argument(
+        "--token-env",
+        default=DEFAULT_TOKEN_ENV,
+        help="Environment variable that contains the GitHub token",
+    )
 
     return parser
 
@@ -144,6 +176,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_render_overview(args)
     if command == "render-details":
         return run_render_details(args)
+    if command in {
+        "fetch-policy-report",
+        "fetch-policy-sync-report",
+        "fetch-policy-sync",
+    }:
+        return run_fetch_policy_report(args)
     raise ValueError(f"Unsupported command {command!r}.")
 
 
@@ -176,7 +214,29 @@ def run_render_overview(args: argparse.Namespace) -> int:
 
 def run_render_details(args: argparse.Namespace) -> int:
     snapshot = load_snapshot(args.input)
-    pages = render_all_pages(snapshot)
+    policy_report = None
+    policy_report_json = None
+    policy_report_filename = DEFAULT_POLICY_REPORT_FILENAME
+    if args.org_config.exists():
+        try:
+            config = load_org_config(args.org_config)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        if config.policy_report.enabled:
+            policy_report_filename = config.policy_report.filename
+            report_path = config.policy_report.cache_path
+            policy_report = load_policy_sync_report(report_path)
+            if report_path.is_file():
+                try:
+                    policy_report_json = report_path.read_text(encoding="utf-8")
+                except (OSError, UnicodeError):
+                    policy_report_json = None
+    pages = render_all_pages(
+        snapshot,
+        policy_report,
+        policy_report_json=policy_report_json,
+        policy_report_filename=policy_report_filename,
+    )
     output_dir: Path = args.output
     for relative_path, content in pages.items():
         write_text_file(
@@ -184,6 +244,19 @@ def run_render_details(args: argparse.Namespace) -> int:
             content=content,
             status_prefix="repo-overview",
         )
+    return 0
+
+
+def run_fetch_policy_report(args: argparse.Namespace) -> int:
+    try:
+        config = load_org_config(args.org_config)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    fetch_policy_report(
+        config.policy_report,
+        token_env=args.token_env,
+        status_prefix="repo-overview",
+    )
     return 0
 
 

@@ -64,6 +64,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}
 
+      - name: Fetch policy sync report
+        env:
+          GITHUB_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}
+        run: uv run generate-repo-overview fetch-policy-report
+
       - name: Render details (HTML)
         run: uv run generate-repo-overview render-details
 

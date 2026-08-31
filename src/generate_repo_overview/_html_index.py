@@ -21,22 +21,33 @@ from .metrics_report import (
     parse_version_key,
     tracked_dep_label,
 )
-from .models import LockfileStatus
+from .models import LockfileStatus, is_tracked_dep_repo
 from .module_name_matching import NameMatch, classify_repository_name_match
+from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_section
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot, SphinxItem, TrackedDep
-
-from .models import is_tracked_dep_repo
+    from .policy_sync import PolicySyncReport
 
 _INDEX_JS = (Path(__file__).parent / "templates" / "index.js").read_text(
     encoding="utf-8"
 )
 
 
-def render_index_page(snapshot: RepoSnapshot) -> str:
+def render_index_page(
+    snapshot: RepoSnapshot,
+    policy_report: PolicySyncReport | None = None,
+    *,
+    raw_json_available: bool = False,
+    raw_json_filename: str = POLICY_REPORT_FILENAME,
+) -> str:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
     categories = group_repos_by_category(repos)
+    repository_categories = {
+        repo.name: category
+        for category, category_repos in categories
+        for repo in category_repos
+    }
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n'
@@ -54,6 +65,12 @@ def render_index_page(snapshot: RepoSnapshot) -> str:
         + _render_automation_sections(categories, snapshot)
         + _render_naming_sections(categories, snapshot)
         + _render_traceability_section(repos, snapshot)
+        + render_policy_sync_section(
+            policy_report,
+            repository_categories=repository_categories,
+            raw_json_available=raw_json_available or policy_report is not None,
+            raw_json_filename=raw_json_filename,
+        )
         + "</div>\n"
         + _render_footer(snapshot)
         + _render_script(categories)
@@ -111,6 +128,7 @@ def _render_tab_bar() -> str:
         '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
         '  <button class="tab-btn" data-tab="naming">Naming</button>\n'
         '  <button class="tab-btn" data-tab="traceability">Traceability</button>\n'
+        '  <button class="tab-btn" data-tab="policy-sync">Policy Sync</button>\n'
         "</div>\n\n"
     )
 
