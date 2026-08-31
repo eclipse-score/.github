@@ -374,18 +374,21 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert "style.display = tab === 'traceability' ? 'none' : '';" in page
     assert 'data-category="Infrastructure"' in page
     assert 'data-category="Platform"' in page
-    assert '<div class="stat-value">1</div><div class="stat-label">Open PRs</div>' in page
-    assert '<div class="stat-value">1</div><div class="stat-label">Merged PRs</div>' in page
-    assert '<div class="stat-value">1</div><div class="stat-label">Closed PRs</div>' in page
-    assert '<div class="stat-value">1</div><div class="stat-label">No PR</div>' in page
-    assert page.count('class="stat-card policy-stat-card"') == 12
+    assert 'class="policy-sync-statistics"' in page
+    assert '<span class="policy-status compliant" aria-label="Compliant">✓</span>' in page
+    assert '<span class="policy-status changes-required" aria-label="Changes Needed">!</span>' in page
+    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Open PRs</span>' in page
+    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Merged PRs</span>' in page
+    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Closed PRs</span>' in page
+    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">No PRs</span>' in page
+    assert "Repositories" not in page
+    assert "Evaluations" not in page
     assert "Actions in this run" not in page
     assert 'class="policy-pr-badge policy-pr-open"' in page
-    assert 'class="policy-pr-badge policy-pr-merged"' in page
-    assert 'class="policy-pr-badge policy-pr-closed"' in page
     assert '>Open</a>' in page
-    assert '>Merged</a>' in page
-    assert '>Closed</a>' in page
+    assert 'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>' in page
+    assert 'href="https://github.com/org/tools/pull/2"' not in page
+    assert 'href="https://github.com/org/score/pull/3"' not in page
 
 
 def test_render_details_discovers_configured_report_and_publishes_raw_json(

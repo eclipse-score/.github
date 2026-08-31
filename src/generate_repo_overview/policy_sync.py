@@ -661,30 +661,33 @@ def render_policy_sync_section(
         '<div class="section hidden" data-tab="policy-sync">\n'
         '  <div class="section-header">\n'
         '    <span class="section-title">Policy Sync</span>\n'
-        f'    <span class="section-count">{summary.repositories}</span>\n'
         "  </div>\n"
         '  <div class="policy-sync-meta">\n'
         '    <span class="section-subtitle">Repository policy compliance</span>\n'
         f"    {raw_link}\n"
         "  </div>\n"
-        '  <div class="policy-sync-stat-heading">Evaluation summary</div>\n'
-        '  <div class="stat-grid policy-sync-summary">\n'
-        + _stat_card(summary.repositories, "Repositories")
-        + _stat_card(summary.evaluations, "Evaluations")
-        + _stat_card(summary.compliant, "Compliant")
-        + _stat_card(summary.drifted, "Changes Needed")
-        + _stat_card(summary.not_applicable, "Not Applicable")
-        + _stat_card(summary.evaluation_failures, "Evaluation Errors")
-        + _stat_card(summary.sync_failures, "Sync Failures")
-        + _stat_card(summary.skipped, "Skipped")
-        + "  </div>\n"
-        '  <div class="policy-sync-stat-heading">Policy PR states</div>\n'
-        '  <div class="stat-grid policy-sync-summary">\n'
-        + _stat_card(pull_request_states["open"], "Open PRs")
-        + _stat_card(pull_request_states["merged"], "Merged PRs")
-        + _stat_card(pull_request_states["closed"], "Closed PRs")
-        + _stat_card(pull_request_states["none"], "No PR")
-        + "  </div>\n"
+        '  <div class="policy-sync-statistics">\n'
+        '    <div class="policy-sync-stat-group">\n'
+        '      <div class="policy-sync-stat-heading">Evaluation status</div>\n'
+        '      <div class="policy-sync-stat-list">\n'
+        + _policy_stat(summary.compliant, "Compliant", "compliant", "✓")
+        + _policy_stat(summary.drifted, "Changes Needed", "changes-required", "!")
+        + _policy_stat(summary.not_applicable, "Not Applicable", "not-applicable", "N/A")
+        + _policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "!")
+        + _policy_stat(summary.sync_failures, "Sync Failures", "error", "!")
+        + _policy_stat(summary.skipped, "Skipped", "not-evaluated", "—")
+        + "      </div>\n"
+        '    </div>\n'
+        '    <div class="policy-sync-stat-group">\n'
+        '      <div class="policy-sync-stat-heading">Policy PR states</div>\n'
+        '      <div class="policy-sync-stat-list">\n'
+        + _policy_pr_stat("open", pull_request_states["open"])
+        + _policy_pr_stat("merged", pull_request_states["merged"])
+        + _policy_pr_stat("closed", pull_request_states["closed"])
+        + _policy_pr_stat("none", pull_request_states["none"])
+        + "      </div>\n"
+        '    </div>\n'
+        "  </div>\n"
         "  </div>\n"
     )
     if not policies:
@@ -807,11 +810,25 @@ def _policy_header(
     )
 
 
-def _stat_card(value: int | str, label: str) -> str:
+def _policy_stat(value: int, label: str, status_class: str, marker: str) -> str:
     return (
-        '    <div class="stat-card policy-stat-card">'
-        f'<div class="stat-value">{value}</div><div class="stat-label">{e(label)}</div>'
-        "</div>\n"
+        '        <span class="policy-sync-stat">'
+        f'<span class="policy-status {status_class}" aria-label="{e(label)}">'
+        f"{e(marker)}</span>"
+        f'<span class="policy-sync-stat-value">{value}</span>'
+        f'<span class="policy-sync-stat-label">{e(label)}</span>'
+        "</span>\n"
+    )
+
+
+def _policy_pr_stat(state: str, value: int) -> str:
+    label = _pull_request_state_label(state)
+    return (
+        '        <span class="policy-sync-stat">'
+        f"{_policy_pr_badge(state)}"
+        f'<span class="policy-sync-stat-value">{value}</span>'
+        f'<span class="policy-sync-stat-label">{e(label)} PRs</span>'
+        "</span>\n"
     )
 
 
@@ -841,21 +858,18 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
     if outcome is None:
         return '<span class="policy-status not-applicable" aria-label="Not applicable">N/A</span>'
     status_class, label, marker = _status_display(outcome)
+    automated = status_class == "compliant" and bool(outcome.pull_request_url)
+    if automated:
+        label = "Compliant (automated PR)"
+        marker = "✓✓"
     content = (
         f'<span class="policy-status {status_class}" title="{e(label)}" '
         f'aria-label="{e(label)}">{marker}</span>'
     )
-    if outcome.pull_request_url:
+    if outcome.pull_request_url and not automated:
         link = _safe_external_url(outcome.pull_request_url)
         if link:
-            pr_label = _pull_request_state_label(outcome.policy_pr_status)
-            pr_class = _pull_request_state_class(outcome.policy_pr_status)
-            content += (
-                f' <a href="{link}" class="policy-pr-badge policy-pr-{pr_class}" '
-                f'aria-label="{e(pr_label)} policy pull request" '
-                f'title="View {e(pr_label)} policy pull request" '
-                f'target="_blank" rel="noopener">{GITHUB_ICON}{e(pr_label)}</a>'
-            )
+            content += f" {_policy_pr_badge(outcome.policy_pr_status, href=link)}"
     return content
 
 
@@ -864,11 +878,29 @@ def _pull_request_state_label(state: str | None) -> str:
         "open": "Open",
         "merged": "Merged",
         "closed": "Closed",
+        "none": "No",
     }.get(state or "", state or "PR state not checked")
 
 
 def _pull_request_state_class(state: str | None) -> str:
-    return state if state in {"open", "merged", "closed"} else "unknown"
+    return state if state in {"open", "merged", "closed", "none"} else "unknown"
+
+
+def _policy_pr_badge(state: str | None, *, href: str | None = None) -> str:
+    label = _pull_request_state_label(state)
+    state_class = _pull_request_state_class(state)
+    badge_content = "—" if state == "none" else f"{GITHUB_ICON}{e(label)}"
+    if href is None:
+        return (
+            f'<span class="policy-pr-badge policy-pr-{state_class}" '
+            f'aria-label="{e(label)} PRs">{badge_content}</span>'
+        )
+    return (
+        f'<a href="{href}" class="policy-pr-badge policy-pr-{state_class}" '
+        f'aria-label="{e(label)} policy pull request" '
+        f'title="View {e(label)} policy pull request" '
+        f'target="_blank" rel="noopener">{badge_content}</a>'
+    )
 
 
 def _status_display(outcome: PolicySyncOutcome) -> tuple[str, str, str]:
