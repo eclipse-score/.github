@@ -387,6 +387,9 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert 'class="policy-pr-badge policy-pr-open"' in page
     assert '>Open</a>' in page
     assert 'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>' in page
+    assert 'Status: Compliant\nApplicable:' not in page
+    assert "Automated policy PR (merged):" in page
+    assert "Automated policy PR (closed):" in page
     assert 'href="https://github.com/org/tools/pull/2"' not in page
     assert 'href="https://github.com/org/score/pull/3"' not in page
 

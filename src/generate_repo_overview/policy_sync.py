@@ -925,8 +925,10 @@ def _status_display(outcome: PolicySyncOutcome) -> tuple[str, str, str]:
 
 
 def _outcome_tooltip(outcome: PolicySyncOutcome) -> str:
-    _, label, _ = _status_display(outcome)
-    lines = [f"Status: {label}", f"Applicable: {outcome.applicable}"]
+    status_class, label, _ = _status_display(outcome)
+    lines = [f"Status: {label}"]
+    if status_class != "compliant":
+        lines.append(f"Applicable: {outcome.applicable}")
     if outcome.changes:
         lines.append("Changes:")
         lines.extend(
@@ -940,8 +942,9 @@ def _outcome_tooltip(outcome: PolicySyncOutcome) -> str:
     if outcome.error:
         lines.append(f"Error: {outcome.error}")
     if outcome.pull_request_url:
+        pr_prefix = "Automated policy PR" if status_class == "compliant" else "Pull request"
         lines.append(
-            f"Pull request ({outcome.policy_pr_status or 'unknown'}): "
+            f"{pr_prefix} ({outcome.policy_pr_status or 'unknown'}): "
             f"{outcome.pull_request_url}"
         )
     return "\n".join(lines)
