@@ -14,7 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from ._html_common import e
+from ._html_common import GITHUB_ICON, e
 from .console import print_status
 from .constants import DEFAULT_POLICY_REPORT_FILENAME, DEFAULT_TOKEN_ENV
 
@@ -848,21 +848,27 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
     if outcome.pull_request_url:
         link = _safe_external_url(outcome.pull_request_url)
         if link:
-            pr_status = _pull_request_state_label(outcome.policy_pr_status)
+            pr_label = _pull_request_state_label(outcome.policy_pr_status)
+            pr_class = _pull_request_state_class(outcome.policy_pr_status)
             content += (
-                f' <a href="{link}" title="Open {e(pr_status)}" '
-                f'target="_blank" rel="noopener">{e(pr_status)}</a>'
+                f' <a href="{link}" class="policy-pr-badge policy-pr-{pr_class}" '
+                f'aria-label="{e(pr_label)} policy pull request" '
+                f'title="View {e(pr_label)} policy pull request" '
+                f'target="_blank" rel="noopener">{GITHUB_ICON}{e(pr_label)}</a>'
             )
     return content
 
 
 def _pull_request_state_label(state: str | None) -> str:
     return {
-        "open": "Open PR",
-        "merged": "Merged PR",
-        "closed": "Closed PR",
-        "none": "No PR",
+        "open": "Open",
+        "merged": "Merged",
+        "closed": "Closed",
     }.get(state or "", state or "PR state not checked")
+
+
+def _pull_request_state_class(state: str | None) -> str:
+    return state if state in {"open", "merged", "closed"} else "unknown"
 
 
 def _status_display(outcome: PolicySyncOutcome) -> tuple[str, str, str]:

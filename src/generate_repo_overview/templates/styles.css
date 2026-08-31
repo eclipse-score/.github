@@ -485,4 +485,21 @@ th[data-tooltip]:focus::after, td[data-tooltip]:focus::after { opacity: 1; }
 .policy-status.changes-required { color: var(--red); background: #da363333; }
 .policy-status.not-applicable, .policy-status.not-evaluated { color: var(--muted); background: #8b949e22; }
 .policy-status.error, .policy-status.unknown { color: var(--orange); background: #d2992233; }
+.policy-pr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.policy-pr-badge:hover { text-decoration: none; filter: brightness(1.15); }
+.policy-pr-badge svg { width: 12px; height: 12px; }
+.policy-pr-open { color: #3fb950; background: #2ea04333; border-color: #2ea04399; }
+.policy-pr-merged { color: #a371f7; background: #8250df33; border-color: #8250df99; }
+.policy-pr-closed { color: #8b949e; background: #6e778133; border-color: #6e778199; }
+.policy-pr-unknown { color: var(--muted); background: #8b949e22; border-color: #8b949e66; }
 .policy-sync-unavailable { padding: 1.2rem 1.1rem; display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: baseline; }
