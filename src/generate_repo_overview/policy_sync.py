@@ -670,7 +670,6 @@ def render_policy_sync_section(
         '  <div class="policy-sync-stat-heading">Evaluation summary</div>\n'
         '  <div class="stat-grid policy-sync-summary">\n'
         + _stat_card(summary.repositories, "Repositories")
-        + _stat_card(summary.synchronized, "Synchronized")
         + _stat_card(summary.evaluations, "Evaluations")
         + _stat_card(summary.compliant, "Compliant")
         + _stat_card(summary.drifted, "Changes Needed")
@@ -678,7 +677,6 @@ def render_policy_sync_section(
         + _stat_card(summary.evaluation_failures, "Evaluation Errors")
         + _stat_card(summary.sync_failures, "Sync Failures")
         + _stat_card(summary.skipped, "Skipped")
-        + _stat_card(f"{summary.duration_seconds:.1f}s", "Duration")
         + "  </div>\n"
         '  <div class="policy-sync-stat-heading">Policy PR states</div>\n'
         '  <div class="stat-grid policy-sync-summary">\n'
@@ -686,16 +684,6 @@ def render_policy_sync_section(
         + _stat_card(pull_request_states["merged"], "Merged PRs")
         + _stat_card(pull_request_states["closed"], "Closed PRs")
         + _stat_card(pull_request_states["none"], "No PR")
-        + _stat_card(pull_request_states["not checked"], "PR State Not Checked")
-        + _stat_card(pull_request_states["other"], "Other PR States")
-        + "  </div>\n"
-        '  <div class="policy-sync-stat-heading">Actions in this run</div>\n'
-        '  <div class="stat-grid policy-sync-summary">\n'
-        + _stat_card(summary.pull_requests_created, "PRs Created")
-        + _stat_card(summary.pull_requests_updated, "PRs Updated")
-        + _stat_card(summary.pull_requests_open, "PRs Already Open")
-        + _stat_card(summary.pull_requests_recreated, "PRs Recreated")
-        + _stat_card(summary.pull_requests_closed, "PRs Closed")
         + "  </div>\n"
         "  </div>\n"
     )

@@ -378,6 +378,8 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert '<div class="stat-value">1</div><div class="stat-label">Merged PRs</div>' in page
     assert '<div class="stat-value">1</div><div class="stat-label">Closed PRs</div>' in page
     assert '<div class="stat-value">1</div><div class="stat-label">No PR</div>' in page
+    assert page.count('class="stat-card policy-stat-card"') == 12
+    assert "Actions in this run" not in page
     assert '>Open PR</a>' in page
     assert '>Merged PR</a>' in page
     assert '>Closed PR</a>' in page
