@@ -18,7 +18,7 @@ function applyVisibility() {
 function activateTab(tab) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.getElementById('filters').style.display = ['traceability', 'policy-sync'].includes(tab) ? 'none' : '';
+  document.getElementById('filters').style.display = tab === 'traceability' ? 'none' : '';
   applyVisibility();
 }
 

@@ -12,7 +12,11 @@ import pytest
 import generate_repo_overview.cli as cli
 from generate_repo_overview._html_index import render_index_page
 from generate_repo_overview.collector import write_snapshot
-from generate_repo_overview.models import SNAPSHOT_SCHEMA_VERSION, RepoSnapshot
+from generate_repo_overview.models import (
+    SNAPSHOT_SCHEMA_VERSION,
+    RepoEntry,
+    RepoSnapshot,
+)
 from generate_repo_overview.org_config import (
     OrgConfig,
     PolicyReportConfig,
@@ -89,6 +93,28 @@ def _minimal_snapshot() -> RepoSnapshot:
         org_name="eclipse-score",
         generated_at="2026-08-30T12:00:00+00:00",
         repos=(),
+    )
+
+
+def _categorized_snapshot() -> RepoSnapshot:
+    return RepoSnapshot(
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
+        org_name="eclipse-score",
+        generated_at="2026-08-30T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="tools",
+                description="Tools",
+                category="Infrastructure",
+                subcategory="General",
+            ),
+            RepoEntry(
+                name="score",
+                description="Score",
+                category="Platform",
+                subcategory="General",
+            ),
+        ),
     )
 
 
@@ -314,6 +340,47 @@ def test_policy_sync_tab_renders_details_links_and_escaped_values() -> None:
     assert "<details" not in page
     assert 'href="https://github.com/org/repo/pull/1"' in page
     assert 'href="repo-policy-sync-report.json"' in page
+
+
+def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
+    report = parse_policy_sync_report(_report_payload())
+    assert report is not None
+    report = PolicySyncReport(
+        schema_version=report.schema_version,
+        summary=report.summary,
+        outcomes=(
+            *report.outcomes,
+            PolicySyncOutcome(
+                policy_id="merged-policy",
+                repository="tools",
+                applicable="yes",
+                status="compliant",
+                policy_pr_status="merged",
+                pull_request_url="https://github.com/org/tools/pull/2",
+            ),
+            PolicySyncOutcome(
+                policy_id="closed-policy",
+                repository="score",
+                applicable="yes",
+                status="compliant",
+                policy_pr_status="closed",
+                pull_request_url="https://github.com/org/score/pull/3",
+            ),
+        ),
+    )
+
+    page = render_index_page(_categorized_snapshot(), report)
+
+    assert "style.display = tab === 'traceability' ? 'none' : '';" in page
+    assert 'data-category="Infrastructure"' in page
+    assert 'data-category="Platform"' in page
+    assert '<div class="stat-value">1</div><div class="stat-label">Open PRs</div>' in page
+    assert '<div class="stat-value">1</div><div class="stat-label">Merged PRs</div>' in page
+    assert '<div class="stat-value">1</div><div class="stat-label">Closed PRs</div>' in page
+    assert '<div class="stat-value">1</div><div class="stat-label">No PR</div>' in page
+    assert '>Open PR</a>' in page
+    assert '>Merged PR</a>' in page
+    assert '>Closed PR</a>' in page
 
 
 def test_render_details_discovers_configured_report_and_publishes_raw_json(

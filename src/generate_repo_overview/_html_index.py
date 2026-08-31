@@ -46,6 +46,11 @@ def render_index_page(
 ) -> str:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
     categories = group_repos_by_category(repos)
+    repository_categories = {
+        repo.name: category
+        for category, category_repos in categories
+        for repo in category_repos
+    }
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n'
@@ -66,6 +71,7 @@ def render_index_page(
         + render_policy_sync_section(
             policy_report,
             policy_descriptions=policy_descriptions,
+            repository_categories=repository_categories,
             raw_json_available=raw_json_available or policy_report is not None,
             raw_json_filename=raw_json_filename,
         )

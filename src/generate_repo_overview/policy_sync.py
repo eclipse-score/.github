@@ -632,6 +632,7 @@ def render_policy_sync_section(
     report: PolicySyncReport | None,
     *,
     policy_descriptions: Mapping[str, str] | None = None,
+    repository_categories: Mapping[str, str] | None = None,
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
 ) -> str:
@@ -653,19 +654,10 @@ def render_policy_sync_section(
     policies = list(dict.fromkeys(outcome.policy_id for outcome in report.outcomes))
     repositories = list(dict.fromkeys(outcome.repository for outcome in report.outcomes))
     by_pair = {(outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes}
-    if policies:
-        matrix_rows = "\n".join(
-            _matrix_row(repository, policies, by_pair) for repository in repositories
-        )
-        matrix_header = "".join(
-            _policy_header(policy, policy_descriptions) for policy in policies
-        )
-    else:
-        matrix_rows = '<tr><td colspan="2" class="text-muted">No policy evaluations.</td></tr>'
-        matrix_header = "<th>Policy</th>"
     raw_link = _raw_json_link(raw_json_filename) if raw_json_available or report is not None else ""
     summary = report.summary
-    return (
+    pull_request_states = _pull_request_state_counts(report.outcomes)
+    summary_section = (
         '<div class="section hidden" data-tab="policy-sync">\n'
         '  <div class="section-header">\n'
         '    <span class="section-title">Policy Sync</span>\n'
@@ -675,6 +667,7 @@ def render_policy_sync_section(
         '    <span class="section-subtitle">Repository policy compliance</span>\n'
         f"    {raw_link}\n"
         "  </div>\n"
+        '  <div class="policy-sync-stat-heading">Evaluation summary</div>\n'
         '  <div class="stat-grid policy-sync-summary">\n'
         + _stat_card(summary.repositories, "Repositories")
         + _stat_card(summary.synchronized, "Synchronized")
@@ -685,15 +678,125 @@ def render_policy_sync_section(
         + _stat_card(summary.evaluation_failures, "Evaluation Errors")
         + _stat_card(summary.sync_failures, "Sync Failures")
         + _stat_card(summary.skipped, "Skipped")
-        + _stat_card(summary.pull_requests_created, "PRs Created")
-        + _stat_card(summary.pull_requests_updated, "PRs Updated")
-        + _stat_card(summary.pull_requests_open, "PRs Open")
-        + _stat_card(summary.pull_requests_recreated, "PRs Recreated")
-        + _stat_card(summary.pull_requests_closed, "PRs Closed")
         + _stat_card(f"{summary.duration_seconds:.1f}s", "Duration")
         + "  </div>\n"
+        '  <div class="policy-sync-stat-heading">Policy PR states</div>\n'
+        '  <div class="stat-grid policy-sync-summary">\n'
+        + _stat_card(pull_request_states["open"], "Open PRs")
+        + _stat_card(pull_request_states["merged"], "Merged PRs")
+        + _stat_card(pull_request_states["closed"], "Closed PRs")
+        + _stat_card(pull_request_states["none"], "No PR")
+        + _stat_card(pull_request_states["not checked"], "PR State Not Checked")
+        + _stat_card(pull_request_states["other"], "Other PR States")
+        + "  </div>\n"
+        '  <div class="policy-sync-stat-heading">Actions in this run</div>\n'
+        '  <div class="stat-grid policy-sync-summary">\n'
+        + _stat_card(summary.pull_requests_created, "PRs Created")
+        + _stat_card(summary.pull_requests_updated, "PRs Updated")
+        + _stat_card(summary.pull_requests_open, "PRs Already Open")
+        + _stat_card(summary.pull_requests_recreated, "PRs Recreated")
+        + _stat_card(summary.pull_requests_closed, "PRs Closed")
+        + "  </div>\n"
+        "  </div>\n"
+    )
+    if not policies:
+        return summary_section + _render_policy_matrix_section(
+            None,
+            [],
+            [],
+            by_pair,
+            policy_descriptions,
+        )
+
+    groups = _group_policy_repositories(repositories, repository_categories)
+    matrix_sections = "".join(
+        _render_policy_matrix_section(
+            category,
+            category_repositories,
+            policies,
+            by_pair,
+            policy_descriptions,
+        )
+        for category, category_repositories in groups
+    )
+    return summary_section + matrix_sections
+
+
+def _group_policy_repositories(
+    repositories: list[str],
+    repository_categories: Mapping[str, str] | None,
+) -> list[tuple[str | None, list[str]]]:
+    """Group report repositories in the same order as the dashboard filters."""
+
+    if not repository_categories:
+        return [(None, repositories)]
+
+    grouped: dict[str, list[str]] = {}
+    ungrouped: list[str] = []
+    for repository in repositories:
+        category = repository_categories.get(repository)
+        if category is None:
+            ungrouped.append(repository)
+        else:
+            grouped.setdefault(category, []).append(repository)
+
+    groups: list[tuple[str | None, list[str]]] = list(grouped.items())
+    if ungrouped:
+        groups.append((None, ungrouped))
+    return groups
+
+
+def _pull_request_state_counts(
+    outcomes: tuple[PolicySyncOutcome, ...],
+) -> dict[str, int]:
+    """Count the PR states reported for policy evaluations."""
+
+    counts = {
+        "open": 0,
+        "merged": 0,
+        "closed": 0,
+        "none": 0,
+        "not checked": 0,
+        "other": 0,
+    }
+    for outcome in outcomes:
+        state = outcome.policy_pr_status
+        if state is None:
+            counts["not checked"] += 1
+        elif state in {"open", "merged", "closed", "none"}:
+            counts[state] += 1
+        else:
+            counts["other"] += 1
+    return counts
+
+
+def _render_policy_matrix_section(
+    category: str | None,
+    repositories: list[str],
+    policies: list[str],
+    by_pair: dict[tuple[str, str], PolicySyncOutcome],
+    policy_descriptions: Mapping[str, str] | None,
+) -> str:
+    category_attr = f' data-category="{e(category)}"' if category is not None else ""
+    if policies:
+        matrix_rows = "\n".join(
+            _matrix_row(repository, policies, by_pair) for repository in repositories
+        )
+        matrix_header = "".join(
+            _policy_header(policy, policy_descriptions) for policy in policies
+        )
+    else:
+        matrix_rows = '<tr><td colspan="2" class="text-muted">No policy evaluations.</td></tr>'
+        matrix_header = "<th>Policy</th>"
+    title = "Compliance Matrix" if category is None else category
+    count = f'<span class="section-count">{len(repositories)}</span>' if category is not None else ""
+    return (
+        f'<div class="section hidden" data-tab="policy-sync"{category_attr}>\n'
+        '  <div class="section-header">\n'
+        f'    <span class="section-title">{e(title)}</span>\n'
+        f"    {count}\n"
+        "  </div>\n"
         '  <div class="policy-sync-matrix">\n'
-        '    <h3>Compliance Matrix</h3>\n'
         '    <table class="policy-matrix">\n'
         "      <thead><tr><th>Repository</th>"
         f"{matrix_header}</tr></thead>\n"
@@ -757,12 +860,21 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
     if outcome.pull_request_url:
         link = _safe_external_url(outcome.pull_request_url)
         if link:
-            pr_status = e(outcome.policy_pr_status or "unknown")
+            pr_status = _pull_request_state_label(outcome.policy_pr_status)
             content += (
-                f' <a href="{link}" title="Open {pr_status} pull request" '
-                f'target="_blank" rel="noopener">PR</a>'
+                f' <a href="{link}" title="Open {e(pr_status)}" '
+                f'target="_blank" rel="noopener">{e(pr_status)}</a>'
             )
     return content
+
+
+def _pull_request_state_label(state: str | None) -> str:
+    return {
+        "open": "Open PR",
+        "merged": "Merged PR",
+        "closed": "Closed PR",
+        "none": "No PR",
+    }.get(state or "", state or "PR state not checked")
 
 
 def _status_display(outcome: PolicySyncOutcome) -> tuple[str, str, str]:
