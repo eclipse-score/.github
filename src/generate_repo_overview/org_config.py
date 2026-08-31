@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from generate_repo_overview.constants import (
-    DEFAULT_POLICY_DEFINITIONS_PATH,
-    DEFAULT_POLICY_DESCRIPTIONS_CACHE,
     DEFAULT_POLICY_REPORT_CACHE,
     DEFAULT_POLICY_REPORT_FILENAME,
 )
@@ -24,8 +22,6 @@ class PolicyReportConfig:
     artifact: str = ""
     filename: str = DEFAULT_POLICY_REPORT_FILENAME
     cache_path: Path = DEFAULT_POLICY_REPORT_CACHE
-    definitions_path: str = str(DEFAULT_POLICY_DEFINITIONS_PATH)
-    descriptions_cache_path: Path = DEFAULT_POLICY_DESCRIPTIONS_CACHE
 
     @property
     def enabled(self) -> bool:
@@ -286,10 +282,6 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
         "local_cache_path",
         "report_path",
         "cache_file",
-        "definitions_path",
-        "policy_definitions_path",
-        "descriptions_cache_path",
-        "policy_descriptions_cache_path",
     }
     unknown = sorted(set(value) - allowed)
     if unknown:
@@ -327,19 +319,6 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
         default=str(DEFAULT_POLICY_REPORT_CACHE),
         label="cache path",
     )
-    definitions_path = _policy_report_alias_string(
-        value,
-        ("definitions_path", "policy_definitions_path"),
-        default=str(DEFAULT_POLICY_DEFINITIONS_PATH),
-        label="policy definitions path",
-    )
-    descriptions_cache_value = _policy_report_alias_string(
-        value,
-        ("descriptions_cache_path", "policy_descriptions_cache_path"),
-        default=str(DEFAULT_POLICY_DESCRIPTIONS_CACHE),
-        label="policy descriptions cache path",
-    )
-
     configured_core = any((source_repo, workflow, artifact))
     if configured_core and not all((source_repo, workflow, artifact)):
         raise ValueError(
@@ -373,34 +352,12 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
         raise ValueError(
             "policy_report cache_path must be a non-empty relative path without '..'."
         )
-    definitions_path_obj = Path(definitions_path)
-    if (
-        definitions_path_obj.is_absolute()
-        or ".." in definitions_path_obj.parts
-        or definitions_path_obj == Path(".")
-        or "\\" in definitions_path
-    ):
-        raise ValueError(
-            "policy_report definitions_path must be a relative path without '..'."
-        )
-    descriptions_cache_path = Path(descriptions_cache_value)
-    if (
-        descriptions_cache_path.is_absolute()
-        or ".." in descriptions_cache_path.parts
-        or descriptions_cache_path == Path(".")
-    ):
-        raise ValueError(
-            "policy_report descriptions_cache_path must be a non-empty relative path without '..'."
-        )
-
     return PolicyReportConfig(
         source_repo=source_repo,
         workflow=workflow,
         artifact=artifact,
         filename=filename,
         cache_path=cache_path,
-        definitions_path=definitions_path,
-        descriptions_cache_path=descriptions_cache_path,
     )
 
 

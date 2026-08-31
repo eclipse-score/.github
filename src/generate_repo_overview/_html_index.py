@@ -26,8 +26,6 @@ from .module_name_matching import NameMatch, classify_repository_name_match
 from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_section
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from .models import RepoEntry, RepoSnapshot, SphinxItem, TrackedDep
     from .policy_sync import PolicySyncReport
 
@@ -40,7 +38,6 @@ def render_index_page(
     snapshot: RepoSnapshot,
     policy_report: PolicySyncReport | None = None,
     *,
-    policy_descriptions: Mapping[str, str] | None = None,
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
 ) -> str:
@@ -70,7 +67,6 @@ def render_index_page(
         + _render_traceability_section(repos, snapshot)
         + render_policy_sync_section(
             policy_report,
-            policy_descriptions=policy_descriptions,
             repository_categories=repository_categories,
             raw_json_available=raw_json_available or policy_report is not None,
             raw_json_filename=raw_json_filename,

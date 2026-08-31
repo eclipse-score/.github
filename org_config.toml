@@ -87,8 +87,3 @@ workflow = "repo-policy-sync.yml"
 artifact = "repo-policy-sync-report"
 filename = "repo-policy-sync-report.json"
 cache_path = ".cache/repo-policy-sync-report.json"
-# The upstream report currently contains evaluations, not policy descriptions.
-# Read descriptions from the source policy.yml files and store them separately
-# so the report JSON remains untouched and descriptions are never hardcoded.
-definitions_path = "repo_policy_sync/policies"
-descriptions_cache_path = ".cache/repo-policy-sync-descriptions.json"

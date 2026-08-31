@@ -10,8 +10,6 @@ from .metrics_report import get_latest_tracked_dep_version, get_max_bazel_versio
 from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_report_json
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from .models import RepoSnapshot
     from .policy_sync import PolicySyncReport
 
@@ -22,7 +20,6 @@ def render_all_pages(
     snapshot: RepoSnapshot,
     policy_report: PolicySyncReport | None = None,
     *,
-    policy_descriptions: Mapping[str, str] | None = None,
     policy_report_json: str | None = None,
     policy_report_filename: str = POLICY_REPORT_FILENAME,
 ) -> dict[str, str]:
@@ -37,7 +34,6 @@ def render_all_pages(
         "index.html": render_index_page(
             snapshot,
             policy_report,
-            policy_descriptions=policy_descriptions,
             raw_json_available=policy_report_json is not None,
             raw_json_filename=policy_report_filename,
         ),

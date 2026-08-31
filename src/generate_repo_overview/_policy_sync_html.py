@@ -11,13 +11,12 @@ from .constants import DEFAULT_POLICY_REPORT_FILENAME
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from .policy_sync import PolicySyncOutcome, PolicySyncReport
+    from .policy_sync import PolicySyncOutcome, PolicySyncPolicy, PolicySyncReport
 
 
 def render_policy_sync_section(
     report: PolicySyncReport | None,
     *,
-    policy_descriptions: Mapping[str, str] | None = None,
     repository_categories: Mapping[str, str] | None = None,
     raw_json_available: bool = False,
     raw_json_filename: str = DEFAULT_POLICY_REPORT_FILENAME,
@@ -40,6 +39,7 @@ def render_policy_sync_section(
     policies = list(dict.fromkeys(outcome.policy_id for outcome in report.outcomes))
     repositories = list(dict.fromkeys(outcome.repository for outcome in report.outcomes))
     by_pair = {(outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes}
+    policy_definitions = {policy.id: policy for policy in report.policies}
     raw_link = _raw_json_link(raw_json_filename)
     summary = report.summary
     pull_request_states = _pull_request_state_counts(report.outcomes)
@@ -80,7 +80,7 @@ def render_policy_sync_section(
             [],
             [],
             by_pair,
-            policy_descriptions,
+            policy_definitions,
         )
 
     groups = _group_policy_repositories(repositories, repository_categories)
@@ -90,7 +90,7 @@ def render_policy_sync_section(
             category_repositories,
             policies,
             by_pair,
-            policy_descriptions,
+            policy_definitions,
         )
         for category, category_repositories in groups
     )
@@ -139,7 +139,7 @@ def _render_policy_matrix_section(
     repositories: list[str],
     policies: list[str],
     by_pair: dict[tuple[str, str], PolicySyncOutcome],
-    policy_descriptions: Mapping[str, str] | None,
+    policy_definitions: Mapping[str, PolicySyncPolicy],
 ) -> str:
     category_attr = f' data-category="{e(category)}"' if category is not None else ""
     if policies:
@@ -147,7 +147,7 @@ def _render_policy_matrix_section(
             _matrix_row(repository, policies, by_pair) for repository in repositories
         )
         matrix_header = "".join(
-            _policy_header(policy, policy_descriptions) for policy in policies
+            _policy_header(policy, policy_definitions) for policy in policies
         )
     else:
         matrix_rows = '<tr><td colspan="2" class="text-muted">No policy evaluations.</td></tr>'
@@ -172,9 +172,10 @@ def _render_policy_matrix_section(
 
 
 def _policy_header(
-    policy: str, policy_descriptions: Mapping[str, str] | None
+    policy: str, policy_definitions: Mapping[str, PolicySyncPolicy]
 ) -> str:
-    description = (policy_descriptions or {}).get(policy)
+    definition = policy_definitions.get(policy)
+    description = definition.description if definition else ""
     if not description:
         return f"<th>{e(policy)}</th>"
     return (

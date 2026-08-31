@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import json
 from pathlib import Path
 from typing import Any
@@ -23,10 +22,10 @@ from generate_repo_overview.org_config import (
 from generate_repo_overview.policy_sync import (
     PolicySyncChange,
     PolicySyncOutcome,
+    PolicySyncPolicy,
     PolicySyncReport,
     PolicySyncSummary,
     fetch_policy_report,
-    load_policy_descriptions,
     load_policy_sync_report,
     parse_policy_sync_report,
 )
@@ -35,6 +34,14 @@ from generate_repo_overview.policy_sync import (
 def _report_payload() -> dict[str, Any]:
     return {
         "schema_version": 2,
+        "policies": [
+            {
+                "id": "minimum-bazel-version",
+                "title": "Keep Bazel current",
+                "description": "Use Bazel 8.6.0 or newer.",
+                "legacy_names": ["bazel.minimum-version"],
+            }
+        ],
         "summary": {
             "repositories": 2,
             "synchronized": 2,
@@ -121,10 +128,6 @@ def test_policy_report_config_defaults_and_loading(tmp_path: Path) -> None:
     assert default.enabled is False
     assert default.filename == "repo-policy-sync-report.json"
     assert default.cache_path == Path(".cache/repo-policy-sync-report.json")
-    assert default.definitions_path == "repo_policy_sync/policies"
-    assert default.descriptions_cache_path == Path(
-        ".cache/repo-policy-sync-descriptions.json"
-    )
 
     config_path = tmp_path / "org.toml"
     config_path.write_text(
@@ -136,8 +139,6 @@ workflow = 'repo-policy-sync.yml'
 artifact = 'repo-policy-sync-report'
 filename = 'report.json'
 cache_path = '.cache/report.json'
-definitions_path = 'repo_policy_sync/policies'
-descriptions_cache_path = '.cache/descriptions.json'
 """,
         encoding="utf-8",
     )
@@ -148,8 +149,6 @@ descriptions_cache_path = '.cache/descriptions.json'
         artifact="repo-policy-sync-report",
         filename="report.json",
         cache_path=Path(".cache/report.json"),
-        definitions_path="repo_policy_sync/policies",
-        descriptions_cache_path=Path(".cache/descriptions.json"),
     )
 
 
@@ -161,8 +160,6 @@ descriptions_cache_path = '.cache/descriptions.json'
         ("artifact = 'policy report'", "whitespace"),
         ("filename = 'report.txt'", "JSON filename"),
         ("cache_path = '../report.json'", "without '..'"),
-        ("definitions_path = '../policies'", "relative path"),
-        ("descriptions_cache_path = '../descriptions.json'", "without '..'"),
     ],
 )
 def test_policy_report_config_rejects_invalid_values(
@@ -176,8 +173,6 @@ def test_policy_report_config_rejects_invalid_values(
         "artifact": "artifact = 'report'",
         "filename": "filename = 'report.json'",
         "cache_path": "cache_path = '.cache/report.json'",
-        "definitions_path": "definitions_path = 'repo_policy_sync/policies'",
-        "descriptions_cache_path": "descriptions_cache_path = '.cache/descriptions.json'",
     }
     lines = ["org_name = 'test'", "[policy_report]"]
     lines.extend(
@@ -217,8 +212,6 @@ def test_fetch_policy_report_downloads_latest_completed_artifact(
         artifact="policy-report",
         filename="report.json",
         cache_path=report_path,
-        definitions_path="policies",
-        descriptions_cache_path=tmp_path / "descriptions.json",
     )
     def fake_gh(args: list[str], token: str | None) -> str:
         assert token is None
@@ -231,17 +224,10 @@ def test_fetch_policy_report_downloads_latest_completed_artifact(
                 json.dumps(_report_payload()), encoding="utf-8"
             )
             return ""
-        assert args[0] == "api"
-        assert args[1].endswith("/minimum-bazel-version/policy.yml")
-        return base64.b64encode(
-            b"description: |\n  Use Bazel 8.6.0 or newer.\n"
-        ).decode()
+        raise AssertionError(f"unexpected gh command: {args}")
 
     assert fetch_policy_report(config, gh_runner=fake_gh) is True
     assert json.loads(report_path.read_text(encoding="utf-8")) == _report_payload()
-    assert json.loads(config.descriptions_cache_path.read_text(encoding="utf-8")) == {
-        "minimum-bazel-version": "Use Bazel 8.6.0 or newer."
-    }
 
 
 def test_fetch_policy_report_is_non_fatal_when_no_run_exists(tmp_path: Path) -> None:
@@ -272,16 +258,20 @@ def test_policy_report_parser_handles_missing_malformed_and_unsupported_reports(
     assert load_policy_sync_report(malformed) is None
 
     assert parse_policy_sync_report({"schema_version": 1}) is None
-    assert parse_policy_sync_report(_report_payload()) is not None
+    report = parse_policy_sync_report(_report_payload())
+    assert report is not None
+    assert report.policies[0].description == "Use Bazel 8.6.0 or newer."
 
-    descriptions = tmp_path / "descriptions.json"
-    descriptions.write_text(
-        json.dumps({"minimum-bazel-version": "Use Bazel 8.6.0 or newer."}),
-        encoding="utf-8",
-    )
-    assert load_policy_descriptions(descriptions) == {
-        "minimum-bazel-version": "Use Bazel 8.6.0 or newer."
-    }
+    invalid_policy = _report_payload()
+    invalid_policy["policies"] = [{"id": "minimum-bazel-version", "description": 7}]
+    assert parse_policy_sync_report(invalid_policy) is None
+
+    duplicate_policies = _report_payload()
+    duplicate_policies["policies"] = [
+        {"id": "duplicate"},
+        {"id": "duplicate"},
+    ]
+    assert parse_policy_sync_report(duplicate_policies) is None
 
 
 def test_policy_sync_tab_renders_details_links_and_escaped_values() -> None:
@@ -301,11 +291,13 @@ def test_policy_sync_tab_renders_details_links_and_escaped_values() -> None:
                 error="<error>",
             ),
         ),
+        policies=(
+            PolicySyncPolicy(id="<policy>", description="<policy description>"),
+        ),
     )
     page = render_index_page(
         _minimal_snapshot(),
         report,
-        policy_descriptions={"<policy>": "<policy description>"},
     )
 
     assert 'data-tab="policy-sync">Policy Sync</button>' in page
@@ -388,10 +380,6 @@ def test_render_details_discovers_configured_report_and_publishes_raw_json(
     (tmp_path / ".cache" / "report.json").write_text(
         json.dumps(_report_payload()), encoding="utf-8"
     )
-    (tmp_path / ".cache" / "descriptions.json").write_text(
-        json.dumps({"minimum-bazel-version": "Use Bazel 8.6.0 or newer."}),
-        encoding="utf-8",
-    )
     (tmp_path / "org.toml").write_text(
         """org_name = 'eclipse-score'
 [policy_report]
@@ -400,7 +388,6 @@ workflow = 'repo-policy-sync.yml'
 artifact = 'policy-report'
 filename = 'report.json'
 cache_path = '.cache/report.json'
-descriptions_cache_path = '.cache/descriptions.json'
 """,
         encoding="utf-8",
     )

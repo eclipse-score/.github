@@ -49,10 +49,10 @@ policy-sync report metadata. Category order and descriptions for the profile
 are stored in
 `src/generate_repo_overview/profile_readme_config.toml`.
 
-The policy-sync report artifact contains evaluation results. Policy
-descriptions are fetched from the configured source repository's `policy.yml`
-files and cached separately, so the upstream report is not modified and no
-descriptions are hardcoded in this repository.
+The policy-sync report artifact contains the evaluation results and policy
+metadata, including descriptions. The dashboard renders those descriptions
+directly from the report; no policy descriptions are hardcoded in this
+repository.
 
 Use `--config /path/to/file.toml` with `render-overview` to select another
 profile configuration.

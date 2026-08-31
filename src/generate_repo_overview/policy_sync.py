@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import subprocess
-import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -55,6 +53,16 @@ class PolicySyncChange:
 
 
 @dataclass(frozen=True, slots=True)
+class PolicySyncPolicy:
+    """Policy metadata included in the upstream report."""
+
+    id: str
+    title: str = ""
+    description: str = ""
+    legacy_names: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class PolicySyncOutcome:
     """One repository/policy evaluation from the report."""
 
@@ -76,6 +84,7 @@ class PolicySyncReport:
     schema_version: int
     summary: PolicySyncSummary
     outcomes: tuple[PolicySyncOutcome, ...]
+    policies: tuple[PolicySyncPolicy, ...] = ()
 
 
 # Short aliases make the public API easier to discover without coupling it to
@@ -83,6 +92,7 @@ class PolicySyncReport:
 PolicyReport = PolicySyncReport
 PolicyReportSummary = PolicySyncSummary
 PolicyReportOutcome = PolicySyncOutcome
+PolicyReportPolicy = PolicySyncPolicy
 
 
 def parse_policy_sync_report(value: object) -> PolicySyncReport | None:
@@ -95,14 +105,26 @@ def parse_policy_sync_report(value: object) -> PolicySyncReport | None:
         return None
     raw_summary = value.get("summary")
     raw_outcomes = value.get("outcomes")
-    if not isinstance(raw_summary, dict) or not isinstance(raw_outcomes, list):
+    raw_policies = value.get("policies", [])
+    if (
+        not isinstance(raw_summary, dict)
+        or not isinstance(raw_outcomes, list)
+        or not isinstance(raw_policies, list)
+    ):
         return None
     typed_summary = cast("dict[str, Any]", raw_summary)
     typed_outcomes = cast("list[object]", raw_outcomes)
+    typed_policies = cast("list[object]", raw_policies)
 
     summary = _parse_summary(typed_summary)
     if summary is None:
         return None
+    policies: list[PolicySyncPolicy] = []
+    for raw_policy in typed_policies:
+        policy = _parse_policy(raw_policy)
+        if policy is None or any(existing.id == policy.id for existing in policies):
+            return None
+        policies.append(policy)
     outcomes: list[PolicySyncOutcome] = []
     for raw_outcome in typed_outcomes:
         outcome = _parse_outcome(raw_outcome)
@@ -113,6 +135,7 @@ def parse_policy_sync_report(value: object) -> PolicySyncReport | None:
         schema_version=POLICY_REPORT_SCHEMA_VERSION,
         summary=summary,
         outcomes=tuple(outcomes),
+        policies=tuple(policies),
     )
 
 
@@ -126,26 +149,6 @@ def load_policy_sync_report(path: Path) -> PolicySyncReport | None:
     return parse_policy_sync_report(value)
 
 
-def load_policy_descriptions(path: Path) -> dict[str, str]:
-    """Load cached policy descriptions, returning an empty map when unusable."""
-
-    try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return {}
-    if not isinstance(value, dict):
-        return {}
-    typed_value = cast("dict[object, object]", value)
-    return {
-        policy_id: description
-        for policy_id, description in typed_value.items()
-        if isinstance(policy_id, str)
-        and policy_id.strip()
-        and isinstance(description, str)
-        and description.strip()
-    }
-
-
 # Compatibility aliases for callers that use the shorter report name.
 parse_policy_report = parse_policy_sync_report
 load_policy_report = load_policy_sync_report
@@ -157,6 +160,15 @@ def policy_sync_report_to_dict(report: PolicySyncReport) -> dict[str, Any]:
     summary = report.summary
     return {
         "schema_version": report.schema_version,
+        "policies": [
+            {
+                "id": policy.id,
+                "title": policy.title,
+                "description": policy.description,
+                "legacy_names": list(policy.legacy_names),
+            }
+            for policy in report.policies
+        ],
         "summary": {
             "repositories": summary.repositories,
             "synchronized": summary.synchronized,
@@ -278,18 +290,6 @@ def fetch_policy_report(
             raise ValueError("downloaded policy report is malformed or unsupported")
         config.cache_path.parent.mkdir(parents=True, exist_ok=True)
         config.cache_path.write_bytes(report_bytes)
-        descriptions = _fetch_policy_descriptions(
-            config,
-            report,
-            resolved_token,
-            runner,
-        )
-        if descriptions:
-            config.descriptions_cache_path.parent.mkdir(parents=True, exist_ok=True)
-            config.descriptions_cache_path.write_text(
-                json.dumps(descriptions, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
     except Exception as exc:  # pragma: no cover - individual API failures vary
         print_status(f"Policy sync report unavailable: {exc}", prefix=status_prefix)
         return False
@@ -344,101 +344,6 @@ def _parse_report_bytes(value: bytes) -> PolicySyncReport | None:
         return None
 
 
-def _fetch_policy_descriptions(
-    config: PolicyReportConfig,
-    report: PolicySyncReport,
-    token: str | None,
-    gh_runner: Callable[[list[str], str | None], str],
-) -> dict[str, str]:
-    definitions_path = urllib.parse.quote(config.definitions_path.strip("/"), safe="/")
-    descriptions: dict[str, str] = {}
-    policy_ids = dict.fromkeys(outcome.policy_id for outcome in report.outcomes)
-    for policy_id in policy_ids:
-        policy_path = urllib.parse.quote(policy_id, safe="")
-        endpoint = (
-            f"repos/{config.source_repo}/contents/"
-            f"{definitions_path}/{policy_path}/policy.yml"
-        )
-        try:
-            encoded_content = gh_runner(
-                ["api", endpoint, "--jq", ".content"], token
-            ).strip()
-            definition = {
-                "content": encoded_content,
-                "encoding": "base64",
-            }
-            content = _decode_policy_definition(definition)
-            description = _extract_policy_description(content)
-        except Exception:  # pragma: no cover - remote metadata is best effort
-            continue
-        if description:
-            descriptions[policy_id] = description
-    return descriptions
-
-
-def _decode_policy_definition(value: object) -> str:
-    if not isinstance(value, dict):
-        raise ValueError("policy definition response is not an object")
-    typed_value = cast("dict[str, object]", value)
-    content = typed_value.get("content")
-    encoding = typed_value.get("encoding")
-    if not isinstance(content, str) or encoding != "base64":
-        raise ValueError("policy definition response has no base64 content")
-    try:
-        return base64.b64decode(content).decode("utf-8")
-    except (ValueError, UnicodeError) as exc:
-        raise ValueError("policy definition content is not valid UTF-8") from exc
-
-
-def _extract_policy_description(document: str) -> str | None:
-    """Extract only the description field from the small policy YAML files."""
-
-    lines = document.splitlines()
-    for index, line in enumerate(lines):
-        stripped = line.lstrip()
-        if not stripped.startswith("description:"):
-            continue
-        prefix_indent = len(line) - len(stripped)
-        value = stripped.removeprefix("description:").strip()
-        if value and value[0] not in "|>":
-            return _strip_yaml_scalar(value)
-        if value and value[0] in "|>":
-            block = _description_block(lines[index + 1 :], prefix_indent)
-            if value[0] == ">":
-                return " ".join(line for line in block if line).strip() or None
-            return "\n".join(block).strip() or None
-        return None
-    return None
-
-
-def _description_block(lines: list[str], parent_indent: int) -> list[str]:
-    content: list[str] = []
-    content_indent: int | None = None
-    for line in lines:
-        if not line.strip():
-            if content:
-                content.append("")
-            continue
-        indent = len(line) - len(line.lstrip(" "))
-        if indent <= parent_indent:
-            break
-        if content_indent is None:
-            content_indent = indent
-        content.append(line[content_indent:])
-    return content
-
-
-def _strip_yaml_scalar(value: str) -> str:
-    if len(value) >= 2 and value[0] == value[-1] == "'":
-        return value[1:-1].replace("''", "'").strip()
-    if len(value) >= 2 and value[0] == value[-1] == '"':
-        try:
-            decoded = json.loads(value)
-        except json.JSONDecodeError:
-            return value[1:-1].strip()
-        return decoded if isinstance(decoded, str) else value
-    return value.strip()
-
 
 def _latest_completed_run_id(value: str) -> str | None:
     run_id = value.strip()
@@ -491,6 +396,36 @@ def _parse_summary(value: dict[str, Any]) -> PolicySyncSummary | None:
         pull_requests_recreated=parsed["pull_requests_recreated"],
         pull_requests_closed=parsed["pull_requests_closed"],
         duration_seconds=float(duration),
+    )
+
+
+def _parse_policy(value: object) -> PolicySyncPolicy | None:
+    if not isinstance(value, dict):
+        return None
+    typed_value = cast("dict[str, Any]", value)
+    policy_id = typed_value.get("id")
+    title = typed_value.get("title", "")
+    description = typed_value.get("description", "")
+    legacy_names = typed_value.get("legacy_names", [])
+    if (
+        not isinstance(policy_id, str)
+        or not policy_id.strip()
+        or not isinstance(title, str)
+        or not isinstance(description, str)
+        or not isinstance(legacy_names, list)
+    ):
+        return None
+    typed_legacy_names_object = cast("list[object]", legacy_names)
+    if any(not isinstance(name, str) for name in typed_legacy_names_object):
+        return None
+    typed_legacy_names = cast("list[str]", legacy_names)
+    return PolicySyncPolicy(
+        id=policy_id.strip(),
+        title=title.strip(),
+        description=description.strip(),
+        legacy_names=tuple(
+            name.strip() for name in typed_legacy_names if name.strip()
+        ),
     )
 
 
@@ -548,7 +483,6 @@ def _parse_outcome(value: object) -> PolicySyncOutcome | None:  # noqa: C901
 def render_policy_sync_section(
     report: PolicySyncReport | None,
     *,
-    policy_descriptions: Mapping[str, str] | None = None,
     repository_categories: Mapping[str, str] | None = None,
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
@@ -559,7 +493,6 @@ def render_policy_sync_section(
 
     return render(
         report,
-        policy_descriptions=policy_descriptions,
         repository_categories=repository_categories,
         raw_json_available=raw_json_available,
         raw_json_filename=raw_json_filename,

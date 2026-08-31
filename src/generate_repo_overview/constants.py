@@ -11,10 +11,6 @@ DEFAULT_TOKEN_ENV = "GITHUB_TOKEN"
 
 DEFAULT_POLICY_REPORT_FILENAME = "repo-policy-sync-report.json"
 DEFAULT_POLICY_REPORT_CACHE = Path(".cache/repo-policy-sync-report.json")
-DEFAULT_POLICY_DEFINITIONS_PATH = Path("repo_policy_sync/policies")
-DEFAULT_POLICY_DESCRIPTIONS_CACHE = Path(
-    ".cache/repo-policy-sync-descriptions.json"
-)
 
 
 def default_repository_checkout_cache() -> Path:

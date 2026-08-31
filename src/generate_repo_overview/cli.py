@@ -19,7 +19,6 @@ from .metrics_html import render_all_pages
 from .org_config import load_org_config
 from .policy_sync import (
     fetch_policy_report,
-    load_policy_descriptions,
     load_policy_sync_report,
 )
 from .profile_readme import load_config, load_template, render_readme
@@ -216,7 +215,6 @@ def run_render_overview(args: argparse.Namespace) -> int:
 def run_render_details(args: argparse.Namespace) -> int:
     snapshot = load_snapshot(args.input)
     policy_report = None
-    policy_descriptions = None
     policy_report_json = None
     policy_report_filename = DEFAULT_POLICY_REPORT_FILENAME
     if args.org_config.exists():
@@ -226,9 +224,6 @@ def run_render_details(args: argparse.Namespace) -> int:
             raise SystemExit(str(exc)) from exc
         if config.policy_report.enabled:
             policy_report_filename = config.policy_report.filename
-            policy_descriptions = load_policy_descriptions(
-                config.policy_report.descriptions_cache_path
-            )
             report_path = config.policy_report.cache_path
             policy_report = load_policy_sync_report(report_path)
             if report_path.is_file():
@@ -239,7 +234,6 @@ def run_render_details(args: argparse.Namespace) -> int:
     pages = render_all_pages(
         snapshot,
         policy_report,
-        policy_descriptions=policy_descriptions,
         policy_report_json=policy_report_json,
         policy_report_filename=policy_report_filename,
     )
