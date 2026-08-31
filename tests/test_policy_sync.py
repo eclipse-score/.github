@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import base64
-import io
 import json
-import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -222,41 +220,24 @@ def test_fetch_policy_report_downloads_latest_completed_artifact(
         definitions_path="policies",
         descriptions_cache_path=tmp_path / "descriptions.json",
     )
-    archive_buffer = io.BytesIO()
-    with zipfile.ZipFile(archive_buffer, "w") as archive:
-        archive.writestr("nested/report.json", json.dumps(_report_payload()))
-
-    responses = {
-        "/actions/workflows/repo-policy-sync.yml/runs": {
-            "workflow_runs": [
-                {"id": 10, "status": "completed", "created_at": "2026-08-29"},
-                {"id": 11, "status": "completed", "created_at": "2026-08-30"},
-            ]
-        },
-        "/actions/runs/11/artifacts": {
-            "artifacts": [{"id": 22, "name": "policy-report", "expired": False}]
-        },
-    }
-    definition = {
-        "encoding": "base64",
-        "content": base64.b64encode(
+    def fake_gh(args: list[str], token: str | None) -> str:
+        assert token is None
+        if args[:2] == ["run", "list"]:
+            return "11\n"
+        if args[:2] == ["run", "download"]:
+            download_dir = Path(args[args.index("--dir") + 1])
+            download_dir.joinpath("nested").mkdir()
+            download_dir.joinpath("nested/report.json").write_text(
+                json.dumps(_report_payload()), encoding="utf-8"
+            )
+            return ""
+        assert args[0] == "api"
+        assert args[1].endswith("/minimum-bazel-version/policy.yml")
+        return base64.b64encode(
             b"description: |\n  Use Bazel 8.6.0 or newer.\n"
-        ).decode(),
-    }
+        ).decode()
 
-    def fake_urlopen(request: Any, *, timeout: int) -> Any:
-        del timeout
-        url = request.full_url
-        if url.endswith("/zip"):
-            payload = archive_buffer.getvalue()
-        elif url.endswith("/policy.yml"):
-            payload = json.dumps(definition).encode()
-        else:
-            path = url.split("/repos/org/tools", 1)[1].split("?", 1)[0]
-            payload = json.dumps(responses[path]).encode()
-        return _FakeResponse(payload)
-
-    assert fetch_policy_report(config, urlopen=fake_urlopen) is True
+    assert fetch_policy_report(config, gh_runner=fake_gh) is True
     assert json.loads(report_path.read_text(encoding="utf-8")) == _report_payload()
     assert json.loads(config.descriptions_cache_path.read_text(encoding="utf-8")) == {
         "minimum-bazel-version": "Use Bazel 8.6.0 or newer."
@@ -271,11 +252,12 @@ def test_fetch_policy_report_is_non_fatal_when_no_run_exists(tmp_path: Path) -> 
         cache_path=tmp_path / "report.json",
     )
 
-    def fake_urlopen(request: Any, *, timeout: int) -> Any:
-        del request, timeout
-        return _FakeResponse(b'{"workflow_runs": []}')
+    def fake_gh(args: list[str], token: str | None) -> str:
+        del token
+        assert args[:2] == ["run", "list"]
+        return "null\n"
 
-    assert fetch_policy_report(config, token="secret", urlopen=fake_urlopen) is False
+    assert fetch_policy_report(config, token="secret", gh_runner=fake_gh) is False
     assert not config.cache_path.exists()
 
 
@@ -442,17 +424,3 @@ descriptions_cache_path = '.cache/descriptions.json'
     assert 'data-tooltip="Use Bazel 8.6.0 or newer."' in index
     assert 'href="report.json"' in index
     assert (tmp_path / "site" / "report.json").exists()
-
-
-class _FakeResponse:
-    def __init__(self, payload: bytes) -> None:
-        self.payload = payload
-
-    def __enter__(self) -> _FakeResponse:
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        return None
-
-    def read(self) -> bytes:
-        return self.payload

@@ -18,9 +18,14 @@ Built-in commands:
   - Renders the profile README from an existing snapshot.
 - `render-details`
   - Renders the HTML dashboard and repository detail pages.
+- `fetch-policy-report`
+  - Downloads the latest completed policy-sync artifact configured in
+    `org_config.toml` using the GitHub CLI. The report is optional and the
+    command is best-effort.
 
 The `collect` command performs a GitHub sync. Render commands never contact
-GitHub.
+GitHub; run `fetch-policy-report` before `render-details` when the policy-sync
+dashboard is enabled.
 
 ## Setup and Authentication
 
@@ -32,14 +37,22 @@ uv sync --all-groups --frozen
 
 Collection reads `GITHUB_TOKEN` and falls back to `gh auth token`. The token
 must be able to read every configured organization and platform repository.
+The policy report fetch uses `GH_TOKEN`/`GITHUB_TOKEN` through the installed
+GitHub CLI (`gh auth login` is sufficient for local use).
 
 ## Configuration
 
 `org_config.toml` defines the organization, repository selection and grouping,
 tracked Bazel dependencies, workflow signals, shared registry and reference
-integration repositories, and platform documentation repositories. Category
-order and descriptions for the profile are stored in
+integration repositories, platform documentation repositories, and optional
+policy-sync report metadata. Category order and descriptions for the profile
+are stored in
 `src/generate_repo_overview/profile_readme_config.toml`.
+
+The policy-sync report artifact contains evaluation results. Policy
+descriptions are fetched from the configured source repository's `policy.yml`
+files and cached separately, so the upstream report is not modified and no
+descriptions are hardcoded in this repository.
 
 Use `--config /path/to/file.toml` with `render-overview` to select another
 profile configuration.

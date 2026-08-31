@@ -1,20 +1,17 @@
-"""Fetch, validate, and render the optional repository policy report."""
+"""Fetch and validate the optional repository policy report."""
 
 from __future__ import annotations
 
 import base64
 import json
 import os
-import urllib.error
+import subprocess
 import urllib.parse
-import urllib.request
-import zipfile
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any, cast
 
-from ._html_common import GITHUB_ICON, e
 from .console import print_status
 from .constants import DEFAULT_POLICY_REPORT_FILENAME, DEFAULT_TOKEN_ENV
 
@@ -25,8 +22,6 @@ if TYPE_CHECKING:
 
 POLICY_REPORT_SCHEMA_VERSION = 2
 POLICY_REPORT_FILENAME = DEFAULT_POLICY_REPORT_FILENAME
-_GITHUB_API = "https://api.github.com"
-_REQUEST_TIMEOUT_SECONDS = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -214,7 +209,7 @@ def fetch_policy_report(
     *,
     token: str | None = None,
     token_env: str = DEFAULT_TOKEN_ENV,
-    urlopen: Callable[..., Any] | None = None,
+    gh_runner: Callable[[list[str], str | None], str] | None = None,
     status_prefix: str = "repo-overview",
 ) -> bool:
     """Fetch the latest completed configured workflow artifact.
@@ -226,59 +221,75 @@ def fetch_policy_report(
 
     if not config.enabled:
         return False
-    # The configured source repository is public, so the GitHub API can be
-    # used anonymously.  Prefer a token when one is available because it
-    # provides a higher rate limit and is required for private repositories.
     resolved_token = token or _resolve_policy_token(token_env)
+    runner = gh_runner or _run_gh
 
-    opener = urlopen or urllib.request.urlopen
     try:
-        repository = urllib.parse.quote(config.source_repo, safe="/")
-        workflow = urllib.parse.quote(config.workflow, safe="")
-        runs = _get_json(
-            f"{_GITHUB_API}/repos/{repository}/actions/workflows/{workflow}/runs"
-            "?status=completed&per_page=20",
-            resolved_token,
-            opener,
+        run_id = _latest_completed_run_id(
+            runner(
+                [
+                    "run",
+                    "list",
+                    "--repo",
+                    config.source_repo,
+                    "--workflow",
+                    config.workflow,
+                    "--status",
+                    "completed",
+                    "--limit",
+                    "1",
+                    "--json",
+                    "databaseId",
+                    "--jq",
+                    ".[0].databaseId",
+                ],
+                resolved_token,
+            )
         )
-        run_id = _latest_completed_run_id(runs)
         if run_id is None:
             raise ValueError("no completed workflow run was found")
 
-        artifacts = _get_json(
-            f"{_GITHUB_API}/repos/{repository}/actions/runs/{run_id}/artifacts"
-            "?per_page=100",
-            resolved_token,
-            opener,
-        )
-        artifact_id = _find_artifact_id(artifacts, config.artifact)
-        if artifact_id is None:
-            raise ValueError(f"artifact {config.artifact!r} was not found")
+        with TemporaryDirectory(prefix="policy-sync-report-") as download_dir:
+            runner(
+                [
+                    "run",
+                    "download",
+                    str(run_id),
+                    "--repo",
+                    config.source_repo,
+                    "--name",
+                    config.artifact,
+                    "--dir",
+                    download_dir,
+                ],
+                resolved_token,
+            )
+            matches = sorted(Path(download_dir).rglob(config.filename))
+            if not matches:
+                raise ValueError(f"{config.filename!r} was not found in the artifact")
+            if len(matches) > 1:
+                raise ValueError(
+                    f"artifact contains multiple {config.filename!r} files"
+                )
+            report_bytes = matches[0].read_bytes()
 
-        archive = _get_bytes(
-            f"{_GITHUB_API}/repos/{repository}/actions/artifacts/{artifact_id}/zip",
-            resolved_token,
-            opener,
-        )
-        report_bytes = _extract_report_bytes(archive, config.filename)
+        report = _parse_report_bytes(report_bytes)
+        if report is None:
+            raise ValueError("downloaded policy report is malformed or unsupported")
         config.cache_path.parent.mkdir(parents=True, exist_ok=True)
         config.cache_path.write_bytes(report_bytes)
-        report = _parse_report_bytes(report_bytes)
-        if report is not None:
-            descriptions = _fetch_policy_descriptions(
-                config,
-                report,
-                resolved_token,
-                opener,
+        descriptions = _fetch_policy_descriptions(
+            config,
+            report,
+            resolved_token,
+            runner,
+        )
+        if descriptions:
+            config.descriptions_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            config.descriptions_cache_path.write_text(
+                json.dumps(descriptions, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
             )
-            if descriptions:
-                config.descriptions_cache_path.parent.mkdir(
-                    parents=True, exist_ok=True
-                )
-                config.descriptions_cache_path.write_text(
-                    json.dumps(descriptions, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8",
-                )
     except Exception as exc:  # pragma: no cover - individual API failures vary
         print_status(f"Policy sync report unavailable: {exc}", prefix=status_prefix)
         return False
@@ -300,6 +311,32 @@ def _resolve_policy_token(token_env: str) -> str | None:
     return None
 
 
+def _run_gh(args: list[str], token: str | None) -> str:
+    """Run GitHub CLI with the resolved token, returning stdout."""
+
+    environment = os.environ.copy()
+    if token:
+        # gh accepts both GH_TOKEN and GITHUB_TOKEN.  Setting GH_TOKEN here
+        # also makes a custom token environment work consistently.
+        environment["GH_TOKEN"] = token
+    try:
+        result = subprocess.run(
+            ["gh", *args],
+            check=False,
+            capture_output=True,
+            cwd=Path.cwd(),
+            env=environment,
+            text=True,
+            timeout=120,
+        )
+    except OSError as exc:
+        raise RuntimeError("GitHub CLI (gh) is not installed") from exc
+    if result.returncode != 0:
+        message = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(message or "GitHub CLI command failed")
+    return result.stdout
+
+
 def _parse_report_bytes(value: bytes) -> PolicySyncReport | None:
     try:
         return parse_policy_sync_report(json.loads(value))
@@ -311,20 +348,25 @@ def _fetch_policy_descriptions(
     config: PolicyReportConfig,
     report: PolicySyncReport,
     token: str | None,
-    urlopen: Callable[..., Any],
+    gh_runner: Callable[[list[str], str | None], str],
 ) -> dict[str, str]:
-    repository = urllib.parse.quote(config.source_repo, safe="/")
     definitions_path = urllib.parse.quote(config.definitions_path.strip("/"), safe="/")
     descriptions: dict[str, str] = {}
     policy_ids = dict.fromkeys(outcome.policy_id for outcome in report.outcomes)
     for policy_id in policy_ids:
         policy_path = urllib.parse.quote(policy_id, safe="")
-        url = (
-            f"{_GITHUB_API}/repos/{repository}/contents/"
+        endpoint = (
+            f"repos/{config.source_repo}/contents/"
             f"{definitions_path}/{policy_path}/policy.yml"
         )
         try:
-            definition = _get_json(url, token, urlopen)
+            encoded_content = gh_runner(
+                ["api", endpoint, "--jq", ".content"], token
+            ).strip()
+            definition = {
+                "content": encoded_content,
+                "encoding": "base64",
+            }
             content = _decode_policy_definition(definition)
             description = _extract_policy_description(content)
         except Exception:  # pragma: no cover - remote metadata is best effort
@@ -398,134 +440,9 @@ def _strip_yaml_scalar(value: str) -> str:
     return value.strip()
 
 
-def _request_headers(token: str | None) -> dict[str, str]:
-    headers = {
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "generate-repo-overview",
-    }
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
-
-
-def _get_json(url: str, token: str | None, urlopen: Callable[..., Any]) -> object:
-    with urlopen(
-        urllib.request.Request(url, headers=_request_headers(token)),
-        timeout=_REQUEST_TIMEOUT_SECONDS,
-    ) as response:
-        return json.loads(response.read())
-
-
-def _get_bytes(url: str, token: str | None, urlopen: Callable[..., Any]) -> bytes:
-    request = urllib.request.Request(url, headers=_request_headers(token))
-    if urlopen is not urllib.request.urlopen:
-        with urlopen(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
-            payload = response.read()
-        return payload if isinstance(payload, bytes) else bytes(payload)
-
-    # The artifact API responds with a redirect to a signed storage URL. Do
-    # not forward the GitHub API token to that different host.
-    opener = urllib.request.build_opener(_NoRedirectHandler)
-    try:
-        with opener.open(request, timeout=_REQUEST_TIMEOUT_SECONDS) as response:
-            payload = response.read()
-    except urllib.error.HTTPError as exc:
-        if exc.code not in (301, 302, 303, 307, 308):
-            raise
-        redirect_url = exc.headers.get("Location")
-        if not redirect_url:
-            raise
-        redirect_request = urllib.request.Request(
-            redirect_url,
-            headers={"User-Agent": "generate-repo-overview"},
-        )
-        with urllib.request.urlopen(
-            redirect_request, timeout=_REQUEST_TIMEOUT_SECONDS
-        ) as response:
-            payload = response.read()
-    return payload if isinstance(payload, bytes) else bytes(payload)
-
-
-class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Expose the artifact redirect so its API token is not forwarded."""
-
-    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
-        del args, kwargs
-
-
-def _latest_completed_run_id(value: object) -> int | None:
-    if not isinstance(value, dict):
-        return None
-    value = cast("dict[str, Any]", value)
-    if not isinstance(value.get("workflow_runs"), list):
-        return None
-    candidates: list[dict[str, Any]] = []
-    for item in cast("list[object]", value["workflow_runs"]):
-        if not isinstance(item, dict):
-            continue
-        typed_item = cast("dict[str, Any]", item)
-        if (
-            typed_item.get("status", "completed") == "completed"
-            and isinstance(typed_item.get("id"), int)
-        ):
-            candidates.append(typed_item)
-    if not candidates:
-        return None
-    # GitHub returns runs newest-first, but sorting also makes mocked and cached
-    # responses deterministic.
-    candidates.sort(
-        key=lambda item: (
-            str(item.get("created_at", "")),
-            _int_or_zero(item.get("run_number")),
-            _int_or_zero(item.get("id")),
-        ),
-        reverse=True,
-    )
-    return cast("int", candidates[0]["id"])
-
-
-def _find_artifact_id(value: object, artifact_name: str) -> int | None:
-    if not isinstance(value, dict):
-        return None
-    value = cast("dict[str, Any]", value)
-    if not isinstance(value.get("artifacts"), list):
-        return None
-    for item in cast("list[object]", value["artifacts"]):
-        if not isinstance(item, dict):
-            continue
-        typed_item = cast("dict[str, Any]", item)
-        if (
-            typed_item.get("name") != artifact_name
-            or typed_item.get("expired") is True
-        ):
-            continue
-        if isinstance(typed_item.get("id"), int):
-            return cast("int", typed_item["id"])
-    return None
-
-
-def _extract_report_bytes(archive: bytes, filename: str) -> bytes:
-    try:
-        with zipfile.ZipFile(BytesIO(archive)) as zipped:
-            names = zipped.namelist()
-            exact = [name for name in names if name == filename]
-            matches = exact or [name for name in names if Path(name).name == filename]
-            if not matches:
-                raise ValueError(f"{filename!r} was not found in the artifact")
-            if len(matches) > 1:
-                raise ValueError(f"artifact contains multiple {filename!r} files")
-            return zipped.read(matches[0])
-    except zipfile.BadZipFile:
-        # This also makes the fetcher friendly to local test doubles and to a
-        # future artifact endpoint that returns the configured file directly.
-        if isinstance(json.loads(archive), dict):
-            return archive
-        raise ValueError("downloaded policy artifact is not a ZIP archive") from None
-
-
-def _int_or_zero(value: object) -> int:
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+def _latest_completed_run_id(value: str) -> str | None:
+    run_id = value.strip()
+    return run_id if run_id and run_id != "null" else None
 
 
 def _parse_summary(value: dict[str, Any]) -> PolicySyncSummary | None:
@@ -636,324 +553,14 @@ def render_policy_sync_section(
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
 ) -> str:
-    """Render the policy-sync dashboard section for the metrics index."""
+    """Render the policy-sync dashboard section."""
 
-    if report is None:
-        raw_link = _raw_json_link(raw_json_filename) if raw_json_available else ""
-        return (
-            '<div class="section hidden" data-tab="policy-sync">\n'
-            '  <div class="section-header"><span class="section-title">Policy Sync</span></div>\n'
-            '  <div class="policy-sync-unavailable">\n'
-            '    <strong>Policy Sync report unavailable.</strong>\n'
-            '    <span class="text-muted">The latest completed report could not be fetched or validated.</span>\n'
-            f"    {raw_link}\n"
-            "  </div>\n"
-            "</div>\n"
-        )
+    from ._policy_sync_html import render_policy_sync_section as render
 
-    policies = list(dict.fromkeys(outcome.policy_id for outcome in report.outcomes))
-    repositories = list(dict.fromkeys(outcome.repository for outcome in report.outcomes))
-    by_pair = {(outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes}
-    raw_link = _raw_json_link(raw_json_filename) if raw_json_available or report is not None else ""
-    summary = report.summary
-    pull_request_states = _pull_request_state_counts(report.outcomes)
-    summary_section = (
-        '<div class="section hidden" data-tab="policy-sync">\n'
-        '  <div class="section-header">\n'
-        '    <span class="section-title">Policy Sync</span>\n'
-        "  </div>\n"
-        '  <div class="policy-sync-meta">\n'
-        '    <span class="section-subtitle">Repository policy compliance</span>\n'
-        f"    {raw_link}\n"
-        "  </div>\n"
-        '  <div class="policy-sync-statistics">\n'
-        '    <div class="policy-sync-stat-group">\n'
-        '      <div class="policy-sync-stat-heading">Evaluation status</div>\n'
-        '      <div class="policy-sync-stat-list">\n'
-        + _policy_stat(summary.compliant, "Compliant", "compliant", "✓")
-        + _policy_stat(summary.drifted, "Changes Needed", "changes-required", "!")
-        + _policy_stat(summary.not_applicable, "Not Applicable", "not-applicable", "N/A")
-        + _optional_policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "!")
-        + _optional_policy_stat(summary.sync_failures, "Sync Failures", "error", "!")
-        + _optional_policy_stat(summary.skipped, "Skipped", "not-evaluated", "—")
-        + "      </div>\n"
-        '    </div>\n'
-        '    <div class="policy-sync-stat-group">\n'
-        '      <div class="policy-sync-stat-heading">Policy PR states</div>\n'
-        '      <div class="policy-sync-stat-list">\n'
-        + _policy_pr_stat("open", pull_request_states["open"])
-        + _policy_pr_stat("merged", pull_request_states["merged"])
-        + "      </div>\n"
-        '    </div>\n'
-        "  </div>\n"
-        "  </div>\n"
-    )
-    if not policies:
-        return summary_section + _render_policy_matrix_section(
-            None,
-            [],
-            [],
-            by_pair,
-            policy_descriptions,
-        )
-
-    groups = _group_policy_repositories(repositories, repository_categories)
-    matrix_sections = "".join(
-        _render_policy_matrix_section(
-            category,
-            category_repositories,
-            policies,
-            by_pair,
-            policy_descriptions,
-        )
-        for category, category_repositories in groups
-    )
-    return summary_section + matrix_sections
-
-
-def _group_policy_repositories(
-    repositories: list[str],
-    repository_categories: Mapping[str, str] | None,
-) -> list[tuple[str | None, list[str]]]:
-    """Group report repositories in the same order as the dashboard filters."""
-
-    if not repository_categories:
-        return [(None, repositories)]
-
-    grouped: dict[str, list[str]] = {}
-    ungrouped: list[str] = []
-    for repository in repositories:
-        category = repository_categories.get(repository)
-        if category is None:
-            ungrouped.append(repository)
-        else:
-            grouped.setdefault(category, []).append(repository)
-
-    groups: list[tuple[str | None, list[str]]] = list(grouped.items())
-    if ungrouped:
-        groups.append((None, ungrouped))
-    return groups
-
-
-def _pull_request_state_counts(
-    outcomes: tuple[PolicySyncOutcome, ...],
-) -> dict[str, int]:
-    """Count the PR states reported for policy evaluations."""
-
-    counts = {"open": 0, "merged": 0}
-    for outcome in outcomes:
-        state = outcome.policy_pr_status
-        if state in counts:
-            counts[state] += 1
-    return counts
-
-
-def _render_policy_matrix_section(
-    category: str | None,
-    repositories: list[str],
-    policies: list[str],
-    by_pair: dict[tuple[str, str], PolicySyncOutcome],
-    policy_descriptions: Mapping[str, str] | None,
-) -> str:
-    category_attr = f' data-category="{e(category)}"' if category is not None else ""
-    if policies:
-        matrix_rows = "\n".join(
-            _matrix_row(repository, policies, by_pair) for repository in repositories
-        )
-        matrix_header = "".join(
-            _policy_header(policy, policy_descriptions) for policy in policies
-        )
-    else:
-        matrix_rows = '<tr><td colspan="2" class="text-muted">No policy evaluations.</td></tr>'
-        matrix_header = "<th>Policy</th>"
-    title = "Compliance Matrix" if category is None else category
-    count = f'<span class="section-count">{len(repositories)}</span>' if category is not None else ""
-    return (
-        f'<div class="section hidden" data-tab="policy-sync"{category_attr}>\n'
-        '  <div class="section-header">\n'
-        f'    <span class="section-title">{e(title)}</span>\n'
-        f"    {count}\n"
-        "  </div>\n"
-        '  <div class="policy-sync-matrix">\n'
-        '    <table class="policy-matrix">\n'
-        "      <thead><tr><th>Repository</th>"
-        f"{matrix_header}</tr></thead>\n"
-        f"      <tbody>\n{matrix_rows}\n      </tbody>\n"
-        "    </table>\n"
-        "  </div>\n"
-        "</div>\n"
-    )
-
-
-def _policy_header(
-    policy: str, policy_descriptions: Mapping[str, str] | None
-) -> str:
-    description = (policy_descriptions or {}).get(policy)
-    if not description:
-        return f"<th>{e(policy)}</th>"
-    return (
-        f'<th data-tooltip="{e(description)}" title="{e(description)}">'
-        f"{e(policy)}</th>"
-    )
-
-
-def _policy_stat(value: int, label: str, status_class: str, marker: str) -> str:
-    return (
-        '        <span class="policy-sync-stat">'
-        f'<span class="policy-status {status_class}" aria-label="{e(label)}">'
-        f"{e(marker)}</span>"
-        f'<span class="policy-sync-stat-value">{value}</span>'
-        f'<span class="policy-sync-stat-label">{e(label)}</span>'
-        "</span>\n"
-    )
-
-
-def _optional_policy_stat(
-    value: int, label: str, status_class: str, marker: str
-) -> str:
-    return _policy_stat(value, label, status_class, marker) if value else ""
-
-
-def _policy_pr_stat(state: str, value: int) -> str:
-    label = _pull_request_state_label(state)
-    return (
-        '        <span class="policy-sync-stat">'
-        f"{_policy_pr_badge(state)}"
-        f'<span class="policy-sync-stat-value">{value}</span>'
-        f'<span class="policy-sync-stat-label">{e(label)} PRs</span>'
-        "</span>\n"
-    )
-
-
-def _matrix_row(
-    repository: str,
-    policies: list[str],
-    by_pair: dict[tuple[str, str], PolicySyncOutcome],
-) -> str:
-    cells = "".join(
-        _matrix_cell_html(by_pair.get((repository, policy)))
-        for policy in policies
-    )
-    return f"        <tr><th>{e(repository)}</th>{cells}</tr>"
-
-
-def _matrix_cell_html(outcome: PolicySyncOutcome | None) -> str:
-    if outcome is None:
-        return '<td><span class="policy-status not-applicable" aria-label="Not applicable">N/A</span></td>'
-    tooltip = _outcome_tooltip(outcome)
-    return (
-        f'<td class="policy-matrix-cell" data-tooltip="{e(tooltip)}" '
-        f'title="{e(tooltip)}" tabindex="0">{_matrix_cell(outcome)}</td>'
-    )
-
-
-def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
-    if outcome is None:
-        return '<span class="policy-status not-applicable" aria-label="Not applicable">N/A</span>'
-    status_class, label, marker = _status_display(outcome)
-    automated = status_class == "compliant" and bool(outcome.pull_request_url)
-    if automated:
-        label = "Compliant (automated PR)"
-        marker = "✓✓"
-    content = (
-        f'<span class="policy-status {status_class}" title="{e(label)}" '
-        f'aria-label="{e(label)}">{marker}</span>'
-    )
-    if outcome.pull_request_url and not automated:
-        link = _safe_external_url(outcome.pull_request_url)
-        if link:
-            content += f" {_policy_pr_badge(outcome.policy_pr_status, href=link)}"
-    return content
-
-
-def _pull_request_state_label(state: str | None) -> str:
-    return {
-        "open": "Open",
-        "merged": "Merged",
-        "closed": "Closed",
-        "none": "No",
-    }.get(state or "", state or "PR state not checked")
-
-
-def _pull_request_state_class(state: str | None) -> str:
-    return state if state in {"open", "merged", "closed", "none"} else "unknown"
-
-
-def _policy_pr_badge(state: str | None, *, href: str | None = None) -> str:
-    label = _pull_request_state_label(state)
-    state_class = _pull_request_state_class(state)
-    badge_content = "—" if state == "none" else f"{GITHUB_ICON}{e(label)}"
-    if href is None:
-        return (
-            f'<span class="policy-pr-badge policy-pr-{state_class}" '
-            f'aria-label="{e(label)} PRs">{badge_content}</span>'
-        )
-    return (
-        f'<a href="{href}" class="policy-pr-badge policy-pr-{state_class}" '
-        f'aria-label="{e(label)} policy pull request" '
-        f'title="View {e(label)} policy pull request" '
-        f'target="_blank" rel="noopener">{badge_content}</a>'
-    )
-
-
-def _status_display(outcome: PolicySyncOutcome) -> tuple[str, str, str]:
-    if outcome.status in {"compliant", "pull-request-closed"}:
-        return "compliant", "Compliant", "✓"
-    if outcome.status in {
-        "changes-required",
-        "pull-request-created",
-        "pull-request-updated",
-        "pull-request-open",
-        "pull-request-recreated",
-        "pull-request-recreated-no-changes",
-    }:
-        return "changes-required", "Changes required", "!"
-    if outcome.status == "not-applicable":
-        return "not-applicable", "Not applicable", "N/A"
-    if outcome.status in {"skipped", "sync-error"}:
-        return "not-evaluated", "Not evaluated", "—"
-    if outcome.status == "error":
-        return "error", "Error", "!"
-    return "unknown", outcome.status or "Unknown", "?"
-
-
-def _outcome_tooltip(outcome: PolicySyncOutcome) -> str:
-    status_class, label, _ = _status_display(outcome)
-    lines = [f"Status: {label}"]
-    if status_class != "compliant":
-        lines.append(f"Applicable: {outcome.applicable}")
-    if outcome.changes:
-        lines.append("Changes:")
-        lines.extend(
-            f"  {change.path}: {change.description}"
-            + (f" ({change.rationale})" if change.rationale else "")
-            for change in outcome.changes
-        )
-    if outcome.warnings:
-        lines.append("Warnings:")
-        lines.extend(f"  {warning}" for warning in outcome.warnings)
-    if outcome.error:
-        lines.append(f"Error: {outcome.error}")
-    if outcome.pull_request_url:
-        pr_prefix = "Automated policy PR" if status_class == "compliant" else "Pull request"
-        lines.append(
-            f"{pr_prefix} ({outcome.policy_pr_status or 'unknown'}): "
-            f"{outcome.pull_request_url}"
-        )
-    return "\n".join(lines)
-
-
-def _safe_external_url(value: str) -> str | None:
-    parsed = urllib.parse.urlsplit(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        return None
-    if any(character in value for character in "\r\n"):
-        return None
-    return e(value)
-
-
-def _raw_json_link(filename: str) -> str:
-    return (
-        f'<a class="policy-raw-link" href="{e(filename)}" '
-        'download>Download raw JSON</a>'
+    return render(
+        report,
+        policy_descriptions=policy_descriptions,
+        repository_categories=repository_categories,
+        raw_json_available=raw_json_available,
+        raw_json_filename=raw_json_filename,
     )
