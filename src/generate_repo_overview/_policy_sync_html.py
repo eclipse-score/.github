@@ -29,7 +29,7 @@ def render_policy_sync_section(
             '<div class="section hidden" data-tab="policy-sync">\n'
             '  <div class="section-header"><span class="section-title">Policy Sync</span></div>\n'
             '  <div class="policy-sync-unavailable">\n'
-            '    <strong>Policy Sync report unavailable.</strong>\n'
+            "    <strong>Policy Sync report unavailable.</strong>\n"
             '    <span class="text-muted">The latest completed report could not be fetched or validated.</span>\n'
             f"    {raw_link}\n"
             "  </div>\n"
@@ -37,8 +37,12 @@ def render_policy_sync_section(
         )
 
     policies = list(dict.fromkeys(outcome.policy_id for outcome in report.outcomes))
-    repositories = list(dict.fromkeys(outcome.repository for outcome in report.outcomes))
-    by_pair = {(outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes}
+    repositories = list(
+        dict.fromkeys(outcome.repository for outcome in report.outcomes)
+    )
+    by_pair = {
+        (outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes
+    }
     policy_definitions = {policy.id: policy for policy in report.policies}
     raw_link = _raw_json_link(raw_json_filename)
     summary = report.summary
@@ -58,19 +62,23 @@ def render_policy_sync_section(
         '      <div class="policy-sync-stat-list">\n'
         + _policy_stat(summary.compliant, "Compliant", "compliant", "✓")
         + _policy_stat(summary.drifted, "Changes Needed", "changes-required", "X")
-        + _policy_stat(summary.not_applicable, "Not Applicable", "not-applicable", "N/A")
-        + _optional_policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "X")
+        + _policy_stat(
+            summary.not_applicable, "Not Applicable", "not-applicable", "N/A"
+        )
+        + _optional_policy_stat(
+            summary.evaluation_failures, "Evaluation Errors", "error", "X"
+        )
         + _optional_policy_stat(summary.sync_failures, "Sync Failures", "error", "X")
         + _optional_policy_stat(summary.skipped, "Skipped", "not-evaluated", "—")
         + "      </div>\n"
-        '    </div>\n'
+        "    </div>\n"
         '    <div class="policy-sync-stat-group">\n'
         '      <div class="policy-sync-stat-heading">Policy PR states</div>\n'
         '      <div class="policy-sync-stat-list">\n'
         + _policy_pr_stat("open", pull_request_states["open"])
         + _policy_pr_stat("merged", pull_request_states["merged"])
         + "      </div>\n"
-        '    </div>\n'
+        "    </div>\n"
         "  </div>\n"
         "  </div>\n"
     )
@@ -150,10 +158,16 @@ def _render_policy_matrix_section(
             _policy_header(policy, policy_definitions) for policy in policies
         )
     else:
-        matrix_rows = '<tr><td colspan="2" class="text-muted">No policy evaluations.</td></tr>'
+        matrix_rows = (
+            '<tr><td colspan="2" class="text-muted">No policy evaluations.</td></tr>'
+        )
         matrix_header = "<th>Policy</th>"
     title = "Compliance Matrix" if category is None else category
-    count = f'<span class="section-count">{len(repositories)}</span>' if category is not None else ""
+    count = (
+        f'<span class="section-count">{len(repositories)}</span>'
+        if category is not None
+        else ""
+    )
     return (
         f'<div class="section hidden" data-tab="policy-sync"{category_attr}>\n'
         '  <div class="section-header">\n'
@@ -179,8 +193,7 @@ def _policy_header(
     if not description:
         return f"<th>{e(policy)}</th>"
     return (
-        f'<th data-tooltip="{e(description)}" title="{e(description)}">'
-        f"{e(policy)}</th>"
+        f'<th data-tooltip="{e(description)}" title="{e(description)}">{e(policy)}</th>'
     )
 
 
@@ -218,8 +231,7 @@ def _matrix_row(
     by_pair: dict[tuple[str, str], PolicySyncOutcome],
 ) -> str:
     cells = "".join(
-        _matrix_cell_html(by_pair.get((repository, policy)))
-        for policy in policies
+        _matrix_cell_html(by_pair.get((repository, policy))) for policy in policies
     )
     return f"        <tr><th>{e(repository)}</th>{cells}</tr>"
 
@@ -242,10 +254,7 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
     if automated:
         label = "Compliant (automated PR)"
         marker = "✓✓"
-    if (
-        status_class == "changes-required"
-        and outcome.policy_pr_status == "open"
-    ):
+    if status_class == "changes-required" and outcome.policy_pr_status == "open":
         link = _safe_external_url(outcome.pull_request_url or "")
         if link:
             return _policy_pr_badge(outcome.policy_pr_status, href=link)
@@ -329,7 +338,9 @@ def _outcome_tooltip(outcome: PolicySyncOutcome) -> str:
     if outcome.error:
         lines.append(f"Error: {outcome.error}")
     if outcome.pull_request_url:
-        pr_prefix = "Automated policy PR" if status_class == "compliant" else "Pull request"
+        pr_prefix = (
+            "Automated policy PR" if status_class == "compliant" else "Pull request"
+        )
         lines.append(
             f"{pr_prefix} ({outcome.policy_pr_status or 'unknown'}): "
             f"{outcome.pull_request_url}"

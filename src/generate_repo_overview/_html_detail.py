@@ -141,9 +141,7 @@ def _render_release_section(entry: RepoEntry) -> str:
         )
     if v.commits_since_latest_release is not None:
         count = v.commits_since_latest_release
-        badge_class = (
-            "green" if count == 0 else ("yellow" if count <= 20 else "red")
-        )
+        badge_class = "green" if count == 0 else ("yellow" if count <= 20 else "red")
         items.append(
             f'<div class="info-item">'
             f'<div class="info-label">Commits Since Release</div>'
@@ -178,8 +176,8 @@ def _render_dep_diff_section(entry: RepoEntry) -> str:
     rows.append(
         f"      <tr>\n"
         f"        <td><span class='mono'>Bazel</span></td>\n"
-        f"        <td><span class='mono'>{e(head_bazel) if head_bazel else '<span class=\"text-muted\">—</span>'}</span></td>\n"
-        f"        <td><span class='mono'>{e(release_bazel) if release_bazel else '<span class=\"text-muted\">—</span>'}</span></td>\n"
+        f"        <td><span class='mono'>{e(head_bazel) if head_bazel else '<span class="text-muted">—</span>'}</span></td>\n"
+        f"        <td><span class='mono'>{e(release_bazel) if release_bazel else '<span class="text-muted">—</span>'}</span></td>\n"
         f"        <td>{_dep_status_badge(bazel_status, bazel_class)}</td>\n"
         f"      </tr>"
     )
@@ -191,16 +189,14 @@ def _render_dep_diff_section(entry: RepoEntry) -> str:
         rows.append(
             f"      <tr>\n"
             f"        <td><span class='mono'>{e(name)}</span></td>\n"
-            f"        <td><span class='mono'>{e(head_ver) if head_ver else '<span class=\"text-muted\">—</span>'}</span></td>\n"
-            f"        <td><span class='mono'>{e(rel_ver) if rel_ver else '<span class=\"text-muted\">—</span>'}</span></td>\n"
+            f"        <td><span class='mono'>{e(head_ver) if head_ver else '<span class="text-muted">—</span>'}</span></td>\n"
+            f"        <td><span class='mono'>{e(rel_ver) if rel_ver else '<span class="text-muted">—</span>'}</span></td>\n"
             f"        <td>{_dep_status_badge(status, css_class)}</td>\n"
             f"      </tr>"
         )
 
     changed_count = sum(
-        1
-        for r in rows
-        if "badge yellow" in r or "badge green" in r or "badge red" in r
+        1 for r in rows if "badge yellow" in r or "badge green" in r or "badge red" in r
     )
 
     if changed_count == 0 and v.commits_since_latest_release:
@@ -220,9 +216,7 @@ def _render_dep_diff_section(entry: RepoEntry) -> str:
         f"      <th>Release ({release_label})</th>\n"
         f"      <th>Status</th>\n"
         f"    </tr></thead>\n"
-        f"    <tbody>\n"
-        + "\n".join(rows)
-        + "\n    </tbody>\n  </table>"
+        f"    <tbody>\n" + "\n".join(rows) + "\n    </tbody>\n  </table>"
     )
 
     return (
@@ -230,14 +224,12 @@ def _render_dep_diff_section(entry: RepoEntry) -> str:
         '  <div class="section-header">'
         '<span class="section-title">Dependencies: HEAD vs. Release</span>'
         "</div>\n"
-        f"  <div class=\"detail-body\">{summary}{table}</div>\n"
+        f'  <div class="detail-body">{summary}{table}</div>\n'
         "</section>\n\n"
     )
 
 
-def _dep_diff_status(
-    head: str | None, release: str | None
-) -> tuple[str, str]:
+def _dep_diff_status(head: str | None, release: str | None) -> tuple[str, str]:
     if head is None and release is None:
         return "—", "muted"
     if release is None:
@@ -262,19 +254,21 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
     ]
     for label in (s.label for s in snapshot.workflow_signals):
         signals.append((label in c.matched_workflow_signals, label))
-    signals.extend([
-        (c.has_lint_config, "Lint Config"),
-        (c.has_gitlint_config, "Gitlint"),
-        (c.has_pre_commit_config, "Pre-commit"),
-        (c.has_pyproject_toml, "pyproject.toml"),
-        (c.has_coverage_config, "Coverage Config"),
-        (c.is_bazel_repo, "Bazel Repo"),
-    ])
+    signals.extend(
+        [
+            (c.has_lint_config, "Lint Config"),
+            (c.has_gitlint_config, "Gitlint"),
+            (c.has_pre_commit_config, "Pre-commit"),
+            (c.has_pyproject_toml, "pyproject.toml"),
+            (c.has_coverage_config, "Coverage Config"),
+            (c.is_bazel_repo, "Bazel Repo"),
+        ]
+    )
 
     items = "\n".join(
         f'    <div class="signal-item">'
         f'<span class="signal-{"yes" if val else "no"}">'
-        f'{"&#10003;" if val else "—"}</span> {e(label)}</div>'
+        f"{'&#10003;' if val else '—'}</span> {e(label)}</div>"
         for val, label in signals
     )
     return (
@@ -289,7 +283,7 @@ def _render_lockfile_error_section(entry: RepoEntry) -> str:
     c = entry.content
     if c.bazel_lockfile_status == LockfileStatus.MISSING:
         body = (
-            '<p>No <code>MODULE.bazel.lock</code> file found. '
+            "<p>No <code>MODULE.bazel.lock</code> file found. "
             "Run <code>bazel mod deps</code> to generate it.</p>"
         )
     elif c.bazel_lockfile_status == LockfileStatus.TIMEOUT:
@@ -303,7 +297,7 @@ def _render_lockfile_error_section(entry: RepoEntry) -> str:
         '  <div class="section-header">'
         '<span class="section-title">Bazel Lockfile</span>'
         "</div>\n"
-        f"  <div class=\"detail-body\">{body}</div>\n"
+        f'  <div class="detail-body">{body}</div>\n'
         "</section>\n\n"
     )
 
@@ -317,16 +311,16 @@ def _render_ownership_section(entry: RepoEntry) -> str:
             f'<div class="info-label">Codeowners</div>{handles}</div>'
         )
     if entry.registry.maintainers_in_bazel_registry:
-        handles = ", ".join(
-            e(h) for h in entry.registry.maintainers_in_bazel_registry
-        )
+        handles = ", ".join(e(h) for h in entry.registry.maintainers_in_bazel_registry)
         parts.append(
             f'<div class="info-item">'
             f'<div class="info-label">Registry Maintainers</div>{handles}</div>'
         )
 
     if not parts:
-        parts.append('<span class="text-muted">No ownership information available</span>')
+        parts.append(
+            '<span class="text-muted">No ownership information available</span>'
+        )
 
     return (
         '<section class="detail-section">\n'
@@ -358,7 +352,9 @@ def _render_versions_section(
         dep_label = tracked_dep_label(dep)
         dep_ver = lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name)
         latest_ver = latest_dep_versions.get(dep.module_name)
-        badge = version_badge(dep_ver, None, latest_dep_version=latest_ver, is_bazel=False)
+        badge = version_badge(
+            dep_ver, None, latest_dep_version=latest_ver, is_bazel=False
+        )
         items.append(
             f'<div class="info-item">'
             f'<div class="info-label">{e(dep_label)} Version</div>{badge}</div>'

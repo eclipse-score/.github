@@ -24,8 +24,8 @@ body:
       label: Product Increment Description
       description: |
          - New Functionality / Features
-         - API changes 
-         - Major Fixes 
+         - API changes
+         - Major Fixes
     validations:
       required: true
   - type: textarea
@@ -34,4 +34,3 @@ body:
       description: Details on when the Product Increment is considered "done"
     validations:
       required: true
-  

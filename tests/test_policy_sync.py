@@ -175,9 +175,7 @@ def test_policy_report_config_rejects_invalid_values(
         "cache_path": "cache_path = '.cache/report.json'",
     }
     lines = ["org_name = 'test'", "[policy_report]"]
-    lines.extend(
-        value for key, value in settings.items() if key != setting_key
-    )
+    lines.extend(value for key, value in settings.items() if key != setting_key)
     lines.append(setting)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match=message):
@@ -213,6 +211,7 @@ def test_fetch_policy_report_downloads_latest_completed_artifact(
         filename="report.json",
         cache_path=report_path,
     )
+
     def fake_gh(args: list[str], token: str | None) -> str:
         assert token is None
         if args[:2] == ["run", "list"]:
@@ -291,9 +290,7 @@ def test_policy_sync_tab_renders_details_links_and_escaped_values() -> None:
                 error="<error>",
             ),
         ),
-        policies=(
-            PolicySyncPolicy(id="<policy>", description="<policy description>"),
-        ),
+        policies=(PolicySyncPolicy(id="<policy>", description="<policy description>"),),
     )
     page = render_index_page(
         _minimal_snapshot(),
@@ -349,10 +346,21 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert 'data-category="Infrastructure"' in page
     assert 'data-category="Platform"' in page
     assert 'class="policy-sync-statistics"' in page
-    assert '<span class="policy-status compliant" aria-label="Compliant">✓</span>' in page
-    assert '<span class="policy-status changes-required" aria-label="Changes Needed">X</span>' in page
-    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Open PRs</span>' in page
-    assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Merged PRs</span>' in page
+    assert (
+        '<span class="policy-status compliant" aria-label="Compliant">✓</span>' in page
+    )
+    assert (
+        '<span class="policy-status changes-required" aria-label="Changes Needed">X</span>'
+        in page
+    )
+    assert (
+        '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Open PRs</span>'
+        in page
+    )
+    assert (
+        '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Merged PRs</span>'
+        in page
+    )
     assert "Repositories" not in page
     assert "Evaluations" not in page
     assert "Closed PRs" not in page
@@ -362,11 +370,17 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert "Skipped" not in page
     assert "Actions in this run" not in page
     assert 'class="policy-pr-badge policy-pr-open"' in page
-    assert '>Open</a>' in page
-    assert '<span class="policy-status changes-required" title="Changes required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"' not in page
-    assert '.policy-pr-open { color: var(--orange);' in page
-    assert 'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>' in page
-    assert 'Status: Compliant\nApplicable:' not in page
+    assert ">Open</a>" in page
+    assert (
+        '<span class="policy-status changes-required" title="Changes required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"'
+        not in page
+    )
+    assert ".policy-pr-open { color: var(--orange);" in page
+    assert (
+        'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>'
+        in page
+    )
+    assert "Status: Compliant\nApplicable:" not in page
     assert "Automated policy PR (merged):" in page
     assert "Automated policy PR (closed):" in page
     assert 'href="https://github.com/org/tools/pull/2"' not in page
@@ -391,8 +405,14 @@ def test_policy_sync_error_outcomes_render_red_x() -> None:
 
     page = render_index_page(_minimal_snapshot(), report)
 
-    assert '<span class="policy-status error" aria-label="Evaluation Errors">X</span>' in page
-    assert '<span class="policy-status error" title="Error" aria-label="Error">X</span>' in page
+    assert (
+        '<span class="policy-status error" aria-label="Evaluation Errors">X</span>'
+        in page
+    )
+    assert (
+        '<span class="policy-status error" title="Error" aria-label="Error">X</span>'
+        in page
+    )
     assert ".policy-status.error { color: var(--red);" in page
 
 
