@@ -80,8 +80,18 @@ def test_top_level_tests_shared_across_types() -> None:
     payload = {
         "schema_version": _SUPPORTED_METRICS_SCHEMA_VERSION,
         "metrics_by_type": {
-            "aou_req": {"total": 10, "with_code_link": 5, "with_test_link": 3, "fully_linked": 2},
-            "comp_req": {"total": 20, "with_code_link": 8, "with_test_link": 6, "fully_linked": 4},
+            "aou_req": {
+                "total": 10,
+                "with_code_link": 5,
+                "with_test_link": 3,
+                "fully_linked": 2,
+            },
+            "comp_req": {
+                "total": 20,
+                "with_code_link": 8,
+                "with_test_link": 6,
+                "fully_linked": 4,
+            },
         },
         "tests": {"total": 15, "linked_to_requirements": 12},
     }

@@ -59,8 +59,10 @@ class PolicyReportConfig:
     def artifact_name(self) -> str:
         return self.artifact
 
+
 PolicySyncReportConfig = PolicyReportConfig
 PolicySyncConfig = PolicyReportConfig
+
 
 @dataclass(frozen=True, slots=True)
 class OrgConfig:
@@ -253,7 +255,12 @@ def _parse_workflow_signals(value: object) -> tuple[WorkflowSignal, ...]:
 def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C901
     """Parse the optional policy report table with strict validation."""
 
-    section_names = ("policy_report", "policy-report", "policy_sync_report", "policy-sync-report")
+    section_names = (
+        "policy_report",
+        "policy-report",
+        "policy_sync_report",
+        "policy-sync-report",
+    )
     present_sections = [name for name in section_names if raw.get(name) is not None]
     if len(present_sections) > 1:
         raise ValueError(
@@ -286,7 +293,8 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
     unknown = sorted(set(value) - allowed)
     if unknown:
         raise ValueError(
-            "Unknown policy_report setting(s): " + ", ".join(str(key) for key in unknown)
+            "Unknown policy_report setting(s): "
+            + ", ".join(str(key) for key in unknown)
         )
 
     source_repo = _policy_report_alias_string(
@@ -367,8 +375,7 @@ def _policy_report_alias_string(
     present = [key for key in keys if key in table]
     if len(present) > 1:
         raise ValueError(
-            f"Specify only one policy_report setting for {label}: "
-            + ", ".join(present)
+            f"Specify only one policy_report setting for {label}: " + ", ".join(present)
         )
     if not present:
         return default

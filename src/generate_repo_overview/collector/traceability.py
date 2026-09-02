@@ -48,7 +48,11 @@ def _parse_metrics_by_type(data: Any) -> tuple[TraceabilityTypeMetrics, ...]:
     # Top-level "tests" is shared across all requirement types in schema v2.
     top_tests = data.get("tests")
     tests_total = _int(top_tests.get("total")) if isinstance(top_tests, dict) else 0
-    tests_linked = _int(top_tests.get("linked_to_requirements")) if isinstance(top_tests, dict) else 0
+    tests_linked = (
+        _int(top_tests.get("linked_to_requirements"))
+        if isinstance(top_tests, dict)
+        else 0
+    )
 
     result: list[TraceabilityTypeMetrics] = []
     for type_key, type_data in cast("dict[str, Any]", metrics_by_type).items():

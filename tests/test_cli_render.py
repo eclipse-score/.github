@@ -202,7 +202,9 @@ def test_render_detail_page_shows_tracked_dep_versions(tmp_path: Path) -> None:
     plain_detail_content = (output_dir / "plain-repo" / "index.html").read_text(
         encoding="utf-8"
     )
-    assert 'href="https://eclipse-score.github.io/plain-repo"' not in plain_detail_content
+    assert (
+        'href="https://eclipse-score.github.io/plain-repo"' not in plain_detail_content
+    )
 
     index_content = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="https://eclipse-score.github.io/my-dac-repo"' in index_content

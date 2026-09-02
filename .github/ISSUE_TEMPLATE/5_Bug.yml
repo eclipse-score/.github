@@ -75,9 +75,9 @@ body:
       required: true
   - type: dropdown
     attributes:
-      label: First Affected Release 
+      label: First Affected Release
       options:
-        - not released (main)        
+        - not released (main)
         - pre-0.5
         - 0.5
         - 0.6
@@ -90,9 +90,9 @@ body:
       required: false
   - type: dropdown
     attributes:
-      label: Last Affected Release 
+      label: Last Affected Release
       options:
-        - not released (main)        
+        - not released (main)
         - 0.5
         - 0.6
         - 0.7
@@ -106,7 +106,7 @@ body:
     attributes:
       label: Expected Fixed Release
       options:
-        - before release (main)        
+        - before release (main)
         - 0.5
         - 0.6
         - 0.7

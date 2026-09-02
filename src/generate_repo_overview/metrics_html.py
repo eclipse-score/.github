@@ -38,7 +38,9 @@ def render_all_pages(
             raw_json_filename=policy_report_filename,
         ),
         "data.json": json.dumps(snapshot.to_dict(), indent=2, sort_keys=True) + "\n",
-        "bazel_logo.svg": (_TEMPLATE_DIR / "bazel_logo.svg").read_text(encoding="utf-8"),
+        "bazel_logo.svg": (_TEMPLATE_DIR / "bazel_logo.svg").read_text(
+            encoding="utf-8"
+        ),
     }
     if policy_report_json is None and policy_report is not None:
         policy_report_json = render_policy_sync_report_json(policy_report)

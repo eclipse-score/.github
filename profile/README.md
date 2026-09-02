@@ -1,4 +1,4 @@
-# Welcome to the Eclipse Safe Open Vehicle Core (S-CORE) Project 
+# Welcome to the Eclipse Safe Open Vehicle Core (S-CORE) Project
 
 This Github organization contains artifacts developed by the [Eclipse S-CORE Project](https://projects.eclipse.org/projects/automotive.score). The project aims to develop an open-source core stack for Software Defined Vehicles (SDVs), specifically targeting embedded high-performance Electronic Control Units (ECUs).
 
@@ -6,7 +6,7 @@ This Github organization contains artifacts developed by the [Eclipse S-CORE Pro
 Dive into our key resources below to understand our project, learn how to contribute, and access the latest releases.
 
 **User's Guide**<br/>
-Explore the official documentation to understand the core components and features of Eclipse S-CORE. <br/>[**Read the Guide &raquo;**](https://eclipse-score.github.io/score/main/users_guide/index.html) 
+Explore the official documentation to understand the core components and features of Eclipse S-CORE. <br/>[**Read the Guide &raquo;**](https://eclipse-score.github.io/score/main/users_guide/index.html)
 
 **Download Latest Release**<br/>
 Get the latest stable release to start building or check the release notes for recent changes. <br/> [**View Releases &raquo;**](https://github.com/eclipse-score/reference_integration/releases) <br/><br/>

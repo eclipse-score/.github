@@ -74,7 +74,9 @@ def render_overview_section(repos: list[RepoEntry], org_name: str) -> list[str]:
     return lines
 
 
-def render_versions_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot) -> list[str]:
+def render_versions_section(
+    repos: list[RepoEntry], *, snapshot: RepoSnapshot
+) -> list[str]:
     """Render the Versions table with one column per tracked dep plus Bazel and Ref-Int."""
     from .models import lookup_bazel_dep_version
 
@@ -89,7 +91,9 @@ def render_versions_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot) -
 
     def render_row(entry: RepoEntry, *, org_name: str) -> str:
         url = f"https://github.com/{org_name}/{entry.name}"
-        bazel_cell = render_bazel_version_status(entry.content.bazel_version, max_bazel_version)
+        bazel_cell = render_bazel_version_status(
+            entry.content.bazel_version, max_bazel_version
+        )
         dep_cells = " | ".join(
             render_dep_version_status(
                 lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name),
@@ -137,7 +141,9 @@ def render_versions_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot) -
     return lines
 
 
-def render_automation_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot) -> list[str]:
+def render_automation_section(
+    repos: list[RepoEntry], *, snapshot: RepoSnapshot
+) -> list[str]:
     """Render the Automation table with one column per workflow signal."""
     signal_labels = tuple(s.label for s in snapshot.workflow_signals)
 
@@ -159,8 +165,12 @@ def render_automation_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot)
 
     signal_headers = " | ".join(signal_labels)
     signal_dividers = " | ".join("---" for _ in signal_labels)
-    header = "| Repository | 🔍 Gitlint | 🐍 Pyproject | 🪝 Pre-commit | ⚙ GitHub Actions |"
-    divider = "|------------|------------|-------------|---------------|------------------|"
+    header = (
+        "| Repository | 🔍 Gitlint | 🐍 Pyproject | 🪝 Pre-commit | ⚙ GitHub Actions |"
+    )
+    divider = (
+        "|------------|------------|-------------|---------------|------------------|"
+    )
     if signal_headers:
         header += f" {signal_headers} |"
         divider += f" {signal_dividers} |"
@@ -176,11 +186,15 @@ def render_automation_section(repos: list[RepoEntry], *, snapshot: RepoSnapshot)
         "- `⚙ GitHub Actions`: shown when `.github/workflows` exists.",
     ]
     for label in signal_labels:
-        lines.append(f"- `{label}`: `yes` if a matching workflow reference is detected.")
-    lines.extend([
-        "- `Coverage Config`: `yes` if `coverage.yml`, `coverage.xml`, `pytest.ini`, or `.coveragerc` exists.",
-        "",
-    ])
+        lines.append(
+            f"- `{label}`: `yes` if a matching workflow reference is detected."
+        )
+    lines.extend(
+        [
+            "- `Coverage Config`: `yes` if `coverage.yml`, `coverage.xml`, `pytest.ini`, or `.coveragerc` exists.",
+            "",
+        ]
+    )
     lines.extend(
         render_category_tables(
             repos,
@@ -266,7 +280,6 @@ def render_release_and_commits(
     if latest_release == "-" and commits == "-":
         return "-"
     return f"{latest_release} + {commits}"
-
 
 
 def render_bool(value: bool) -> str:
@@ -372,7 +385,9 @@ def get_max_bazel_version(repos: list[RepoEntry]) -> tuple[int, ...] | None:
     return max(keys) if keys else None
 
 
-def get_latest_tracked_dep_version(repos: list[RepoEntry], dep: TrackedDep) -> str | None:
+def get_latest_tracked_dep_version(
+    repos: list[RepoEntry], dep: TrackedDep
+) -> str | None:
     repo_short_name = dep.repo.rsplit("/", 1)[-1]
     for repo in repos:
         if repo.name == repo_short_name:
