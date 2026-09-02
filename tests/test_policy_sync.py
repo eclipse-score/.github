@@ -350,7 +350,7 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
         '<span class="policy-status compliant" aria-label="Compliant">✓</span>' in page
     )
     assert (
-        '<span class="policy-status changes-required" aria-label="Changes Needed">!</span>'
+        '<span class="policy-status changes-required" aria-label="Changes Needed">X</span>'
         in page
     )
     assert (
@@ -372,6 +372,11 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert 'class="policy-pr-badge policy-pr-open"' in page
     assert ">Open</a>" in page
     assert (
+        '<span class="policy-status changes-required" title="Changes required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"'
+        not in page
+    )
+    assert ".policy-pr-open { color: var(--orange);" in page
+    assert (
         'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>'
         in page
     )
@@ -380,6 +385,35 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert "Automated policy PR (closed):" in page
     assert 'href="https://github.com/org/tools/pull/2"' not in page
     assert 'href="https://github.com/org/score/pull/3"' not in page
+
+
+def test_policy_sync_error_outcomes_render_red_x() -> None:
+    """Error outcomes use a red X in both the summary and matrix."""
+    report = PolicySyncReport(
+        schema_version=2,
+        summary=PolicySyncSummary(evaluation_failures=1),
+        outcomes=(
+            PolicySyncOutcome(
+                policy_id="policy-error",
+                repository="repo-error",
+                applicable="yes",
+                status="error",
+                error="evaluation failed",
+            ),
+        ),
+    )
+
+    page = render_index_page(_minimal_snapshot(), report)
+
+    assert (
+        '<span class="policy-status error" aria-label="Evaluation Errors">X</span>'
+        in page
+    )
+    assert (
+        '<span class="policy-status error" title="Error" aria-label="Error">X</span>'
+        in page
+    )
+    assert ".policy-status.error { color: var(--red);" in page
 
 
 def test_render_details_discovers_configured_report_and_publishes_raw_json(
