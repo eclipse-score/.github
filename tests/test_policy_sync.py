@@ -350,7 +350,7 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert 'data-category="Platform"' in page
     assert 'class="policy-sync-statistics"' in page
     assert '<span class="policy-status compliant" aria-label="Compliant">✓</span>' in page
-    assert '<span class="policy-status changes-required" aria-label="Changes Needed">!</span>' in page
+    assert '<span class="policy-status changes-required" aria-label="Changes Needed">X</span>' in page
     assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Open PRs</span>' in page
     assert '<span class="policy-sync-stat-value">1</span><span class="policy-sync-stat-label">Merged PRs</span>' in page
     assert "Repositories" not in page
@@ -363,6 +363,8 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert "Actions in this run" not in page
     assert 'class="policy-pr-badge policy-pr-open"' in page
     assert '>Open</a>' in page
+    assert '<span class="policy-status changes-required" title="Changes required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"' not in page
+    assert '.policy-pr-open { color: var(--orange);' in page
     assert 'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>' in page
     assert 'Status: Compliant\nApplicable:' not in page
     assert "Automated policy PR (merged):" in page

@@ -57,10 +57,10 @@ def render_policy_sync_section(
         '      <div class="policy-sync-stat-heading">Evaluation status</div>\n'
         '      <div class="policy-sync-stat-list">\n'
         + _policy_stat(summary.compliant, "Compliant", "compliant", "✓")
-        + _policy_stat(summary.drifted, "Changes Needed", "changes-required", "!")
+        + _policy_stat(summary.drifted, "Changes Needed", "changes-required", "X")
         + _policy_stat(summary.not_applicable, "Not Applicable", "not-applicable", "N/A")
-        + _optional_policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "!")
-        + _optional_policy_stat(summary.sync_failures, "Sync Failures", "error", "!")
+        + _optional_policy_stat(summary.evaluation_failures, "Evaluation Errors", "error", "X")
+        + _optional_policy_stat(summary.sync_failures, "Sync Failures", "error", "X")
         + _optional_policy_stat(summary.skipped, "Skipped", "not-evaluated", "—")
         + "      </div>\n"
         '    </div>\n'
@@ -242,6 +242,13 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
     if automated:
         label = "Compliant (automated PR)"
         marker = "✓✓"
+    if (
+        status_class == "changes-required"
+        and outcome.policy_pr_status == "open"
+    ):
+        link = _safe_external_url(outcome.pull_request_url or "")
+        if link:
+            return _policy_pr_badge(outcome.policy_pr_status, href=link)
     content = (
         f'<span class="policy-status {status_class}" title="{e(label)}" '
         f'aria-label="{e(label)}">{marker}</span>'
@@ -294,13 +301,13 @@ def _status_display(outcome: PolicySyncOutcome) -> tuple[str, str, str]:
         "pull-request-recreated",
         "pull-request-recreated-no-changes",
     }:
-        return "changes-required", "Changes required", "!"
+        return "changes-required", "Changes required", "X"
     if outcome.status == "not-applicable":
         return "not-applicable", "Not applicable", "N/A"
     if outcome.status in {"skipped", "sync-error"}:
         return "not-evaluated", "Not evaluated", "—"
     if outcome.status == "error":
-        return "error", "Error", "!"
+        return "error", "Error", "X"
     return "unknown", outcome.status or "Unknown", "?"
 
 
