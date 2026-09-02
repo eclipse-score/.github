@@ -213,7 +213,9 @@ def policy_sync_report_to_dict(report: PolicySyncReport) -> dict[str, Any]:
 def render_policy_sync_report_json(report: PolicySyncReport) -> str:
     """Serialize a validated report for publication as a download."""
 
-    return json.dumps(policy_sync_report_to_dict(report), indent=2, sort_keys=True) + "\n"
+    return (
+        json.dumps(policy_sync_report_to_dict(report), indent=2, sort_keys=True) + "\n"
+    )
 
 
 def fetch_policy_report(
@@ -344,7 +346,6 @@ def _parse_report_bytes(value: bytes) -> PolicySyncReport | None:
         return None
 
 
-
 def _latest_completed_run_id(value: str) -> str | None:
     run_id = value.strip()
     return run_id if run_id and run_id != "null" else None
@@ -370,7 +371,11 @@ def _parse_summary(value: dict[str, Any]) -> PolicySyncSummary | None:
     parsed: dict[str, int] = {}
     for field_name in integer_fields:
         field_value = value.get(field_name, 0)
-        if not isinstance(field_value, int) or isinstance(field_value, bool) or field_value < 0:
+        if (
+            not isinstance(field_value, int)
+            or isinstance(field_value, bool)
+            or field_value < 0
+        ):
             return None
         parsed[field_name] = field_value
     duration = value.get("duration_seconds", 0.0)
@@ -423,9 +428,7 @@ def _parse_policy(value: object) -> PolicySyncPolicy | None:
         id=policy_id.strip(),
         title=title.strip(),
         description=description.strip(),
-        legacy_names=tuple(
-            name.strip() for name in typed_legacy_names if name.strip()
-        ),
+        legacy_names=tuple(name.strip() for name in typed_legacy_names if name.strip()),
     )
 
 

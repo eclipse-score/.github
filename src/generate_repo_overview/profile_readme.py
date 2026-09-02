@@ -359,5 +359,3 @@ def render_repo_row(entry: RepoEntry, org_name: str) -> str:
     url = f"https://github.com/{org_name}/{entry.name}"
     safe_description = escape_markdown_table_cell(entry.description)
     return f"| [{entry.name}]({url}) | {safe_description} |"
-
-

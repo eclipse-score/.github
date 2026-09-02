@@ -37,7 +37,7 @@ body:
         - label: Security Analysis
         - label: Detailed Design
         - label: Implementation and Testing
-        - label: all  
+        - label: all
     validations:
       required: true
   - type: textarea

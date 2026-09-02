@@ -13,15 +13,9 @@ _TEMPLATES = Path(__file__).parent / "templates"
 
 CSS = (_TEMPLATES / "styles.css").read_text(encoding="utf-8")
 
-BAZEL_ICON = (
-    '<img src="bazel_logo.svg"'
-    ' alt="Bazel" class="icon-bazel">'
-)
+BAZEL_ICON = '<img src="bazel_logo.svg" alt="Bazel" class="icon-bazel">'
 
-BAZEL_DETAIL_ICON = (
-    '<img src="../bazel_logo.svg"'
-    ' alt="Bazel" class="icon-bazel">'
-)
+BAZEL_DETAIL_ICON = '<img src="../bazel_logo.svg" alt="Bazel" class="icon-bazel">'
 
 
 GITHUB_ICON = (
@@ -32,7 +26,7 @@ GITHUB_ICON = (
     " 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59"
     ".82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27"
     ".68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51"
-    '.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07'
+    ".56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07"
     '-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>'
     "</svg>"
 )
@@ -54,7 +48,6 @@ def uses_docs_as_code(entry: RepoEntry) -> bool:
         module_name == DOCS_AS_CODE_MODULE
         for module_name, _ in entry.content.bazel_deps
     )
-
 
 
 _LANGUAGE_COLORS: dict[str, str] = {
@@ -82,10 +75,7 @@ def language_badge(lang: str | None) -> str:
     if not lang:
         return '<span class="text-muted">—</span>'
     color = _LANGUAGE_COLORS.get(lang, "#888888")
-    return (
-        f'<span class="lang-badge" style="--lang-color:{color}">'
-        f"{e(lang)}</span>"
-    )
+    return f'<span class="lang-badge" style="--lang-color:{color}">{e(lang)}</span>'
 
 
 def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) -> str:
