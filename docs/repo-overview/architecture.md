@@ -53,7 +53,8 @@ rather than Markdown- or HTML-specific values.
 - `collector/signal_detection.py` derives repository-local content signals.
 - `collector/platform_docs.py` discovers and associates platform Sphinx
   declarations after repository collection.
-- `collector/git_checkout.py` owns shallow checkout synchronization and reads.
+- `collector/git_checkout.py` delegates checkout synchronization to the shared
+  `repo_cache` package and provides repository reads and release-ref helpers.
 - `collector/snapshot_io.py` serializes the normalized snapshot.
 - `models.py` defines the collection/rendering boundary.
 - `profile_readme.py` renders the organization profile.

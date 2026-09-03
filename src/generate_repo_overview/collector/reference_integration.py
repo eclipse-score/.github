@@ -5,19 +5,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from urllib.parse import urlsplit
 
+from repo_cache import default_cache_directory
+
 from .git_checkout import sync_repository_checkout
-from .registry_metadata import (
-    BAZEL_REGISTRY_LOCAL_CHECKOUT,
-    parse_bazel_registry_metadata,
-)
+from .registry_metadata import parse_bazel_registry_metadata
 from .signal_detection import dedupe_preserving_order
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-REFERENCE_INTEGRATION_LOCAL_CHECKOUT = Path(
-    "profile/cache/reference_integration_checkout"
-)
 ROOT_MODULE_PATH = Path("MODULE.bazel")
 INCLUDE_PATTERN = re.compile(r'\binclude\s*\(\s*"(?P<label>[^"]+)"\s*\)')
 BAZEL_DEP_PATTERN = re.compile(r"\bbazel_dep\s*\((?P<body>.*?)\)", re.DOTALL)
@@ -31,7 +27,7 @@ def fetch_reference_integration_repository_names(
     *,
     reference_integration_repository: object | None,
     active_repository_names: set[str],
-    github_token: str | None,
+    registry_repository: str,
     org_name: str,
 ) -> set[str]:
     if reference_integration_repository is None:
@@ -41,17 +37,16 @@ def fetch_reference_integration_repository_names(
         "str | None",
         getattr(reference_integration_repository, "default_branch", None),
     )
-    clone_url = cast(
-        "str | None", getattr(reference_integration_repository, "clone_url", None)
+    repository = cast(
+        "str | None", getattr(reference_integration_repository, "full_name", None)
     )
-    if default_branch is None or clone_url is None:
+    if default_branch is None or repository is None:
         return set()
 
     checkout_path = sync_repository_checkout(
-        clone_url=clone_url,
+        repository=repository,
         default_branch=default_branch,
-        github_token=github_token,
-        checkout_path=REFERENCE_INTEGRATION_LOCAL_CHECKOUT,
+        checkout_path=default_cache_directory() / repository,
     )
     if checkout_path is None:
         return set()
@@ -65,6 +60,7 @@ def fetch_reference_integration_repository_names(
     )
     registry_repositories = get_bazel_registry_repositories_by_module(
         active_repository_names=active_repository_names,
+        registry_repository=registry_repository,
     )
 
     repositories: list[str] = []
@@ -240,10 +236,16 @@ def parse_github_remote_repository_name(
 def get_bazel_registry_repositories_by_module(
     *,
     active_repository_names: set[str],
+    registry_repository: str,
 ) -> dict[str, str]:
+    if not registry_repository:
+        return {}
+
     repositories_by_module: dict[str, str] = {}
     for metadata_path in sorted(
-        BAZEL_REGISTRY_LOCAL_CHECKOUT.glob("modules/*/metadata.json")
+        (default_cache_directory() / registry_repository).glob(
+            "modules/*/metadata.json"
+        )
     ):
         try:
             content = metadata_path.read_text(encoding="utf-8")

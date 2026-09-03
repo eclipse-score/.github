@@ -37,6 +37,8 @@ uv sync --all-groups --frozen
 
 Collection reads `GITHUB_TOKEN` and falls back to `gh auth token`. The token
 must be able to read every configured organization and platform repository.
+The shared `repo_cache` dependency uses the authenticated `gh` CLI for Git
+checkout synchronization; a custom `--token-env` value is forwarded to it.
 The policy report fetch uses `GH_TOKEN`/`GITHUB_TOKEN` through the installed
 GitHub CLI (`gh auth login` is sufficient for local use).
 

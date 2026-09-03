@@ -267,10 +267,8 @@ def collect_repository_entry_slow_path(
         or content_signals["bazel_lockfile_status"] == LockfileStatus.UNKNOWN
     ):
         lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
-            repository_name=repository_name,
             repository=repository,
             default_branch=default_branch,
-            github_token=github_token,
             checkout_path=checkout_path,
         )
         content_signals["bazel_lockfile_status"] = lockfile_status
@@ -315,11 +313,12 @@ def _sync_content_checkout(
         return (None, get_default_branch_sha(repository, default_branch))
 
     full_name = cast("str | None", getattr(repository, "full_name", None))
-    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / (full_name or repository_name)
+    if full_name is None:
+        return (None, get_default_branch_sha(repository, default_branch))
+    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / full_name
     synced = sync_repository_checkout(
-        clone_url=clone_url,
+        repository=full_name,
         default_branch=default_branch,
-        github_token=github_token,
         checkout_path=checkout_path,
     )
     if synced is None:
@@ -351,22 +350,21 @@ def _sync_content_checkout(
 
 def _detect_lockfile_ok_for_repo(
     *,
-    repository_name: str,
     repository: Any,
     default_branch: str | None,
-    github_token: str | None,
     checkout_path: Path | None = None,
 ) -> tuple[LockfileStatus, str | None]:
     if checkout_path is not None:
         return detect_bazel_lockfile_ok(checkout_path)
-    clone_url = cast("str | None", getattr(repository, "clone_url", None))
-    if clone_url is None or default_branch is None:
+    if default_branch is None:
         return LockfileStatus.UNKNOWN, None
-    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / repository_name
+    repository_identity = cast("str | None", getattr(repository, "full_name", None))
+    if repository_identity is None:
+        return LockfileStatus.UNKNOWN, None
+    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / repository_identity
     synced = sync_repository_checkout(
-        clone_url=clone_url,
+        repository=repository_identity,
         default_branch=default_branch,
-        github_token=github_token,
         checkout_path=checkout_path,
     )
     if synced is None:

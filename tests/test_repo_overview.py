@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import time
@@ -506,6 +507,7 @@ def test_collect_repository_entry_accepts_repository_without_commits(
         "DEFAULT_REPOSITORY_CHECKOUTS",
         tmp_path / "checkouts",
     )
+    monkeypatch.setattr(repo_entry, "sync_repository_checkout", lambda **_: None)
 
     entry = repo_entry.collect_repository_entry(
         repository_name="empty",
@@ -568,6 +570,7 @@ def test_collect_repository_entry_accepts_repository_without_default_branch(
         "DEFAULT_REPOSITORY_CHECKOUTS",
         tmp_path / "checkouts",
     )
+    monkeypatch.setattr(repo_entry, "sync_repository_checkout", lambda **_: None)
 
     entry = repo_entry.collect_repository_entry(
         repository_name="empty-no-default-branch",
@@ -1037,7 +1040,8 @@ def test_reference_integration_maps_bazel_registry_modules_to_repositories(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    registry_root = tmp_path / "bazel_registry_checkout"
+    registry_repository = "eclipse-score/bazel_registry"
+    registry_root = tmp_path / registry_repository
     metadata_dir = registry_root / "modules" / "score_process"
     metadata_dir.mkdir(parents=True)
     (metadata_dir / "metadata.json").write_text(
@@ -1051,12 +1055,13 @@ def test_reference_integration_maps_bazel_registry_modules_to_repositories(
     )
     monkeypatch.setattr(
         reference_integration,
-        "BAZEL_REGISTRY_LOCAL_CHECKOUT",
-        registry_root,
+        "default_cache_directory",
+        lambda: tmp_path,
     )
 
     assert reference_integration.get_bazel_registry_repositories_by_module(
-        active_repository_names={"process_description"}
+        active_repository_names={"process_description"},
+        registry_repository=registry_repository,
     ) == {"score_process": "process_description"}
 
 
@@ -1237,7 +1242,14 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
 
     monkeypatch.setitem(sys.modules, "github", fake_github_module)
     monkeypatch.setattr(collector, "resolve_github_token", lambda token_env: "token")
-    monkeypatch.setattr(collector, "fetch_repositories", lambda *args, **kwargs: [])
+    monkeypatch.setenv("GH_TOKEN", "original-token")
+    observed_gh_tokens: list[str | None] = []
+
+    def fake_fetch_repositories(*args: Any, **kwargs: Any) -> list[RepoEntry]:
+        observed_gh_tokens.append(os.getenv("GH_TOKEN"))
+        return []
+
+    monkeypatch.setattr(collector, "fetch_repositories", fake_fetch_repositories)
 
     snapshot = collector.collect_snapshot(
         config=OrgConfig(org_name="eclipse-score"),
@@ -1248,6 +1260,8 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
 
     assert snapshot.org_name == "eclipse-score"
     assert snapshot.repos == ()
+    assert observed_gh_tokens == ["token"]
+    assert os.getenv("GH_TOKEN") == "original-token"
     assert (
         "GitHub REST API rate limit before collection: remaining 4999/5000, "
         "used 1, resets at 2026-04-14T12:00:00+00:00" in captured.err
