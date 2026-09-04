@@ -381,7 +381,7 @@ def test_fetch_repositories_uses_resolved_registry_repository_cache_key(
 
     assert (
         collector.fetch_repositories(
-            organization,
+            cast("Any", organization),
             config=config,
             registry_repository=resolved_registry_repository,
         )
