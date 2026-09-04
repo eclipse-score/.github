@@ -342,6 +342,54 @@ def test_fetch_repositories_invalidates_cache_when_signal_labels_change() -> Non
     assert entry.content.matched_workflow_signals == ()
 
 
+def test_fetch_repositories_uses_resolved_registry_repository_cache_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_registry_repositories: list[str] = []
+    organization = SimpleNamespace(login="eclipse-score")
+    config = OrgConfig(
+        org_name="eclipse-score",
+        reference_integration_repo="eclipse-score/reference-integration",
+        registry_repo="eclipse-score/bazel_registry",
+    )
+    resolved_registry_repository = SimpleNamespace(
+        full_name="Eclipse-Score/Bazel_Registry"
+    )
+
+    monkeypatch.setattr(
+        collector,
+        "fetch_active_repositories",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        collector.registry_metadata,
+        "fetch_bazel_registry_metadata_by_repo",
+        lambda **_kwargs: {},
+    )
+
+    def fake_fetch_reference_integration_repository_names(
+        **kwargs: Any,
+    ) -> set[str]:
+        observed_registry_repositories.append(kwargs["registry_repository"])
+        return set()
+
+    monkeypatch.setattr(
+        collector.reference_integration,
+        "fetch_reference_integration_repository_names",
+        fake_fetch_reference_integration_repository_names,
+    )
+
+    assert (
+        collector.fetch_repositories(
+            organization,
+            config=config,
+            registry_repository=resolved_registry_repository,
+        )
+        == []
+    )
+    assert observed_registry_repositories == ["Eclipse-Score/Bazel_Registry"]
+
+
 def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None:
     class FakeRepo:
         default_branch = "main"

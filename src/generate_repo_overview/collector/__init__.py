@@ -365,6 +365,10 @@ def fetch_repositories(
         f"{repositories_with_custom_properties} repositories",
         prefix=status_prefix,
     )
+    resolved_registry_repository = cast(
+        "str | None", getattr(registry_repository, "full_name", None)
+    )
+    registry_repository_name = resolved_registry_repository or config.registry_repo
 
     bazel_registry_metadata_by_repo: dict[
         str, registry_metadata.RegistrySignalsPayload
@@ -402,7 +406,7 @@ def fetch_repositories(
                     else None
                 ),
                 active_repository_names=set(active_repositories),
-                registry_repository=config.registry_repo,
+                registry_repository=registry_repository_name,
                 org_name=config.org_name,
             )
         )
