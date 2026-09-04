@@ -9,6 +9,7 @@ description = "Collect cached GitHub organization overviews and render Markdown 
 requires-python = ">=3.12"
 dependencies = [
   "PyGithub",
+  "repo-cache @ git+https://github.com/eclipse-score/tools#subdirectory=repo_cache",
   "tqdm",
 ]
 
@@ -25,6 +26,9 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/generate_repo_overview"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.uv]
 package = true

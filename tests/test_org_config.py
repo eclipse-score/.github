@@ -179,6 +179,31 @@ class TestConfigValidation:
         with pytest.raises(ValueError, match="org/repo"):
             load_org_config(toml_path)
 
+    @pytest.mark.parametrize(
+        ("registry_repo", "expected_message"),
+        [
+            ("../etc", "org/repo"),
+            ("/tmp/registry", "org/repo"),
+            ("C:/registry", "org/repo"),
+            ("org/../registry", "org/repo"),
+            (r"org\..\registry", "org/repo"),
+        ],
+    )
+    def test_registry_repo_path_traversal_errors(
+        self, tmp_path: Path, registry_repo: str, expected_message: str
+    ) -> None:
+        content = dedent(
+            f"""\
+            org_name = "test"
+            [signals]
+            registry_repo = '{registry_repo}'
+            """
+        )
+        toml_path = tmp_path / "org.toml"
+        toml_path.write_text(content, encoding="utf-8")
+        with pytest.raises(ValueError, match=expected_message):
+            load_org_config(toml_path)
+
     def test_platform_repo_without_slash_errors(self, tmp_path: Path) -> None:
         content = dedent("""\
             org_name = "test"

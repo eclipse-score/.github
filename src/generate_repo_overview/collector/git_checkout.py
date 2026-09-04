@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import base64
 import os
-import shutil
 import subprocess
 from typing import TYPE_CHECKING
+
+from repo_cache import RepoCacheError, sync_default_branch
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -12,97 +13,20 @@ if TYPE_CHECKING:
 
 def sync_repository_checkout(
     *,
-    clone_url: str,
+    repository: str,
     default_branch: str,
-    github_token: str | None,
     checkout_path: Path,
 ) -> Path | None:
-    authenticated_url = build_authenticated_clone_url(clone_url, github_token)
-    checkout_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if update_existing_checkout(
-        checkout_path,
-        default_branch,
-        github_token=github_token,
-    ):
-        return checkout_path
-
-    if not clone_fresh_checkout(
-        authenticated_url=authenticated_url,
-        default_branch=default_branch,
-        checkout_path=checkout_path,
-        github_token=github_token,
-    ):
+    """Synchronize a GitHub checkout through the shared ``repo_cache`` package."""
+    try:
+        sync_default_branch(
+            repository=repository,
+            branch=default_branch,
+            destination=checkout_path,
+        )
+    except (OSError, RepoCacheError):
         return None
-
     return checkout_path
-
-
-def update_existing_checkout(
-    checkout_path: Path,
-    default_branch: str,
-    *,
-    github_token: str | None = None,
-) -> bool:
-    git_dir = checkout_path / ".git"
-    if not git_dir.exists():
-        return False
-
-    fetch_ok = run_git_command(
-        [
-            "git",
-            "-C",
-            str(checkout_path),
-            "fetch",
-            "--depth",
-            "1",
-            "origin",
-            default_branch,
-        ],
-        github_token=github_token,
-    )
-    checkout_ok = run_git_command(
-        [
-            "git",
-            "-C",
-            str(checkout_path),
-            "checkout",
-            "--force",
-            "--detach",
-            "FETCH_HEAD",
-        ]
-    )
-    if not (fetch_ok and checkout_ok):
-        return False
-
-    run_git_command(["git", "-C", str(checkout_path), "clean", "-fdx"])
-    return True
-
-
-def clone_fresh_checkout(
-    *,
-    authenticated_url: str,
-    default_branch: str,
-    checkout_path: Path,
-    github_token: str | None = None,
-) -> bool:
-    shutil.rmtree(checkout_path, ignore_errors=True)
-    return run_git_command(
-        [
-            "git",
-            "clone",
-            "--depth",
-            "1",
-            "--filter=blob:none",
-            "--single-branch",
-            "--no-tags",
-            "--branch",
-            default_branch,
-            authenticated_url,
-            str(checkout_path),
-        ],
-        github_token=github_token,
-    )
 
 
 def get_checkout_head_sha(checkout_path: Path) -> str | None:
@@ -213,10 +137,6 @@ def run_git_command(
     except (OSError, subprocess.CalledProcessError):
         return False
     return True
-
-
-def build_authenticated_clone_url(clone_url: str, github_token: str | None) -> str:
-    return clone_url
 
 
 def _run_git_for_text(command: list[str]) -> str | None:

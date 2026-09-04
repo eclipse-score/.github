@@ -170,6 +170,11 @@ def collect_snapshot(
         when="before collection",
         status_prefix=status_prefix,
     )
+    # repo_cache starts gh subprocesses for checkout synchronization.  GH_TOKEN
+    # gives those subprocesses the same credential used by PyGithub, including
+    # when the caller selected a custom --token-env variable.
+    previous_gh_token = os.environ.get("GH_TOKEN")
+    os.environ["GH_TOKEN"] = token
     try:
         organization = github.get_organization(org_name)
 
@@ -197,7 +202,6 @@ def collect_snapshot(
             repos,
             github=github,
             platform_repos=config.platform_repos,
-            github_token=token,
             status_prefix=status_prefix,
         )
 
@@ -228,6 +232,10 @@ def collect_snapshot(
             print_status(f"Wrote snapshot to {cache_path}", prefix=status_prefix)
         return snapshot
     finally:
+        if previous_gh_token is None:
+            os.environ.pop("GH_TOKEN", None)
+        else:
+            os.environ["GH_TOKEN"] = previous_gh_token
         print_rest_api_rate_limit(
             github,
             when="after collection",
@@ -240,7 +248,6 @@ def enrich_repositories_with_platform_docs(
     *,
     github: RepositoryResolverLike,
     platform_repos: tuple[str, ...],
-    github_token: str | None = None,
     status_prefix: str,
 ) -> list[RepoEntry]:
     enriched = [
@@ -260,16 +267,14 @@ def enrich_repositories_with_platform_docs(
             prefix=status_prefix,
         )
         repository = github.get_repo(full_name)
-        clone_url = cast("str | None", getattr(repository, "clone_url", None))
         default_branch = cast("str | None", getattr(repository, "default_branch", None))
-        if clone_url is None or default_branch is None:
+        if default_branch is None:
             raise RuntimeError(
-                f"Configured platform repository {full_name} has no clone metadata."
+                f"Configured platform repository {full_name} has no default branch."
             )
         checkout_path = sync_repository_checkout(
-            clone_url=clone_url,
+            repository=full_name,
             default_branch=default_branch,
-            github_token=github_token,
             checkout_path=DEFAULT_REPOSITORY_CHECKOUTS / full_name,
         )
         if checkout_path is None:
@@ -360,6 +365,10 @@ def fetch_repositories(
         f"{repositories_with_custom_properties} repositories",
         prefix=status_prefix,
     )
+    resolved_registry_repository = cast(
+        "str | None", getattr(registry_repository, "full_name", None)
+    )
+    registry_repository_name = resolved_registry_repository or config.registry_repo
 
     bazel_registry_metadata_by_repo: dict[
         str, registry_metadata.RegistrySignalsPayload
@@ -373,7 +382,6 @@ def fetch_repositories(
             registry_metadata.fetch_bazel_registry_metadata_by_repo(
                 bazel_registry_repository=registry_repository,
                 active_repository_names=set(active_repositories),
-                github_token=github_token,
             )
         )
         print_status(
@@ -398,7 +406,7 @@ def fetch_repositories(
                     else None
                 ),
                 active_repository_names=set(active_repositories),
-                github_token=github_token,
+                registry_repository=registry_repository_name,
                 org_name=config.org_name,
             )
         )

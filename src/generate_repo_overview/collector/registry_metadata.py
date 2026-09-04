@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import TypedDict, cast
+
+from repo_cache import default_cache_directory
 
 from .git_checkout import sync_repository_checkout
 from .signal_detection import dedupe_preserving_order
@@ -13,14 +14,10 @@ class RegistrySignalsPayload(TypedDict):
     latest_bazel_registry_version: str | None
 
 
-BAZEL_REGISTRY_LOCAL_CHECKOUT = Path("profile/cache/bazel_registry_checkout")
-
-
 def fetch_bazel_registry_metadata_by_repo(
     *,
     bazel_registry_repository: object | None,
     active_repository_names: set[str],
-    github_token: str | None,
 ) -> dict[str, RegistrySignalsPayload]:
     if bazel_registry_repository is None:
         return {}
@@ -28,17 +25,16 @@ def fetch_bazel_registry_metadata_by_repo(
     default_branch = cast(
         "str | None", getattr(bazel_registry_repository, "default_branch", None)
     )
-    clone_url = cast(
-        "str | None", getattr(bazel_registry_repository, "clone_url", None)
+    repository = cast(
+        "str | None", getattr(bazel_registry_repository, "full_name", None)
     )
-    if default_branch is None or clone_url is None:
+    if default_branch is None or repository is None:
         return {}
 
     checkout_path = sync_repository_checkout(
-        clone_url=clone_url,
+        repository=repository,
         default_branch=default_branch,
-        github_token=github_token,
-        checkout_path=BAZEL_REGISTRY_LOCAL_CHECKOUT,
+        checkout_path=default_cache_directory() / repository,
     )
     if checkout_path is None:
         return {}

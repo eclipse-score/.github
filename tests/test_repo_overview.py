@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import time
@@ -341,6 +342,54 @@ def test_fetch_repositories_invalidates_cache_when_signal_labels_change() -> Non
     assert entry.content.matched_workflow_signals == ()
 
 
+def test_fetch_repositories_uses_resolved_registry_repository_cache_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_registry_repositories: list[str] = []
+    organization = SimpleNamespace(login="eclipse-score")
+    config = OrgConfig(
+        org_name="eclipse-score",
+        reference_integration_repo="eclipse-score/reference-integration",
+        registry_repo="eclipse-score/bazel_registry",
+    )
+    resolved_registry_repository = SimpleNamespace(
+        full_name="Eclipse-Score/Bazel_Registry"
+    )
+
+    monkeypatch.setattr(
+        collector,
+        "fetch_active_repositories",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        collector.registry_metadata,
+        "fetch_bazel_registry_metadata_by_repo",
+        lambda **_kwargs: {},
+    )
+
+    def fake_fetch_reference_integration_repository_names(
+        **kwargs: Any,
+    ) -> set[str]:
+        observed_registry_repositories.append(kwargs["registry_repository"])
+        return set()
+
+    monkeypatch.setattr(
+        collector.reference_integration,
+        "fetch_reference_integration_repository_names",
+        fake_fetch_reference_integration_repository_names,
+    )
+
+    assert (
+        collector.fetch_repositories(
+            cast("Any", organization),
+            config=config,
+            registry_repository=resolved_registry_repository,
+        )
+        == []
+    )
+    assert observed_registry_repositories == ["Eclipse-Score/Bazel_Registry"]
+
+
 def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None:
     class FakeRepo:
         default_branch = "main"
@@ -506,6 +555,7 @@ def test_collect_repository_entry_accepts_repository_without_commits(
         "DEFAULT_REPOSITORY_CHECKOUTS",
         tmp_path / "checkouts",
     )
+    monkeypatch.setattr(repo_entry, "sync_repository_checkout", lambda **_: None)
 
     entry = repo_entry.collect_repository_entry(
         repository_name="empty",
@@ -568,6 +618,7 @@ def test_collect_repository_entry_accepts_repository_without_default_branch(
         "DEFAULT_REPOSITORY_CHECKOUTS",
         tmp_path / "checkouts",
     )
+    monkeypatch.setattr(repo_entry, "sync_repository_checkout", lambda **_: None)
 
     entry = repo_entry.collect_repository_entry(
         repository_name="empty-no-default-branch",
@@ -1037,7 +1088,8 @@ def test_reference_integration_maps_bazel_registry_modules_to_repositories(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    registry_root = tmp_path / "bazel_registry_checkout"
+    registry_repository = "eclipse-score/bazel_registry"
+    registry_root = tmp_path / registry_repository
     metadata_dir = registry_root / "modules" / "score_process"
     metadata_dir.mkdir(parents=True)
     (metadata_dir / "metadata.json").write_text(
@@ -1051,13 +1103,45 @@ def test_reference_integration_maps_bazel_registry_modules_to_repositories(
     )
     monkeypatch.setattr(
         reference_integration,
-        "BAZEL_REGISTRY_LOCAL_CHECKOUT",
-        registry_root,
+        "default_cache_directory",
+        lambda: tmp_path,
     )
 
     assert reference_integration.get_bazel_registry_repositories_by_module(
-        active_repository_names={"process_description"}
+        active_repository_names={"process_description"},
+        registry_repository=registry_repository,
     ) == {"score_process": "process_description"}
+
+
+@pytest.mark.parametrize(
+    ("registry_repository", "expected_repositories"),
+    [
+        ("../outside", {}),
+        ("/tmp/registry", {}),
+        ("C:/registry", {}),
+        ("org/../registry", {}),
+        (r"org\..\registry", {}),
+    ],
+)
+def test_reference_integration_ignores_unsafe_registry_repository_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    registry_repository: str,
+    expected_repositories: dict[str, str],
+) -> None:
+    monkeypatch.setattr(
+        reference_integration,
+        "default_cache_directory",
+        lambda: tmp_path / "cache",
+    )
+
+    assert (
+        reference_integration.get_bazel_registry_repositories_by_module(
+            active_repository_names={"process_description"},
+            registry_repository=registry_repository,
+        )
+        == expected_repositories
+    )
 
 
 def test_get_codeowners_for_path_prefers_specific_codeowners_rule() -> None:
@@ -1237,7 +1321,14 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
 
     monkeypatch.setitem(sys.modules, "github", fake_github_module)
     monkeypatch.setattr(collector, "resolve_github_token", lambda token_env: "token")
-    monkeypatch.setattr(collector, "fetch_repositories", lambda *args, **kwargs: [])
+    monkeypatch.setenv("GH_TOKEN", "original-token")
+    observed_gh_tokens: list[str | None] = []
+
+    def fake_fetch_repositories(*args: Any, **kwargs: Any) -> list[RepoEntry]:
+        observed_gh_tokens.append(os.getenv("GH_TOKEN"))
+        return []
+
+    monkeypatch.setattr(collector, "fetch_repositories", fake_fetch_repositories)
 
     snapshot = collector.collect_snapshot(
         config=OrgConfig(org_name="eclipse-score"),
@@ -1248,6 +1339,8 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
 
     assert snapshot.org_name == "eclipse-score"
     assert snapshot.repos == ()
+    assert observed_gh_tokens == ["token"]
+    assert os.getenv("GH_TOKEN") == "original-token"
     assert (
         "GitHub REST API rate limit before collection: remaining 4999/5000, "
         "used 1, resets at 2026-04-14T12:00:00+00:00" in captured.err

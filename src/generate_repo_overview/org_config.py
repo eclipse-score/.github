@@ -3,7 +3,7 @@ from __future__ import annotations
 import fnmatch
 import tomllib
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, cast
 
 from generate_repo_overview.constants import (
@@ -137,7 +137,7 @@ def load_org_config(path: Path) -> OrgConfig:
         ("reference_integration_repo", reference_integration_repo),
         ("registry_repo", registry_repo),
     ):
-        if field_value and "/" not in field_value:
+        if field_value and not is_safe_repository_path(field_value):
             raise ValueError(
                 f"{field_name} must be in 'org/repo' format, got '{field_value}'."
             )
@@ -165,6 +165,15 @@ def _str_or(value: object, default: str) -> str:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return default
+
+
+def is_safe_repository_path(value: str) -> bool:
+    """Return whether *value* is a safe two-component repository path."""
+
+    if "\\" in value or PureWindowsPath(value).anchor:
+        return False
+    parts = value.split("/")
+    return len(parts) == 2 and all(part and part not in {".", ".."} for part in parts)
 
 
 def _parse_string_list(value: object) -> tuple[str, ...]:
@@ -202,7 +211,7 @@ def _parse_tracked_deps(value: object) -> tuple[TrackedDep, ...]:
 def _parse_repo_list(value: object, *, field_name: str) -> tuple[str, ...]:
     repos = _parse_string_list(value)
     for repo in repos:
-        if "/" not in repo:
+        if not is_safe_repository_path(repo):
             raise ValueError(
                 f"{field_name} entries must be in 'org/repo' format, got '{repo}'."
             )

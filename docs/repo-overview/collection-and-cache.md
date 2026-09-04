@@ -3,7 +3,7 @@
 ## Snapshot Cache
 
 The default cache file is `.cache/repo_overview.json`.
-Repository checkouts share the SCORE repository-policy cache:
+Repository checkouts share the SCORE `repo_cache` cache:
 `${XDG_CACHE_HOME:-~/.cache}/repo-cache/<owner>/<repository>`.
 
 The cache is used in two ways:
@@ -17,8 +17,9 @@ Changing a renderer or template therefore requires no GitHub refresh.
 ## Incremental Collection
 
 Collection still fetches current high-level repository state, including the
-default branch. Git synchronizes each shallow partial checkout and supplies the
-current commit SHA. The collector then chooses one of these paths:
+default branch. The shared `repo_cache` package synchronizes each shallow
+checkout through the authenticated GitHub CLI and supplies the current commit
+SHA. The collector then chooses one of these paths:
 
 - unchanged SHA and fresh volatile metrics: reuse the cached repository entry
 - unchanged SHA and stale volatile metrics: refresh activity metrics only
@@ -50,10 +51,10 @@ Git supplies repository content and identity:
 - Bazel and Sphinx declarations
 - release `MODULE.bazel` and `.bazelversion`
 
-Checkouts are disposable, shallow, single-branch partial clones. The generic
-cache is shared with other repository tools such as `score-repo-policy-sync`.
-Authentication is passed through a transient Git HTTP header and is not written
-into the remote URL.
+Checkouts are disposable, shallow, single-branch clones. The cache is shared
+with other repository tools such as `score-repo-policy-sync` and
+`score-repo-cache`. Checkout authentication is handled by `gh`; use
+`GITHUB_TOKEN` or `gh auth login` before collecting.
 
 For a repository without any commits, GitHub may report a default-branch name
 even though that branch cannot be resolved. After a failed checkout, the
