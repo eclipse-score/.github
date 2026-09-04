@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 from repo_cache import default_cache_directory
 
+from generate_repo_overview.org_config import is_safe_repository_path
+
 from .git_checkout import sync_repository_checkout
 from .registry_metadata import parse_bazel_registry_metadata
 from .signal_detection import dedupe_preserving_order
@@ -238,7 +240,7 @@ def get_bazel_registry_repositories_by_module(
     active_repository_names: set[str],
     registry_repository: str,
 ) -> dict[str, str]:
-    if not registry_repository:
+    if not is_safe_repository_path(registry_repository):
         return {}
 
     repositories_by_module: dict[str, str] = {}
