@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "repository": {
+    "name": "{{ repo_name }}",
+    "language": "{{ repo_language }}",
+    "visibility": "{{ repo_visibility }}"
+  },
+  "bootstrap": {
+    "contract_version": "v0.1.0",
+    "template_source": "https://github.com/eclipse-score/.github"
+  },
+  "execution": {
+    "build": {
+      "command": "{{ build_command }}"
+    },
+    "test": {
+      "command": "{{ test_command }}"
+    },
+    "lint": {
+      "command": "{{ lint_command }}"
+    }
+  }
+}
