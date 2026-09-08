@@ -136,6 +136,7 @@ Developer tools, scripts, and shared engineering utilities.
 |------------|-------------|
 | [bazel_registry](https://github.com/eclipse-score/bazel_registry) | Score project bazel modules registry |
 | [bazel_registry_ui](https://github.com/eclipse-score/bazel_registry_ui) | House the ui for bazel_registry in Score |
+| [coverage_tool](https://github.com/eclipse-score/coverage_tool) | LLVM source-based code coverage pipeline for Eclipse S-CORE (Bazel module score_coverage) |
 | [dash-license-scan](https://github.com/eclipse-score/dash-license-scan) | pipx/uvx wrapper for the dash-licenses tool |
 | [devcontainer](https://github.com/eclipse-score/devcontainer) | Common DevContainer for Eclipse S-CORE |
 | [docs-as-code](https://github.com/eclipse-score/docs-as-code) | Docs-as-code tooling for Eclipse S-CORE |
