@@ -483,15 +483,38 @@ th[data-tooltip]:focus::after, td[data-tooltip]:focus::after { opacity: 1; }
 }
 .policy-sync-stat-value { font-weight: 650; color: #e6edf3; }
 .policy-sync-stat-label { color: var(--muted); font-size: 0.75rem; }
-.policy-sync-matrix { padding: 0 1.1rem 1rem; }
+.policy-sync-matrix {
+  padding: 0 1.1rem 1rem;
+  overflow-x: auto;
+}
 .policy-sync-matrix h3 {
   font-size: 0.82rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.policy-matrix { min-width: 600px; }
-.policy-matrix th:not(:first-child), .policy-matrix td { text-align: center; }
+.policy-matrix {
+  width: max-content;
+  min-width: max(600px, 100%);
+  table-layout: fixed;
+}
+.policy-matrix th:not(:first-child) {
+  width: 7rem;
+  min-width: 7rem;
+  max-width: 7rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: bottom;
+  line-height: 1.2;
+}
+.policy-matrix td {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  text-align: center;
+}
 .policy-matrix-cell { outline: none; }
 .policy-status {
   display: inline-block;

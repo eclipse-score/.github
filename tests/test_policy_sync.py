@@ -317,6 +317,24 @@ def test_policy_sync_tab_renders_details_links_and_escaped_values() -> None:
     assert 'href="repo-policy-sync-report.json"' in page
 
 
+def test_policy_sync_matrix_compacts_long_policy_columns() -> None:
+    report = parse_policy_sync_report(_report_payload())
+    assert report is not None
+
+    page = render_index_page(_minimal_snapshot(), report)
+
+    # Policy identifiers remain fully visible, while the stylesheet gives each
+    # policy column a compact width and allows long identifiers to wrap.
+    assert ".policy-sync-matrix {" in page
+    assert "overflow-x: auto;" in page
+    assert ".policy-matrix th:not(:first-child) {" in page
+    assert "width: 7rem;" in page
+    assert "table-layout: fixed;" in page
+    assert "overflow-wrap: anywhere;" in page
+    assert "white-space: normal;" in page
+    assert "minimum-bazel-version" in page
+
+
 def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     report = parse_policy_sync_report(_report_payload())
     assert report is not None
