@@ -198,7 +198,7 @@ artifact = 'report'
         load_org_config(path)
 
 
-def test_fetch_policy_report_downloads_latest_completed_artifact(
+def test_fetch_policy_report_downloads_latest_scheduled_main_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
@@ -215,6 +215,8 @@ def test_fetch_policy_report_downloads_latest_completed_artifact(
     def fake_gh(args: list[str], token: str | None) -> str:
         assert token is None
         if args[:2] == ["run", "list"]:
+            assert args[args.index("--event") + 1] == "schedule"
+            assert args[args.index("--branch") + 1] == "main"
             return "11\n"
         if args[:2] == ["run", "download"]:
             download_dir = Path(args[args.index("--dir") + 1])
@@ -240,6 +242,8 @@ def test_fetch_policy_report_is_non_fatal_when_no_run_exists(tmp_path: Path) -> 
     def fake_gh(args: list[str], token: str | None) -> str:
         del token
         assert args[:2] == ["run", "list"]
+        assert args[args.index("--event") + 1] == "schedule"
+        assert args[args.index("--branch") + 1] == "main"
         return "null\n"
 
     assert fetch_policy_report(config, token="secret", gh_runner=fake_gh) is False

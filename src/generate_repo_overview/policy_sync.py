@@ -226,7 +226,7 @@ def fetch_policy_report(
     gh_runner: Callable[[list[str], str | None], str] | None = None,
     status_prefix: str = "repo-overview",
 ) -> bool:
-    """Fetch the latest completed configured workflow artifact.
+    """Fetch the latest completed artifact from a scheduled ``main`` run.
 
     A false return value means that no usable artifact was available.  Fetching
     is deliberately best-effort because it is an enhancement to the Pages
@@ -250,6 +250,13 @@ def fetch_policy_report(
                     config.workflow,
                     "--status",
                     "completed",
+                    # Manual dispatches can select a different policy-sync
+                    # mode, so only consume reports produced by the scheduled
+                    # workflow on the repository's main branch.
+                    "--event",
+                    "schedule",
+                    "--branch",
+                    "main",
                     "--limit",
                     "1",
                     "--json",
