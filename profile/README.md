@@ -48,7 +48,6 @@ Core S-CORE modules, libraries, and APIs.
 | [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
 | [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
-| [orchestrator](https://github.com/eclipse-score/orchestrator) | Orchestration framework & Safe async runtime for Rust |
 | [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework |
 | [scrample](https://github.com/eclipse-score/scrample) | Repository for example component |
 
@@ -122,6 +121,7 @@ Toolchain repositories for compilers, linters, and other development tools.
 | [bazel_cpp_toolchains](https://github.com/eclipse-score/bazel_cpp_toolchains) | Bazel C/C++ toolchain configuration repository |
 | [bazel_platforms](https://github.com/eclipse-score/bazel_platforms) | Bazel platform definitions used by S-CORE modules |
 | [ferrocene_toolchain_builder](https://github.com/eclipse-score/ferrocene_toolchain_builder) | Builder for Ferrocene artifacts |
+| [qnx_sdp](https://github.com/eclipse-score/qnx_sdp) | QNX SDP toolchain |
 | [rules_rust](https://github.com/eclipse-score/rules_rust) | S-CORE fork of bazelbuild/rules_rust |
 | [score_cpp_policies](https://github.com/eclipse-score/score_cpp_policies) | Centralized C++ quality tool policies for S-CORE, including sanitizer configurations and safety-critical guidelines. |
 | [score_rust_policies](https://github.com/eclipse-score/score_rust_policies) | Centralized Rust linting and formatting policies for S-CORE, including safety-critical guidelines. |
