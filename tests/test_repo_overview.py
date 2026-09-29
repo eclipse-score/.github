@@ -1154,6 +1154,39 @@ def test_known_good_pin_parser_ignores_malformed_json() -> None:
     )
 
 
+def test_resolve_known_good_version_verifies_lazy_commit_before_accepting_sha() -> None:
+    commit_sha = "0123456789abcdef0123456789abcdef01234567"
+    commit_refs: list[str] = []
+
+    class LazyCommit:
+        def __init__(self, ref: str) -> None:
+            self.sha = ref
+
+        def complete(self) -> None:
+            if self.sha == "8.3.0":
+                raise LookupError("No Git ref named 8.3.0")
+            self.sha = commit_sha
+
+    class Repository:
+        def get_commit(self, ref: str) -> LazyCommit:
+            commit_refs.append(ref)
+            return LazyCommit(ref)
+
+    pin = reference_integration.KnownGoodPin(
+        module="score_docs_as_code",
+        group="Core",
+        branch="main",
+        version="8.3.0",
+        commit_hash=None,
+    )
+
+    assert (
+        reference_integration.resolve_reference_integration_pin(Repository(), pin)
+        == commit_sha
+    )
+    assert commit_refs == ["8.3.0", "v8.3.0"]
+
+
 def test_latest_release_details_keep_divergence_from_single_comparison(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

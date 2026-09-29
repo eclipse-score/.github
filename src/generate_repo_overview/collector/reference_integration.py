@@ -217,9 +217,15 @@ def resolve_reference_integration_pin(
         for version_ref in version_refs:
             try:
                 commit = get_commit(version_ref)
+                # The collector uses PyGithub's lazy mode. An incomplete
+                # Commit can expose the requested ref as ``sha`` before
+                # GitHub has confirmed that the ref exists.
+                complete = getattr(commit, "complete", None)
+                if callable(complete):
+                    complete()
+                resolved_sha = getattr(commit, "sha", None)
             except Exception:
                 continue
-            resolved_sha = getattr(commit, "sha", None)
             if isinstance(resolved_sha, str) and resolved_sha:
                 pin_ref = resolved_sha
                 break
