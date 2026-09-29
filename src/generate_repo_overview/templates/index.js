@@ -4,18 +4,31 @@ const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability',
 function getHashState() {
   const [hashTab, query = ''] = location.hash.slice(1).split('?');
   const tab = hashTab === 'modules' ? 'naming' : hashTab;
-  const requestedCategory = new URLSearchParams(query).get('category');
+  const params = new URLSearchParams(query);
+  const requestedCategory = params.get('category');
+  const integration = params.get('integration');
+  const docs = params.get('docs');
   return {
     tab: TAB_IDS.includes(tab) ? tab : 'overview',
     category: categories.includes(requestedCategory) ? requestedCategory : 'all',
+    integration: ['included', 'excluded'].includes(integration) ? integration : 'all',
+    docs: ['yes', 'no'].includes(docs) ? docs : 'all',
   };
 }
 
-function writeHashState(tab, category) {
-  const query = category === 'all' ? '' : `?category=${encodeURIComponent(category)}`;
+function writeHashState(tab, category, integration, docs) {
+  const params = new URLSearchParams();
+  if (category !== 'all') params.set('category', category);
+  if (integration !== 'all') params.set('integration', integration);
+  if (docs !== 'all') params.set('docs', docs);
+  const serialized = params.toString();
+  const query = serialized ? `?${serialized}` : '';
   const hash = `#${tab}${query}`;
   if (location.hash !== hash) location.hash = hash;
 }
+
+let activeVersionView = 'table';
+const versionViewToggle = document.getElementById('version-view-toggle');
 
 function applyVisibility() {
   document.querySelectorAll('.section').forEach(s => {
@@ -23,14 +36,39 @@ function applyVisibility() {
     const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
     s.classList.toggle('hidden', !(matchTab && matchCat));
   });
+  document.querySelectorAll('[data-repo-filter]').forEach(item => {
+    const matchIntegration = activeIntegration === 'all' || item.dataset.integration === activeIntegration;
+    const matchDocs = activeDocs === 'all' || item.dataset.docsAsCode === activeDocs;
+    item.classList.toggle('repo-filter-hidden', !(matchIntegration && matchDocs));
+  });
+  document.querySelectorAll('.section:not(.hidden)').forEach(section => {
+    const items = section.querySelectorAll('[data-repo-filter]');
+    if (items.length && !Array.from(items).some(item => !item.classList.contains('repo-filter-hidden'))) {
+      section.classList.add('hidden');
+    }
+  });
+  document.querySelectorAll('.versions-table-view').forEach(view => {
+    view.classList.toggle('hidden', activeVersionView !== 'table');
+  });
+  document.querySelectorAll('.versions-cards-view').forEach(view => {
+    view.classList.toggle('hidden', activeVersionView !== 'cards');
+  });
+  versionViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
+    const isActive = button.dataset.versionView === activeVersionView;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 }
 
-function activateState(tab, category) {
+function activateState(tab, category, integration, docs) {
   activeTab = tab;
   activeCategory = category;
+  activeIntegration = integration;
+  activeDocs = docs;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('filters').style.display = tab === 'traceability' ? 'none' : '';
   renderFilters();
+  versionViewToggle.style.display = tab === 'versions' ? 'flex' : 'none';
   applyVisibility();
 }
 
@@ -41,18 +79,25 @@ const categoryCounts = new Map(
     .map(section => [section.dataset.category, Number(section.querySelector('.section-count')?.textContent || 0)])
 );
 
-let {tab: activeTab, category: activeCategory} = getHashState();
-activateState(activeTab, activeCategory);
+let {tab: activeTab, category: activeCategory, integration: activeIntegration, docs: activeDocs} = getHashState();
+activateState(activeTab, activeCategory, activeIntegration, activeDocs);
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    writeHashState(btn.dataset.tab, activeCategory);
+    writeHashState(btn.dataset.tab, activeCategory, activeIntegration, activeDocs);
   });
 });
 
 window.addEventListener('hashchange', () => {
   const state = getHashState();
-  activateState(state.tab, state.category);
+  activateState(state.tab, state.category, state.integration, state.docs);
+});
+
+versionViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    activeVersionView = button.dataset.versionView;
+    applyVisibility();
+  });
 });
 
 function renderFilters() {
@@ -61,42 +106,70 @@ function renderFilters() {
   intro.className = 'filter-intro';
   const label = document.createElement('span');
   label.className = 'filter-label';
-  label.textContent = 'Filter by group';
+  label.textContent = 'Filter repositories';
   const hint = document.createElement('span');
   hint.className = 'filter-hint';
-  hint.textContent = 'Choose which repositories to show';
+  hint.textContent = 'Combine group and repository filters';
   intro.append(label, hint);
 
-  const options = document.createElement('div');
-  options.className = 'filter-options';
-  options.setAttribute('role', 'group');
-  options.setAttribute('aria-label', 'Filter repositories by group');
-  categories.forEach(category => {
-    const button = document.createElement('button');
-    button.className = `filter-btn${category === activeCategory ? ' active' : ''}`;
-    button.dataset.cat = category;
-    button.setAttribute('aria-pressed', String(category === activeCategory));
-    const name = document.createElement('span');
-    name.textContent = category === 'all' ? 'All repositories' : category;
-    const count = document.createElement('span');
-    count.className = 'filter-count';
-    count.textContent = String(category === 'all'
-      ? Array.from(categoryCounts.values()).reduce((total, value) => total + value, 0)
-      : categoryCounts.get(category) || 0);
-    button.append(name, count);
-    options.append(button);
-  });
   const current = document.createElement('span');
   current.className = 'filter-current';
   current.setAttribute('aria-live', 'polite');
-  current.textContent = activeCategory === 'all' ? 'Showing all groups' : `Showing ${activeCategory}`;
-  filtersEl.append(intro, options, current);
-
-  options.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      writeHashState(activeTab, btn.dataset.cat);
-    });
+  const groupChoices = categories.map(category => {
+    const count = category === 'all'
+      ? Array.from(categoryCounts.values()).reduce((total, value) => total + value, 0)
+      : categoryCounts.get(category) || 0;
+    return [category, `${category === 'all' ? 'All groups' : category} (${count})`];
   });
+  const groupSelect = createFilterSelect(
+    'Group', 'group-filter', activeCategory, groupChoices,
+  );
+  const integrationSelect = createFilterSelect(
+    'Reference integration', 'integration-filter', activeIntegration,
+    [['all', 'All'], ['included', 'Included'], ['excluded', 'Not included']],
+  );
+  const docsSelect = createFilterSelect(
+    'Docs-as-Code', 'docs-filter', activeDocs,
+    [['all', 'All'], ['yes', 'Uses it'], ['no', 'Does not use it']],
+  );
+  const updateCurrent = () => {
+    const active = [];
+    if (activeCategory !== 'all') active.push(`group: ${activeCategory}`);
+    if (activeIntegration !== 'all') active.push(activeIntegration === 'included' ? 'in reference integration' : 'not in reference integration');
+    if (activeDocs !== 'all') active.push(activeDocs === 'yes' ? 'uses Docs-as-Code' : 'does not use Docs-as-Code');
+    current.textContent = active.length ? `Filtered by ${active.join(' · ')}` : 'Showing all repositories';
+  };
+  updateCurrent();
+  filtersEl.append(intro, groupSelect.wrapper, integrationSelect.wrapper, docsSelect.wrapper, current);
+  groupSelect.select.addEventListener('change', () => {
+    writeHashState(activeTab, groupSelect.select.value, activeIntegration, activeDocs);
+  });
+  integrationSelect.select.addEventListener('change', () => {
+    writeHashState(activeTab, activeCategory, integrationSelect.select.value, activeDocs);
+  });
+  docsSelect.select.addEventListener('change', () => {
+    writeHashState(activeTab, activeCategory, activeIntegration, docsSelect.select.value);
+  });
+}
+
+function createFilterSelect(labelText, id, value, choices) {
+  const wrapper = document.createElement('label');
+  wrapper.className = 'filter-select';
+  wrapper.htmlFor = id;
+  const label = document.createElement('span');
+  label.textContent = labelText;
+  const select = document.createElement('select');
+  select.id = id;
+  select.setAttribute('aria-label', labelText);
+  choices.forEach(([choice, text]) => {
+    const option = document.createElement('option');
+    option.value = choice;
+    option.textContent = text;
+    option.selected = choice === value;
+    select.append(option);
+  });
+  wrapper.append(label, select);
+  return {wrapper, select};
 }
 
 // Column sorting

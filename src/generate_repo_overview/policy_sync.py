@@ -494,6 +494,7 @@ def render_policy_sync_section(
     report: PolicySyncReport | None,
     *,
     repository_categories: Mapping[str, str] | None = None,
+    repository_filters: Mapping[str, tuple[bool, bool]] | None = None,
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
 ) -> str:
@@ -504,6 +505,7 @@ def render_policy_sync_section(
     return render(
         report,
         repository_categories=repository_categories,
+        repository_filters=repository_filters,
         raw_json_available=raw_json_available,
         raw_json_filename=raw_json_filename,
     )

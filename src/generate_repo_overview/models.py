@@ -94,6 +94,15 @@ class DeepContentSignals:
     bazel_version: str | None = None
     codeowners: tuple[str, ...] = ()
     referenced_by_reference_integration: bool = False
+    reference_integration_module: str | None = None
+    reference_integration_group: str | None = None
+    reference_integration_branch: str | None = None
+    reference_integration_version: str | None = None
+    reference_integration_hash: str | None = None
+    reference_integration_release_ahead_of_main_by: int | None = None
+    reference_integration_main_ahead_of_release_by: int | None = None
+    reference_integration_pin_ahead_of_main_by: int | None = None
+    reference_integration_main_ahead_of_pin_by: int | None = None
     has_lint_config: bool = False
     has_gitlint_config: bool = False
     has_pyproject_toml: bool = False
@@ -123,6 +132,33 @@ class DeepContentSignals:
             codeowners=normalize_string_tuple(data.get("codeowners")),
             referenced_by_reference_integration=bool(
                 data.get("referenced_by_reference_integration", False)
+            ),
+            reference_integration_module=cast(
+                "str | None", data.get("reference_integration_module")
+            ),
+            reference_integration_group=cast(
+                "str | None", data.get("reference_integration_group")
+            ),
+            reference_integration_branch=cast(
+                "str | None", data.get("reference_integration_branch")
+            ),
+            reference_integration_version=cast(
+                "str | None", data.get("reference_integration_version")
+            ),
+            reference_integration_hash=cast(
+                "str | None", data.get("reference_integration_hash")
+            ),
+            reference_integration_release_ahead_of_main_by=cast(
+                "int | None", data.get("reference_integration_release_ahead_of_main_by")
+            ),
+            reference_integration_main_ahead_of_release_by=cast(
+                "int | None", data.get("reference_integration_main_ahead_of_release_by")
+            ),
+            reference_integration_pin_ahead_of_main_by=cast(
+                "int | None", data.get("reference_integration_pin_ahead_of_main_by")
+            ),
+            reference_integration_main_ahead_of_pin_by=cast(
+                "int | None", data.get("reference_integration_main_ahead_of_pin_by")
             ),
             has_lint_config=bool(data.get("has_lint_config", False)),
             has_gitlint_config=bool(data.get("has_gitlint_config", False)),

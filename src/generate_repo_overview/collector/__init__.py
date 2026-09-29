@@ -391,6 +391,9 @@ def fetch_repositories(
         )
 
     reference_integration_repository_names: set[str] = set()
+    reference_integration_pins: dict[
+        str, reference_integration.KnownGoodPin
+    ] = {}
     if config.reference_integration_repo:
         print_status(
             f"Loading {config.reference_integration_repo} Bazel dependencies",
@@ -409,6 +412,20 @@ def fetch_repositories(
                 registry_repository=registry_repository_name,
                 org_name=config.org_name,
             )
+        )
+        reference_integration_pins = (
+            reference_integration.fetch_reference_integration_pins(
+                reference_integration_repository=(
+                    reference_integration_data.repository
+                    if reference_integration_data is not None
+                    else None
+                ),
+                active_repository_names=set(active_repositories),
+                org_name=config.org_name,
+            )
+        )
+        reference_integration_repository_names.update(
+            reference_integration_pins
         )
         print_status(
             f"Loaded {config.reference_integration_repo} Bazel dependencies for "
@@ -477,7 +494,76 @@ def fetch_repositories(
 
         for future in as_completed(futures):
             index, repository_name = futures[future]
-            repos_by_index[index] = future.result()
+            entry = future.result()
+            pin = reference_integration_pins.get(repository_name)
+            repository = active_repositories[repository_name].repository
+            raw_default_branch = getattr(repository, "default_branch", None)
+            main_branch = (
+                raw_default_branch.strip()
+                if isinstance(raw_default_branch, str) and raw_default_branch.strip()
+                else (pin.branch if pin is not None else "main")
+            )
+            release_comparison = (
+                reference_integration.compare_git_refs(
+                    repository,
+                    left_ref=main_branch,
+                    right_ref=entry.volatile.latest_release_version,
+                )
+                if entry.volatile.latest_release_version
+                else None
+            )
+            pin_ref = (
+                reference_integration.resolve_reference_integration_pin(
+                    repository,
+                    pin,
+                )
+                if pin is not None
+                else None
+            )
+            pin_comparison = (
+                reference_integration.compare_git_refs(
+                    repository,
+                    left_ref=main_branch,
+                    right_ref=pin_ref,
+                )
+                if pin_ref is not None
+                else None
+            )
+            content_changes: dict[str, object] = {
+                "reference_integration_release_ahead_of_main_by": (
+                    release_comparison.right_ahead_by
+                    if release_comparison is not None
+                    else None
+                ),
+                "reference_integration_main_ahead_of_release_by": (
+                    release_comparison.left_ahead_by
+                    if release_comparison is not None
+                    else None
+                ),
+                "reference_integration_pin_ahead_of_main_by": (
+                    pin_comparison.right_ahead_by
+                    if pin_comparison is not None
+                    else None
+                ),
+                "reference_integration_main_ahead_of_pin_by": (
+                    pin_comparison.left_ahead_by
+                    if pin_comparison is not None
+                    else None
+                ),
+            }
+            if pin is not None:
+                content_changes.update(
+                    reference_integration_module=pin.module,
+                    reference_integration_group=pin.group,
+                    reference_integration_branch=main_branch,
+                    reference_integration_version=pin.version,
+                    reference_integration_hash=pin.commit_hash,
+                )
+            entry = replace(
+                entry,
+                content=replace(entry.content, **content_changes),
+            )
+            repos_by_index[index] = entry
             progress.update(1)
             progress.set_postfix_str(repository_name)
 

@@ -78,7 +78,13 @@ def language_badge(lang: str | None) -> str:
     return f'<span class="lang-badge" style="--lang-color:{color}">{e(lang)}</span>'
 
 
-def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) -> str:
+def repo_name_cell(
+    entry: RepoEntry,
+    org_name: str,
+    *,
+    bazel_icon: bool = True,
+    include_description: bool = True,
+) -> str:
     detail_url = f"{e(entry.name)}/index.html"
     github_url = f"https://github.com/{org_name}/{entry.name}"
     docs_link_str = docs_url(org_name, entry.name)
@@ -95,7 +101,7 @@ def repo_name_cell(entry: RepoEntry, org_name: str, *, bazel_icon: bool = True) 
             f' aria-label="Documentation ↗"'
             f' target="_blank" rel="noopener">{DOCS_ICON}</a>'
         )
-    if entry.description:
+    if include_description and entry.description:
         cell += f' <span class="repo-desc">{e(entry.description)}</span>'
     return cell
 

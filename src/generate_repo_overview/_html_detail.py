@@ -360,14 +360,25 @@ def _render_versions_section(
             f'<div class="info-label">{e(dep_label)} Version</div>{badge}</div>'
         )
 
-    refint = (
-        '<span class="badge green">yes</span>'
-        if entry.content.referenced_by_reference_integration
-        else '<span class="text-muted">no</span>'
-    )
+    pin_version = entry.content.reference_integration_version
+    pin_hash = entry.content.reference_integration_hash
+    pin_label = pin_version or (pin_hash[:7] if pin_hash else None)
+    if pin_label is not None:
+        pin = e(pin_label)
+        if pin_hash:
+            pin = (
+                f'<a class="mono" href="https://github.com/{e(snapshot.org_name)}/'
+                f'{e(entry.name)}/commit/{e(pin_hash)}" target="_blank" '
+                f'rel="noopener">{pin}</a>'
+            )
+        refint = f'<span class="badge green">{pin}</span>'
+    elif entry.content.referenced_by_reference_integration:
+        refint = '<span class="badge green">included</span>'
+    else:
+        refint = '<span class="text-muted">no</span>'
     items.append(
         f'<div class="info-item">'
-        f'<div class="info-label">Reference Integration</div>{refint}</div>'
+        f'<div class="info-label">Reference Integration Pin</div>{refint}</div>'
     )
 
     if entry.registry.latest_bazel_registry_version:

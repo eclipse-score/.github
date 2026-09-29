@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 from urllib.parse import urlsplit
@@ -23,6 +25,21 @@ GIT_OVERRIDE_PATTERN = re.compile(r"\bgit_override\s*\((?P<body>.*?)\)", re.DOTA
 NAME_PATTERN = re.compile(r'\bname\s*=\s*"(?P<value>[^"]+)"')
 MODULE_NAME_PATTERN = re.compile(r'\bmodule_name\s*=\s*"(?P<value>[^"]+)"')
 REMOTE_PATTERN = re.compile(r'\bremote\s*=\s*"(?P<value>[^"]+)"')
+
+
+@dataclass(frozen=True, slots=True)
+class KnownGoodPin:
+    module: str
+    group: str
+    branch: str
+    version: str | None
+    commit_hash: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class GitRefComparison:
+    right_ahead_by: int
+    left_ahead_by: int
 
 
 def fetch_reference_integration_repository_names(
@@ -76,6 +93,145 @@ def fetch_reference_integration_repository_names(
     return set(dedupe_preserving_order(repositories))
 
 
+def fetch_reference_integration_pins(
+    *,
+    reference_integration_repository: object | None,
+    active_repository_names: set[str],
+    org_name: str,
+) -> dict[str, KnownGoodPin]:
+    """Read each active repository's integration pin from known_good.json."""
+    if reference_integration_repository is None:
+        return {}
+
+    default_branch = cast(
+        "str | None",
+        getattr(reference_integration_repository, "default_branch", None),
+    )
+    repository = cast(
+        "str | None", getattr(reference_integration_repository, "full_name", None)
+    )
+    if default_branch is None or repository is None:
+        return {}
+
+    checkout_path = sync_repository_checkout(
+        repository=repository,
+        default_branch=default_branch,
+        checkout_path=default_cache_directory() / repository,
+    )
+    if checkout_path is None:
+        return {}
+    content = read_checkout_file(checkout_path, Path("known_good.json"))
+    if content is None:
+        return {}
+    return parse_known_good_pins(
+        content,
+        active_repository_names=active_repository_names,
+        org_name=org_name,
+    )
+
+
+def parse_known_good_pins(
+    content: str,
+    *,
+    active_repository_names: set[str],
+    org_name: str,
+) -> dict[str, KnownGoodPin]:
+    """Map GitHub repositories to their module group, branch, and version pin."""
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    modules = data.get("modules")
+    if not isinstance(modules, dict):
+        return {}
+
+    versions: dict[str, KnownGoodPin] = {}
+    for group_name, group in modules.items():
+        if not isinstance(group, dict):
+            continue
+        for module_name, module in group.items():
+            if not isinstance(module, dict):
+                continue
+            repository_url = module.get("repo")
+            if not isinstance(repository_url, str):
+                continue
+            repository_name = parse_github_remote_repository_name(
+                repository_url,
+                org_name=org_name,
+            )
+            if repository_name not in active_repository_names:
+                continue
+            raw_version = module.get("version")
+            raw_hash = module.get("hash")
+            version = raw_version.strip() if isinstance(raw_version, str) else ""
+            commit_hash = raw_hash.strip() if isinstance(raw_hash, str) else ""
+            if version or commit_hash:
+                raw_branch = module.get("branch")
+                branch = raw_branch.strip() if isinstance(raw_branch, str) else ""
+                versions[repository_name] = KnownGoodPin(
+                    module=str(module_name),
+                    group=str(group_name),
+                    branch=branch or "main",
+                    version=version or None,
+                    commit_hash=commit_hash or None,
+                )
+    return versions
+
+
+def resolve_reference_integration_pin(
+    repository: object,
+    pin: KnownGoodPin,
+) -> str | None:
+    """Resolve a known-good hash or version pin to a Git commit ref."""
+    pin_ref = pin.commit_hash
+    if pin_ref is None and pin.version:
+        get_commit = getattr(repository, "get_commit", None)
+        if not callable(get_commit):
+            return None
+        version_refs = [pin.version]
+        if not pin.version.startswith("v"):
+            version_refs.append(f"v{pin.version}")
+        for version_ref in version_refs:
+            try:
+                commit = get_commit(version_ref)
+            except Exception:
+                continue
+            resolved_sha = getattr(commit, "sha", None)
+            if isinstance(resolved_sha, str) and resolved_sha:
+                pin_ref = resolved_sha
+                break
+    if pin_ref is None:
+        return None
+    return pin_ref
+
+
+def compare_git_refs(
+    repository: object,
+    *,
+    left_ref: str,
+    right_ref: str,
+) -> GitRefComparison | None:
+    """Compare refs and count commits unique to each side, including divergence."""
+    compare = getattr(repository, "compare", None)
+    if not callable(compare):
+        return None
+    try:
+        result = compare(left_ref, right_ref)
+    except Exception:
+        return None
+
+    right_ahead_by = getattr(result, "ahead_by", None)
+    left_ahead_by = getattr(result, "behind_by", None)
+    if not isinstance(right_ahead_by, int) or not isinstance(left_ahead_by, int):
+        return None
+    return GitRefComparison(
+        right_ahead_by=right_ahead_by,
+        left_ahead_by=left_ahead_by,
+    )
+
+
 def read_included_module_files(checkout_path: Path) -> dict[Path, str]:
     pending = [ROOT_MODULE_PATH]
     seen: set[Path] = set()
@@ -111,7 +267,7 @@ def read_checkout_file(checkout_path: Path, relative_path: Path) -> str | None:
         return None
     try:
         return path.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeError):
         return None
 
 

@@ -11,6 +11,7 @@ from ._html_common import (
     e,
     language_badge,
     repo_name_cell,
+    uses_docs_as_code,
     version_badge,
 )
 from .metrics_report import (
@@ -48,6 +49,13 @@ def render_index_page(
         for category, category_repos in categories
         for repo in category_repos
     }
+    repository_filters = {
+        repo.name: (
+            repo.content.referenced_by_reference_integration,
+            uses_docs_as_code(repo),
+        )
+        for repo in repos
+    }
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n'
@@ -59,6 +67,7 @@ def render_index_page(
         + _render_header(snapshot, repos)
         + _render_tab_bar()
         + _render_filters_placeholder()
+        + _render_version_view_toggle()
         + '<div id="sections">\n'
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, snapshot)
@@ -68,6 +77,7 @@ def render_index_page(
         + render_policy_sync_section(
             policy_report,
             repository_categories=repository_categories,
+            repository_filters=repository_filters,
             raw_json_available=raw_json_available or policy_report is not None,
             raw_json_filename=raw_json_filename,
         )
@@ -137,6 +147,19 @@ def _render_filters_placeholder() -> str:
     return '<div id="filters"></div>\n\n'
 
 
+def _render_version_view_toggle() -> str:
+    return (
+        '<div id="version-view-toggle" role="group" '
+        'aria-label="Choose how to display version data">\n'
+        '  <span class="view-toggle-label">Display as</span>\n'
+        '  <button class="view-toggle-btn active" data-version-view="table" '
+        'aria-pressed="true">Table</button>\n'
+        '  <button class="view-toggle-btn" data-version-view="cards" '
+        'aria-pressed="false">Cards</button>\n'
+        '</div>\n\n'
+    )
+
+
 def _render_overview_sections(
     categories: list[tuple[str, list[RepoEntry]]],
     org_name: str,
@@ -168,6 +191,7 @@ def _render_overview_sections(
 
 def _overview_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = repo_name_cell(entry, org_name)
+    filter_attrs = _repo_filter_attributes(entry)
     repo_url = f"https://github.com/{org_name}/{entry.name}"
 
     merged = _render_merged_badge(entry.volatile.merged_prs_30_days)
@@ -217,7 +241,7 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
     stars_tip = f"{entry.stars} star{'s' if entry.stars != 1 else ''} · {entry.forks} fork{'s' if entry.forks != 1 else ''}"
 
     return (
-        f'    <tr data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
+        f'    <tr{filter_attrs} data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
         f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
@@ -226,6 +250,18 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
         f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
         f'      <td class="text-right" data-tooltip="{e(stars_tip)}">{stars_forks}</td>\n'
         f"    </tr>"
+    )
+
+
+def _repo_filter_attributes(entry: RepoEntry) -> str:
+    integration_value = (
+        "included" if entry.content.referenced_by_reference_integration else "excluded"
+    )
+    docs_value = "yes" if uses_docs_as_code(entry) else "no"
+    return (
+        f' data-repo-filter="{e(entry.name)}"'
+        f' data-integration="{integration_value}"'
+        f' data-docs-as-code="{docs_value}"'
     )
 
 
@@ -421,6 +457,10 @@ def _render_versions_sections(
             _versions_row(r, org_name, max_bazel, tracked_deps, latest_dep_versions)
             for r in cat_repos
         )
+        cards = "\n".join(
+            _versions_card(r, org_name, max_bazel, tracked_deps, latest_dep_versions)
+            for r in cat_repos
+        )
         dep_headers = "".join(
             f'      <th data-sort="dep-{i}" title="Version of the {e(tracked_dep_label(dep))} dependency.">'
             f'{e(tracked_dep_label(dep))} Version <span class="sort-arrow"></span></th>\n'
@@ -432,20 +472,243 @@ def _render_versions_sections(
             f'    <span class="section-title">{e(category)}</span>\n'
             f'    <span class="section-count">{len(cat_repos)}</span>\n'
             f"  </div>\n"
+            f'  <div class="versions-table-view">\n'
             f"  <table>\n"
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="bazel" title="The version of Bazel (the build tool) in use. Green = on the latest known version, red = a newer version is available.">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
             f"{dep_headers}"
-            f'      <th data-sort="refint" class="text-center" title="Whether this repository is included in the shared reference integration test suite.">Reference Integration <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="release" title="Arrows compare each ref with the repository default branch. ↑ means that ref is ahead; ↓ means the default branch is ahead. Color shows size: green under 5 commits, orange 5–19, red 20 or more. = means same commit. Hover for details.">Git refs <span class="table-heading-hint">Δ vs default branch</span> <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="depchanges" title="Number of dependency version changes on the main branch since the last release. Tracked dependency versions are shown in their own columns.">Other Dep Changes <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
             f"  </table>\n"
+            f"  </div>\n"
+            f'  <div class="versions-cards-view hidden">{cards}</div>\n'
             f"</div>\n"
         )
     return "".join(parts)
+
+
+def _versions_card(
+    entry: RepoEntry,
+    org_name: str,
+    max_bazel: tuple[int, ...] | None,
+    tracked_deps: tuple[TrackedDep, ...],
+    latest_dep_versions: dict[str, str | None],
+) -> str:
+    from .models import lookup_bazel_dep_version
+
+    bazel_cell = version_badge(
+        entry.content.bazel_version,
+        max_bazel,
+        latest_dep_version=None,
+        is_bazel=True,
+    )
+    if (
+        entry.volatile.release_bazel_version
+        and entry.volatile.release_bazel_version != entry.content.bazel_version
+    ):
+        bazel_cell = (
+            f'<span class="mono text-muted">'
+            f'{e(entry.volatile.release_bazel_version)}</span> → {bazel_cell}'
+        )
+
+    release_deps = dict(entry.volatile.release_bazel_deps)
+    dependency_cards: list[str] = []
+    for dep in tracked_deps:
+        dep_label = tracked_dep_label(dep)
+        head_version = lookup_bazel_dep_version(
+            entry.content.bazel_deps,
+            dep.module_name,
+        )
+        release_version = release_deps.get(dep.module_name)
+        dependency_badge = version_badge(
+            head_version,
+            None,
+            latest_dep_version=latest_dep_versions.get(dep.module_name),
+            is_bazel=False,
+        )
+        if release_version and release_version != head_version:
+            dependency_badge = (
+                f'<span class="mono text-muted">{e(release_version)}</span> '
+                f'→ {dependency_badge}'
+            )
+        dependency_cards.append(
+            f'<div class="version-card-value">'
+            f'<span class="version-card-label">{e(dep_label)}</span>'
+            f'<span>{dependency_badge}</span></div>'
+        )
+
+    git_refs = _render_git_refs(entry, org_name)
+    filter_attrs = _repo_filter_attributes(entry)
+    card_repo_name = repo_name_cell(
+        entry,
+        org_name,
+        include_description=False,
+    )
+    description = (
+        f'<div class="version-card-description" title="{e(entry.description)}">'
+        f'{e(entry.description)}</div>'
+        if entry.description
+        else ""
+    )
+    dedicated_dep_names = frozenset(dep.module_name for dep in tracked_deps)
+    dep_changes, _ = _render_dep_changes(entry, dedicated_dep_names)
+    return (
+        f'<article class="version-card"{filter_attrs}>\n'
+        f'  <header class="version-card-header">'
+        f'<div class="version-card-heading">'
+        f'<span class="version-card-repo">{card_repo_name}</span>'
+        f'<span class="version-card-meta" '
+        f'title="{e(entry.category)} · {e(entry.subcategory)}">'
+        f'{e(entry.category)} · {e(entry.subcategory)}</span>'
+        f'</div>{description}</header>\n'
+        f'  <div class="version-card-value version-card-refs">'
+        f'<span class="version-card-label">Git refs</span>'
+        f'<span>{git_refs}</span></div>\n'
+        f'  <div class="version-card-value">'
+        f'<span class="version-card-label">Bazel</span>'
+        f'<span>{bazel_cell}</span></div>\n'
+        + "".join(dependency_cards)
+        + f'  <div class="version-card-value">'
+        f'<span class="version-card-label">Other dependency changes</span>'
+        f'<span>{dep_changes}</span></div>\n'
+        + f'</article>'
+    )
+
+
+def _render_ref_difference(
+    ahead_by: int | None,
+    behind_by: int | None,
+    *,
+    left_ref: str,
+    right_ref: str,
+) -> str:
+    """Show commits unique to either ref with a plain-language tooltip."""
+    if ahead_by is None or behind_by is None:
+        title = f"Could not compare {left_ref} with {right_ref}."
+        return (
+            f'<span class="git-ref-diff unavailable" title="{e(title)}">?</span>'
+        )
+    if ahead_by == 0 and behind_by == 0:
+        title = f"{left_ref} and {right_ref} point to the same commit."
+        return f'<span class="git-ref-diff equal" title="{e(title)}">=</span>'
+    arrows: list[str] = []
+    if ahead_by:
+        commit_word = "commit" if ahead_by == 1 else "commits"
+        missing_clause = "which is not" if ahead_by == 1 else "which are not"
+        title = (
+            f"{right_ref} is {ahead_by} {commit_word} ahead of {left_ref}. "
+            f"It contains {ahead_by} {commit_word} {missing_clause} in {left_ref}."
+        )
+        size_class = _ref_difference_size_class(ahead_by)
+        arrows.append(
+            f'<span class="git-ref-count {size_class}" title="{e(title)}">'
+            f'↑{ahead_by}</span>'
+        )
+    if behind_by:
+        commit_word = "commit" if behind_by == 1 else "commits"
+        missing_clause = "which is not" if behind_by == 1 else "which are not"
+        title = (
+            f"{left_ref} is {behind_by} {commit_word} ahead of {right_ref}. "
+            f"It contains {behind_by} {commit_word} {missing_clause} in {right_ref}."
+        )
+        size_class = _ref_difference_size_class(behind_by)
+        arrows.append(
+            f'<span class="git-ref-count {size_class}" title="{e(title)}">'
+            f'↓{behind_by}</span>'
+        )
+    return (
+        f'<span class="git-ref-diff">{" ".join(arrows)}</span>'
+    )
+
+
+def _ref_difference_size_class(commit_count: int) -> str:
+    """Color a difference by size without assigning meaning to its direction."""
+    if commit_count >= 20:
+        return "large"
+    if commit_count >= 5:
+        return "medium"
+    return "small"
+
+
+def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
+    """Render release, integration, and branch refs with adjacent Git diffs."""
+    release = entry.volatile.latest_release_version
+    if release:
+        release_ref = (
+            f'<a href="https://github.com/{e(org_name)}/{e(entry.name)}/'
+            f'releases/tag/{e(release)}" target="_blank" rel="noopener">'
+            f'{e(release)}</a>'
+        )
+    else:
+        release_ref = '<span class="text-muted">—</span>'
+
+    pin_hash = entry.content.reference_integration_hash
+    pin_version = entry.content.reference_integration_version
+    pin_label = pin_hash[:7] if pin_hash else pin_version
+    has_integration_ref = bool(pin_label)
+    release_description = f"latest release {release}" if release else "latest release"
+    integration_description = (
+        f"integration pin {pin_label}"
+        if pin_label
+        else "integration pin"
+    )
+    if pin_label:
+        pin_ref = e(pin_label)
+        if pin_hash:
+            pin_ref = (
+                f'<a class="mono" href="https://github.com/{e(org_name)}/'
+                f'{e(entry.name)}/commit/{e(pin_hash)}" target="_blank" '
+                f'rel="noopener" title="{e(pin_hash)}">{pin_ref}</a>'
+            )
+    elif entry.content.referenced_by_reference_integration:
+        pin_ref = '<span class="text-muted" title="Included without a version or commit pin">included</span>'
+    else:
+        pin_ref = '<span class="text-muted">—</span>'
+
+    branch = (
+        entry.default_branch
+        or entry.content.reference_integration_branch
+        or "main"
+    )
+    main_description = (
+        "main branch" if branch == "main" else f"default branch {branch}"
+    )
+    release_diff = (
+        _render_ref_difference(
+            entry.content.reference_integration_release_ahead_of_main_by,
+            entry.content.reference_integration_main_ahead_of_release_by,
+            left_ref=main_description,
+            right_ref=release_description,
+        )
+        if release
+        else (
+            '<span class="git-ref-diff unavailable" '
+            'title="No latest release is available for this comparison.">—</span>'
+        )
+    )
+    integration_diff = (
+        _render_ref_difference(
+            entry.content.reference_integration_pin_ahead_of_main_by,
+            entry.content.reference_integration_main_ahead_of_pin_by,
+            left_ref=main_description,
+            right_ref=integration_description,
+        )
+        if has_integration_ref
+        else '<span class="git-ref-diff unavailable" title="This repository has no reference integration pin.">—</span>'
+    )
+    return (
+        '<div class="git-ref-track">'
+        '<span class="git-ref-heading release-heading">Latest release</span>'
+        '<span class="git-ref-heading integration-heading">Integration pin</span>'
+        f'<span class="git-ref-label release-ref" title="Latest release">{release_ref}</span>'
+        f'<span class="git-ref-label integration-ref" title="Reference integration pin">{pin_ref}</span>'
+        f'<span class="git-ref-gap release-diff">{release_diff}</span>'
+        f'<span class="git-ref-gap integration-diff">{integration_diff}</span>'
+        '</div>'
+    )
 
 
 def _versions_row(
@@ -458,6 +721,7 @@ def _versions_row(
     from .models import lookup_bazel_dep_version
 
     name_cell = repo_name_cell(entry, org_name)
+    filter_attrs = _repo_filter_attributes(entry)
 
     bazel_cell = version_badge(
         entry.content.bazel_version, max_bazel, latest_dep_version=None, is_bazel=True
@@ -491,11 +755,7 @@ def _versions_row(
         )
         dep_cells.append(f'      <td data-tooltip="{e(tip)}">{cell}</td>\n')
 
-    refint = (
-        '<span class="badge green">yes</span>'
-        if entry.content.referenced_by_reference_integration
-        else '<span class="text-muted">no</span>'
-    )
+    git_refs = _render_git_refs(entry, org_name)
 
     max_bazel_str = ".".join(str(x) for x in max_bazel) if max_bazel else None
     bazel_tip = _build_version_tooltip(
@@ -506,36 +766,14 @@ def _versions_row(
         last_release_tag=entry.volatile.latest_release_version,
     )
 
-    refint_tip = (
-        "This repository is included in the shared reference integration."
-        if entry.content.referenced_by_reference_integration
-        else "This repository is not included in the shared reference integration."
-    )
-
-    release = _render_release(
-        entry.volatile.latest_release_version,
-        entry.volatile.commits_since_latest_release,
-    )
-    ver = entry.volatile.latest_release_version
-    commits = entry.volatile.commits_since_latest_release
-    if ver is None:
-        release_tip = "No release has been published for this repository."
-    elif commits is None:
-        release_tip = str(ver)
-    elif commits == 0:
-        release_tip = f"{ver} — the main branch is fully up to date with this release."
-    else:
-        release_tip = f"{ver} — {commits} commit{'s' if commits != 1 else ''} on the main branch not yet included in a release."
-
     dep_changes_cell, dep_changes_tip = _render_dep_changes(entry, dedicated_dep_names)
 
     return (
-        f"    <tr>\n"
+        f"    <tr{filter_attrs}>\n"
         f"      <td>{name_cell}</td>\n"
         f'      <td data-tooltip="{e(bazel_tip)}">{bazel_cell}</td>\n'
         + "".join(dep_cells)
-        + f'      <td class="text-center" data-tooltip="{e(refint_tip)}">{refint}</td>\n'
-        f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
+        + f'      <td data-sort-value="{e(entry.volatile.latest_release_version or "")}">{git_refs}</td>\n'
         f'      <td data-tooltip="{e(dep_changes_tip)}">{dep_changes_cell}</td>\n'
         f"    </tr>"
     )
@@ -619,6 +857,7 @@ def _automation_row(
     entry: RepoEntry, org_name: str, signal_labels: tuple[str, ...]
 ) -> str:
     name_cell = repo_name_cell(entry, org_name, bazel_icon=False)
+    filter_attrs = _repo_filter_attributes(entry)
     c = entry.content
 
     def _presence(val: bool, icon: str) -> str:
@@ -673,7 +912,7 @@ def _automation_row(
     lang_tip = ", ".join(langs) if langs else "Language unknown"
 
     return (
-        f"    <tr>\n"
+        f"    <tr{filter_attrs}>\n"
         f"      <td>{name_cell}</td>\n"
         f'      <td data-tooltip="{e(lang_tip)}">{lang_cell}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
@@ -796,6 +1035,7 @@ def _naming_row(
     *,
     is_platform_source: bool,
 ) -> str:
+    filter_attrs = _repo_filter_attributes(entry)
     not_applicable = (
         '<span class="text-muted" title="Not applicable to a platform '
         'documentation repository.">—</span>'
@@ -816,7 +1056,7 @@ def _naming_row(
         not_applicable if is_platform_source else _render_repo_feature_paths(entry)
     )
     return (
-        f"    <tr>\n"
+        f"    <tr{filter_attrs}>\n"
         f"      <td>{repo_name_cell(entry, org_name, bazel_icon=False)}</td>\n"
         f"      <td>{_render_platform_repos((*entry.content.sphinx_features, *entry.content.sphinx_modules))}</td>\n"
         f"      <td>{_render_sphinx_paths(entry)}</td>\n"

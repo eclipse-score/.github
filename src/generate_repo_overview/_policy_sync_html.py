@@ -18,6 +18,7 @@ def render_policy_sync_section(
     report: PolicySyncReport | None,
     *,
     repository_categories: Mapping[str, str] | None = None,
+    repository_filters: Mapping[str, tuple[bool, bool]] | None = None,
     raw_json_available: bool = False,
     raw_json_filename: str = DEFAULT_POLICY_REPORT_FILENAME,
 ) -> str:
@@ -89,6 +90,7 @@ def render_policy_sync_section(
             [],
             by_pair,
             policy_definitions,
+            repository_filters,
         )
 
     groups = _group_policy_repositories(repositories, repository_categories)
@@ -99,6 +101,7 @@ def render_policy_sync_section(
             policies,
             by_pair,
             policy_definitions,
+            repository_filters,
         )
         for category, category_repositories in groups
     )
@@ -148,11 +151,13 @@ def _render_policy_matrix_section(
     policies: list[str],
     by_pair: dict[tuple[str, str], PolicySyncOutcome],
     policy_definitions: Mapping[str, PolicySyncPolicy],
+    repository_filters: Mapping[str, tuple[bool, bool]] | None,
 ) -> str:
     category_attr = f' data-category="{e(category)}"' if category is not None else ""
     if policies:
         matrix_rows = "\n".join(
-            _matrix_row(repository, policies, by_pair) for repository in repositories
+            _matrix_row(repository, policies, by_pair, repository_filters)
+            for repository in repositories
         )
         matrix_header = "".join(
             _policy_header(policy, policy_definitions) for policy in policies
@@ -229,11 +234,19 @@ def _matrix_row(
     repository: str,
     policies: list[str],
     by_pair: dict[tuple[str, str], PolicySyncOutcome],
+    repository_filters: Mapping[str, tuple[bool, bool]] | None,
 ) -> str:
     cells = "".join(
         _matrix_cell_html(by_pair.get((repository, policy))) for policy in policies
     )
-    return f"        <tr><th>{e(repository)}</th>{cells}</tr>"
+    included, docs_as_code = (repository_filters or {}).get(repository, (False, False))
+    integration_value = "included" if included else "excluded"
+    docs_value = "yes" if docs_as_code else "no"
+    return (
+        f'        <tr data-repo-filter="{e(repository)}" '
+        f'data-integration="{integration_value}" '
+        f'data-docs-as-code="{docs_value}"><th>{e(repository)}</th>{cells}</tr>'
+    )
 
 
 def _matrix_cell_html(outcome: PolicySyncOutcome | None) -> str:

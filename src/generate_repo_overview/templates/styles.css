@@ -90,7 +90,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
 .filter-intro { display: flex; flex-direction: column; gap: 0.16rem; min-width: 140px; }
 .filter-label { color: #e6edf3; font-size: 0.82rem; font-weight: 650; }
 .filter-hint { color: var(--muted); font-size: 0.7rem; }
-.filter-options { display: flex; flex: 1 1 520px; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.filter-options { display: flex; flex: 1 1 420px; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .filter-btn {
   display: inline-flex;
   align-items: center;
@@ -118,7 +118,19 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   text-align: center;
 }
 .filter-btn.active .filter-count { color: #a5d6ff; background: #58a6ff24; }
-.filter-current { margin-left: auto; color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+.filter-select { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); font-size: 0.72rem; white-space: nowrap; }
+.filter-select select {
+  max-width: 180px;
+  padding: 0.4rem 1.7rem 0.4rem 0.6rem;
+  color: var(--text);
+  background: #0d1117;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+.filter-select select:focus { outline: 2px solid #58a6ff88; outline-offset: 1px; }
+.filter-current { flex: 1 0 100%; color: var(--muted); font-size: 0.72rem; }
+.repo-filter-hidden { display: none !important; }
 
 #sections {
   max-width: 1400px;
@@ -164,7 +176,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   #filters { align-items: flex-start; gap: 0.7rem; }
   .filter-intro { flex-basis: 100%; }
   .filter-options { flex-basis: 100%; }
-  .filter-current { margin-left: 0; }
+  .filter-select { flex-wrap: wrap; }
   .tab-bar { overflow-x: auto; }
   .tab-btn { padding: 0.6rem 0.8rem; }
 }
@@ -176,6 +188,152 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   overflow: hidden;
 }
 .section.hidden { display: none; }
+#version-view-toggle {
+  max-width: 1400px;
+  margin: 0 auto 0.8rem;
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+}
+.view-toggle-label { margin-right: 0.25rem; color: var(--muted); font-size: 0.74rem; }
+.view-toggle-btn { padding: 0.32rem 0.7rem; font-size: 0.74rem; }
+.view-toggle-btn.active { color: #e6edf3; border-color: #58a6ff99; background: #1f6feb2b; }
+.versions-table-view.hidden, .versions-cards-view.hidden { display: none; }
+.versions-cards-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 0.8rem;
+  padding: 1rem;
+}
+.version-card {
+  min-width: 0;
+  padding: 0.9rem;
+  background: #0d1117aa;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.version-card-header {
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border);
+}
+.version-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.version-card-repo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.version-card-repo .icon-bazel,
+.version-card-repo .gh-link,
+.version-card-repo .docs-link { vertical-align: middle; }
+.version-card-meta {
+  max-width: 42%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.66rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.version-card-description {
+  overflow: hidden;
+  margin-top: 0.16rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.version-card-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.42rem 0;
+}
+.version-card-label { color: var(--muted); font-size: 0.71rem; }
+.version-card-value > span:last-child { text-align: right; }
+.version-card-value .mono { font-size: 0.74rem; }
+.git-ref-track {
+  display: grid;
+  grid-template-columns: minmax(5.4rem, 1fr) minmax(6rem, 1fr);
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  gap: 0.18rem 0.5rem;
+  min-width: 12.5rem;
+  font-size: 0.74rem;
+}
+.git-ref-heading {
+  grid-row: 1;
+  color: var(--muted);
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+.release-heading { grid-column: 1; }
+.integration-heading { grid-column: 2; }
+.git-ref-label {
+  grid-row: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.release-ref { grid-column: 1; }
+.integration-ref { grid-column: 2; }
+.git-ref-gap { grid-row: 3; text-align: left; }
+.release-diff { grid-column: 1; }
+.integration-diff { grid-column: 2; }
+.git-ref-diff {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+  font-size: 0.76rem;
+}
+.git-ref-count {
+  display: inline-block;
+  padding: 0.02rem 0.18rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-weight: 650;
+}
+.git-ref-count.small {
+  color: var(--green);
+  background: rgba(63, 185, 80, 0.12);
+  border-color: rgba(63, 185, 80, 0.25);
+}
+.git-ref-count.medium {
+  color: var(--orange);
+  background: rgba(227, 112, 45, 0.12);
+  border-color: rgba(227, 112, 45, 0.25);
+}
+.git-ref-count.large {
+  color: var(--red);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.25);
+}
+.git-ref-diff.equal { color: var(--green); font-weight: 700; }
+.git-ref-diff.unavailable { color: var(--muted); }
+.version-card-refs { align-items: flex-start; }
+.version-card-refs > span:last-child { text-align: left; }
+.version-card-refs .git-ref-track { min-width: 12.5rem; }
+.version-card-footer {
+  margin-top: 0.25rem;
+  padding-top: 0.55rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  font-size: 0.7rem;
+}
+.version-card-footer .mono { color: var(--text); }
+@media (max-width: 700px) {
+  #version-view-toggle { margin-bottom: 0.65rem; }
+  .versions-cards-view { grid-template-columns: 1fr; padding: 0.7rem; }
+}
 .section-header {
   padding: 0.8rem 1.1rem;
   border-bottom: 1px solid var(--border);
@@ -232,6 +390,14 @@ th {
 }
 th:hover { color: var(--accent); }
 th .sort-arrow { margin-left: 0.3rem; font-size: 0.65rem; }
+.table-heading-hint {
+  margin-left: 0.35rem;
+  color: var(--accent);
+  font-size: 0.64rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
 td {
   padding: 0.5rem 0.8rem;
   border-bottom: 1px solid #21262d;
