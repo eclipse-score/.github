@@ -300,7 +300,7 @@ def test_render_details_naming_tab_includes_all_bazel_repositories(
 
     content = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'data-tab="naming">Naming</button>' in content
-    assert "if (h === 'modules') return 'naming';" in content
+    assert "const tab = hashTab === 'modules' ? 'naming' : hashTab;" in content
     assert "Platform Feature Path" in content
     assert "Platform Docs" in content
     assert "eclipse-score/score" in content
