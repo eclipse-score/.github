@@ -152,32 +152,53 @@ def parse_known_good_pins(
         if not isinstance(group, dict):
             continue
         for module_name, module in group.items():
-            if not isinstance(module, dict):
-                continue
-            repository_url = module.get("repo")
-            if not isinstance(repository_url, str):
-                continue
-            repository_name = parse_github_remote_repository_name(
-                repository_url,
+            parsed_pin = _parse_known_good_module(
+                module,
+                module_name=str(module_name),
+                group_name=str(group_name),
+                active_repository_names=active_repository_names,
                 org_name=org_name,
             )
-            if repository_name not in active_repository_names:
-                continue
-            raw_version = module.get("version")
-            raw_hash = module.get("hash")
-            version = raw_version.strip() if isinstance(raw_version, str) else ""
-            commit_hash = raw_hash.strip() if isinstance(raw_hash, str) else ""
-            if version or commit_hash:
-                raw_branch = module.get("branch")
-                branch = raw_branch.strip() if isinstance(raw_branch, str) else ""
-                versions[repository_name] = KnownGoodPin(
-                    module=str(module_name),
-                    group=str(group_name),
-                    branch=branch or "main",
-                    version=version or None,
-                    commit_hash=commit_hash or None,
-                )
+            if parsed_pin is not None:
+                repository_name, pin = parsed_pin
+                versions[repository_name] = pin
     return versions
+
+
+def _parse_known_good_module(
+    module: object,
+    *,
+    module_name: str,
+    group_name: str,
+    active_repository_names: set[str],
+    org_name: str,
+) -> tuple[str, KnownGoodPin] | None:
+    if not isinstance(module, dict):
+        return None
+    repository_url = module.get("repo")
+    if not isinstance(repository_url, str):
+        return None
+    repository_name = parse_github_remote_repository_name(
+        repository_url,
+        org_name=org_name,
+    )
+    if repository_name not in active_repository_names:
+        return None
+    raw_version = module.get("version")
+    raw_hash = module.get("hash")
+    version = raw_version.strip() if isinstance(raw_version, str) else ""
+    commit_hash = raw_hash.strip() if isinstance(raw_hash, str) else ""
+    if not version and not commit_hash:
+        return None
+    raw_branch = module.get("branch")
+    branch = raw_branch.strip() if isinstance(raw_branch, str) else ""
+    return repository_name, KnownGoodPin(
+        module=module_name,
+        group=group_name,
+        branch=branch or "main",
+        version=version or None,
+        commit_hash=commit_hash or None,
+    )
 
 
 def resolve_reference_integration_pin(

@@ -156,7 +156,7 @@ def _render_version_view_toggle() -> str:
         'aria-pressed="true">Table</button>\n'
         '  <button class="view-toggle-btn" data-version-view="cards" '
         'aria-pressed="false">Cards</button>\n'
-        '</div>\n\n'
+        "</div>\n\n"
     )
 
 
@@ -478,7 +478,7 @@ def _render_versions_sections(
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="bazel" title="The version of Bazel (the build tool) in use. Green = on the latest known version, red = a newer version is available.">{BAZEL_ICON} Bazel Version <span class="sort-arrow"></span></th>\n'
             f"{dep_headers}"
-            f'      <th data-sort="release" title="Arrows compare each ref with the repository default branch. ↑ means that ref is ahead; ↓ means the default branch is ahead. Color shows size: green under 5 commits, orange 5–19, red 20 or more. = means same commit. Hover for details.">Git refs <span class="table-heading-hint">Δ vs default branch</span> <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="release" title="Arrows compare each ref with the repository default branch. ↑ means that ref is ahead; ↓ means the default branch is ahead. Color shows size: green under 5 commits, orange for 5 to 19, red for 20 or more. = means same commit. Hover for details.">Git refs <span class="table-heading-hint">Δ vs default branch</span> <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="depchanges" title="Number of dependency version changes on the main branch since the last release. Tracked dependency versions are shown in their own columns.">Other Dep Changes <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
@@ -511,7 +511,7 @@ def _versions_card(
     ):
         bazel_cell = (
             f'<span class="mono text-muted">'
-            f'{e(entry.volatile.release_bazel_version)}</span> → {bazel_cell}'
+            f"{e(entry.volatile.release_bazel_version)}</span> → {bazel_cell}"
         )
 
     release_deps = dict(entry.volatile.release_bazel_deps)
@@ -532,12 +532,12 @@ def _versions_card(
         if release_version and release_version != head_version:
             dependency_badge = (
                 f'<span class="mono text-muted">{e(release_version)}</span> '
-                f'→ {dependency_badge}'
+                f"→ {dependency_badge}"
             )
         dependency_cards.append(
             f'<div class="version-card-value">'
             f'<span class="version-card-label">{e(dep_label)}</span>'
-            f'<span>{dependency_badge}</span></div>'
+            f"<span>{dependency_badge}</span></div>"
         )
 
     git_refs = _render_git_refs(entry, org_name)
@@ -549,7 +549,7 @@ def _versions_card(
     )
     description = (
         f'<div class="version-card-description" title="{e(entry.description)}">'
-        f'{e(entry.description)}</div>'
+        f"{e(entry.description)}</div>"
         if entry.description
         else ""
     )
@@ -562,19 +562,18 @@ def _versions_card(
         f'<span class="version-card-repo">{card_repo_name}</span>'
         f'<span class="version-card-meta" '
         f'title="{e(entry.category)} · {e(entry.subcategory)}">'
-        f'{e(entry.category)} · {e(entry.subcategory)}</span>'
-        f'</div>{description}</header>\n'
+        f"{e(entry.category)} · {e(entry.subcategory)}</span>"
+        f"</div>{description}</header>\n"
         f'  <div class="version-card-value version-card-refs">'
         f'<span class="version-card-label">Git refs</span>'
-        f'<span>{git_refs}</span></div>\n'
+        f"<span>{git_refs}</span></div>\n"
         f'  <div class="version-card-value">'
         f'<span class="version-card-label">Bazel</span>'
-        f'<span>{bazel_cell}</span></div>\n'
+        f"<span>{bazel_cell}</span></div>\n"
         + "".join(dependency_cards)
         + f'  <div class="version-card-value">'
         f'<span class="version-card-label">Other dependency changes</span>'
-        f'<span>{dep_changes}</span></div>\n'
-        + f'</article>'
+        f"<span>{dep_changes}</span></div>\n" + "</article>"
     )
 
 
@@ -588,9 +587,7 @@ def _render_ref_difference(
     """Show commits unique to either ref with a plain-language tooltip."""
     if ahead_by is None or behind_by is None:
         title = f"Could not compare {left_ref} with {right_ref}."
-        return (
-            f'<span class="git-ref-diff unavailable" title="{e(title)}">?</span>'
-        )
+        return f'<span class="git-ref-diff unavailable" title="{e(title)}">?</span>'
     if ahead_by == 0 and behind_by == 0:
         title = f"{left_ref} and {right_ref} point to the same commit."
         return f'<span class="git-ref-diff equal" title="{e(title)}">=</span>'
@@ -605,7 +602,7 @@ def _render_ref_difference(
         size_class = _ref_difference_size_class(ahead_by)
         arrows.append(
             f'<span class="git-ref-count {size_class}" title="{e(title)}">'
-            f'↑{ahead_by}</span>'
+            f"↑{ahead_by}</span>"
         )
     if behind_by:
         commit_word = "commit" if behind_by == 1 else "commits"
@@ -617,11 +614,9 @@ def _render_ref_difference(
         size_class = _ref_difference_size_class(behind_by)
         arrows.append(
             f'<span class="git-ref-count {size_class}" title="{e(title)}">'
-            f'↓{behind_by}</span>'
+            f"↓{behind_by}</span>"
         )
-    return (
-        f'<span class="git-ref-diff">{" ".join(arrows)}</span>'
-    )
+    return f'<span class="git-ref-diff">{" ".join(arrows)}</span>'
 
 
 def _ref_difference_size_class(commit_count: int) -> str:
@@ -640,7 +635,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         release_ref = (
             f'<a href="https://github.com/{e(org_name)}/{e(entry.name)}/'
             f'releases/tag/{e(release)}" target="_blank" rel="noopener">'
-            f'{e(release)}</a>'
+            f"{e(release)}</a>"
         )
     else:
         release_ref = '<span class="text-muted">—</span>'
@@ -651,9 +646,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
     has_integration_ref = bool(pin_label)
     release_description = f"latest release {release}" if release else "latest release"
     integration_description = (
-        f"integration pin {pin_label}"
-        if pin_label
-        else "integration pin"
+        f"integration pin {pin_label}" if pin_label else "integration pin"
     )
     if pin_label:
         pin_ref = e(pin_label)
@@ -669,13 +662,9 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         pin_ref = '<span class="text-muted">—</span>'
 
     branch = (
-        entry.default_branch
-        or entry.content.reference_integration_branch
-        or "main"
+        entry.default_branch or entry.content.reference_integration_branch or "main"
     )
-    main_description = (
-        "main branch" if branch == "main" else f"default branch {branch}"
-    )
+    main_description = "main branch" if branch == "main" else f"default branch {branch}"
     release_diff = (
         _render_ref_difference(
             entry.content.reference_integration_release_ahead_of_main_by,
@@ -707,7 +696,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         f'<span class="git-ref-label integration-ref" title="Reference integration pin">{pin_ref}</span>'
         f'<span class="git-ref-gap release-diff">{release_diff}</span>'
         f'<span class="git-ref-gap integration-diff">{integration_diff}</span>'
-        '</div>'
+        "</div>"
     )
 
 

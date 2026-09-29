@@ -391,9 +391,7 @@ def fetch_repositories(
         )
 
     reference_integration_repository_names: set[str] = set()
-    reference_integration_pins: dict[
-        str, reference_integration.KnownGoodPin
-    ] = {}
+    reference_integration_pins: dict[str, reference_integration.KnownGoodPin] = {}
     if config.reference_integration_repo:
         print_status(
             f"Loading {config.reference_integration_repo} Bazel dependencies",
@@ -424,9 +422,7 @@ def fetch_repositories(
                 org_name=config.org_name,
             )
         )
-        reference_integration_repository_names.update(
-            reference_integration_pins
-        )
+        reference_integration_repository_names.update(reference_integration_pins)
         print_status(
             f"Loaded {config.reference_integration_repo} Bazel dependencies for "
             f"{len(reference_integration_repository_names)} active repositories",
@@ -546,9 +542,7 @@ def fetch_repositories(
                     else None
                 ),
                 "reference_integration_main_ahead_of_pin_by": (
-                    pin_comparison.left_ahead_by
-                    if pin_comparison is not None
-                    else None
+                    pin_comparison.left_ahead_by if pin_comparison is not None else None
                 ),
             }
             if pin is not None:
