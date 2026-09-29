@@ -1,10 +1,20 @@
-// Tab switching with URL hash
+// Tab and category state share the URL hash so dashboard views can be bookmarked.
 const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability', 'policy-sync'];
 
-function getHashTab() {
-  const h = location.hash.slice(1);
-  if (h === 'modules') return 'naming';
-  return TAB_IDS.includes(h) ? h : 'overview';
+function getHashState() {
+  const [hashTab, query = ''] = location.hash.slice(1).split('?');
+  const tab = hashTab === 'modules' ? 'naming' : hashTab;
+  const requestedCategory = new URLSearchParams(query).get('category');
+  return {
+    tab: TAB_IDS.includes(tab) ? tab : 'overview',
+    category: categories.includes(requestedCategory) ? requestedCategory : 'all',
+  };
+}
+
+function writeHashState(tab, category) {
+  const query = category === 'all' ? '' : `?category=${encodeURIComponent(category)}`;
+  const hash = `#${tab}${query}`;
+  if (location.hash !== hash) location.hash = hash;
 }
 
 function applyVisibility() {
@@ -15,44 +25,79 @@ function applyVisibility() {
   });
 }
 
-function activateTab(tab) {
+function activateState(tab, category) {
   activeTab = tab;
+  activeCategory = category;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('filters').style.display = tab === 'traceability' ? 'none' : '';
+  renderFilters();
   applyVisibility();
 }
 
-let activeTab = getHashTab();
-let activeCategory = 'all';
-activateTab(activeTab);
+// `categories` is injected by the preceding <script> block.
+const filtersEl = document.getElementById('filters');
+const categoryCounts = new Map(
+  Array.from(document.querySelectorAll('.section[data-tab="overview"][data-category]'))
+    .map(section => [section.dataset.category, Number(section.querySelector('.section-count')?.textContent || 0)])
+);
+
+let {tab: activeTab, category: activeCategory} = getHashState();
+activateState(activeTab, activeCategory);
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    location.hash = btn.dataset.tab;
+    writeHashState(btn.dataset.tab, activeCategory);
   });
 });
 
 window.addEventListener('hashchange', () => {
-  activateTab(getHashTab());
+  const state = getHashState();
+  activateState(state.tab, state.category);
 });
 
-// Category filtering
-// `categories` is injected by the preceding <script> block
-const filtersEl = document.getElementById('filters');
 function renderFilters() {
-  filtersEl.innerHTML = categories.map(c =>
-    `<button class="filter-btn ${c === activeCategory ? 'active' : ''}" data-cat="${c}">`
-    + `${c === 'all' ? 'All groups' : c}</button>`
-  ).join('');
-  filtersEl.querySelectorAll('.filter-btn').forEach(btn => {
+  filtersEl.replaceChildren();
+  const intro = document.createElement('div');
+  intro.className = 'filter-intro';
+  const label = document.createElement('span');
+  label.className = 'filter-label';
+  label.textContent = 'Filter by group';
+  const hint = document.createElement('span');
+  hint.className = 'filter-hint';
+  hint.textContent = 'Choose which repositories to show';
+  intro.append(label, hint);
+
+  const options = document.createElement('div');
+  options.className = 'filter-options';
+  options.setAttribute('role', 'group');
+  options.setAttribute('aria-label', 'Filter repositories by group');
+  categories.forEach(category => {
+    const button = document.createElement('button');
+    button.className = `filter-btn${category === activeCategory ? ' active' : ''}`;
+    button.dataset.cat = category;
+    button.setAttribute('aria-pressed', String(category === activeCategory));
+    const name = document.createElement('span');
+    name.textContent = category === 'all' ? 'All repositories' : category;
+    const count = document.createElement('span');
+    count.className = 'filter-count';
+    count.textContent = String(category === 'all'
+      ? Array.from(categoryCounts.values()).reduce((total, value) => total + value, 0)
+      : categoryCounts.get(category) || 0);
+    button.append(name, count);
+    options.append(button);
+  });
+  const current = document.createElement('span');
+  current.className = 'filter-current';
+  current.setAttribute('aria-live', 'polite');
+  current.textContent = activeCategory === 'all' ? 'Showing all groups' : `Showing ${activeCategory}`;
+  filtersEl.append(intro, options, current);
+
+  options.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      activeCategory = btn.dataset.cat;
-      renderFilters();
-      applyVisibility();
+      writeHashState(activeTab, btn.dataset.cat);
     });
   });
 }
-renderFilters();
 
 // Column sorting
 document.querySelectorAll('th[data-sort]').forEach(th => {
