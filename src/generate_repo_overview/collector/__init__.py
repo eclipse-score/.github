@@ -6,6 +6,7 @@ import sys
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from functools import partial
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from tqdm import tqdm
@@ -36,6 +37,7 @@ from .registry_metadata import RegistrySignalsPayload
 from .snapshot_io import load_snapshot, load_snapshot_if_present, write_snapshot
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -470,7 +472,7 @@ def fetch_repositories(
             start=1,
         ):
             cached_entry = cached_by_name.get(repository_name)
-            future = executor.submit(
+            collect_entry = partial(
                 repo_entry.collect_repository_entry,
                 repository_name=repository_name,
                 repository=repository_data.repository,
@@ -486,82 +488,83 @@ def fetch_repositories(
                 workflow_signals=config.workflow_signals,
                 github_token=github_token,
             )
+            future = executor.submit(
+                _collect_entry_with_reference_refs,
+                collect_entry,
+                repository_data.repository,
+                reference_integration_pins.get(repository_name),
+            )
             futures[future] = (index, repository_name)
 
         for future in as_completed(futures):
             index, repository_name = futures[future]
             entry = future.result()
-            pin = reference_integration_pins.get(repository_name)
-            repository = active_repositories[repository_name].repository
-            raw_default_branch = getattr(repository, "default_branch", None)
-            main_branch = (
-                raw_default_branch.strip()
-                if isinstance(raw_default_branch, str) and raw_default_branch.strip()
-                else (pin.branch if pin is not None else "main")
-            )
-            release_comparison = (
-                reference_integration.compare_git_refs(
-                    repository,
-                    left_ref=main_branch,
-                    right_ref=entry.volatile.latest_release_version,
-                )
-                if entry.volatile.latest_release_version
-                else None
-            )
-            pin_ref = (
-                reference_integration.resolve_reference_integration_pin(
-                    repository,
-                    pin,
-                )
-                if pin is not None
-                else None
-            )
-            pin_comparison = (
-                reference_integration.compare_git_refs(
-                    repository,
-                    left_ref=main_branch,
-                    right_ref=pin_ref,
-                )
-                if pin_ref is not None
-                else None
-            )
-            content_changes: dict[str, object] = {
-                "reference_integration_release_ahead_of_main_by": (
-                    release_comparison.right_ahead_by
-                    if release_comparison is not None
-                    else None
-                ),
-                "reference_integration_main_ahead_of_release_by": (
-                    release_comparison.left_ahead_by
-                    if release_comparison is not None
-                    else None
-                ),
-                "reference_integration_pin_ahead_of_main_by": (
-                    pin_comparison.right_ahead_by
-                    if pin_comparison is not None
-                    else None
-                ),
-                "reference_integration_main_ahead_of_pin_by": (
-                    pin_comparison.left_ahead_by if pin_comparison is not None else None
-                ),
-            }
-            if pin is not None:
-                content_changes.update(
-                    reference_integration_module=pin.module,
-                    reference_integration_group=pin.group,
-                    reference_integration_branch=main_branch,
-                    reference_integration_version=pin.version,
-                    reference_integration_hash=pin.commit_hash,
-                )
-            entry = replace(
-                entry,
-                content=replace(entry.content, **content_changes),
-            )
             repos_by_index[index] = entry
             progress.update(1)
             progress.set_postfix_str(repository_name)
 
     return [repos_by_index[index] for index in range(1, total_repositories + 1)]
+
+
+def _collect_entry_with_reference_refs(
+    collect_entry: Callable[[], RepoEntry],
+    repository: object,
+    pin: reference_integration.KnownGoodPin | None,
+) -> RepoEntry:
+    """Collect a repository and compare its release and integration refs in a worker."""
+    entry = collect_entry()
+    raw_default_branch = getattr(repository, "default_branch", None)
+    main_branch = (
+        raw_default_branch.strip()
+        if isinstance(raw_default_branch, str) and raw_default_branch.strip()
+        else (pin.branch if pin is not None else "main")
+    )
+    release = entry.volatile.latest_release_version
+    release_ahead = entry.volatile.latest_release_ahead_of_default_branch_by
+    branch_ahead = entry.volatile.default_branch_ahead_of_latest_release_by
+    if release and (release_ahead is None or branch_ahead is None):
+        release_comparison = reference_integration.compare_git_refs(
+            repository,
+            left_ref=main_branch,
+            right_ref=release,
+        )
+        if release_comparison is not None:
+            release_ahead = release_comparison.right_ahead_by
+            branch_ahead = release_comparison.left_ahead_by
+    resolved_pin_hash = (
+        reference_integration.resolve_reference_integration_pin(repository, pin)
+        if pin is not None
+        else None
+    )
+    pin_comparison = (
+        reference_integration.compare_git_refs(
+            repository,
+            left_ref=main_branch,
+            right_ref=resolved_pin_hash,
+        )
+        if resolved_pin_hash is not None
+        else None
+    )
+    content_changes: dict[str, object] = {
+        "reference_integration_release_ahead_of_main_by": (release_ahead),
+        "reference_integration_main_ahead_of_release_by": (branch_ahead),
+        "reference_integration_pin_ahead_of_main_by": (
+            pin_comparison.right_ahead_by if pin_comparison is not None else None
+        ),
+        "reference_integration_main_ahead_of_pin_by": (
+            pin_comparison.left_ahead_by if pin_comparison is not None else None
+        ),
+    }
+    if pin is not None:
+        content_changes.update(
+            reference_integration_module=pin.module,
+            reference_integration_group=pin.group,
+            reference_integration_branch=main_branch,
+            reference_integration_version=pin.version,
+            reference_integration_hash=pin.commit_hash,
+            reference_integration_resolved_hash=resolved_pin_hash,
+        )
+    return replace(entry, content=replace(entry.content, **content_changes))
 
 
 def resolve_max_collection_workers() -> int:

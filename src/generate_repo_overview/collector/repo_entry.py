@@ -56,6 +56,8 @@ class LatestReleaseDetails(TypedDict):
     version: str | None
     date: str | None
     commits_since_release: int | None
+    latest_release_ahead_of_default_branch_by: int | None
+    default_branch_ahead_of_latest_release_by: int | None
     release_bazel_version: str | None
     release_bazel_deps: tuple[tuple[str, str], ...]
 
@@ -70,6 +72,8 @@ class VolatileMetricsPayload(TypedDict):
     latest_release_version: str | None
     latest_release_date: str | None
     commits_since_latest_release: int | None
+    latest_release_ahead_of_default_branch_by: int | None
+    default_branch_ahead_of_latest_release_by: int | None
     release_bazel_version: str | None
     release_bazel_deps: tuple[tuple[str, str], ...]
 
@@ -416,6 +420,12 @@ def collect_volatile_metrics(
         "latest_release_version": latest_release["version"],
         "latest_release_date": latest_release["date"],
         "commits_since_latest_release": latest_release["commits_since_release"],
+        "latest_release_ahead_of_default_branch_by": latest_release[
+            "latest_release_ahead_of_default_branch_by"
+        ],
+        "default_branch_ahead_of_latest_release_by": latest_release[
+            "default_branch_ahead_of_latest_release_by"
+        ],
         "release_bazel_version": latest_release["release_bazel_version"],
         "release_bazel_deps": latest_release["release_bazel_deps"],
     }
@@ -816,6 +826,15 @@ def get_latest_release_details(
         return default_latest_release_details()
 
     release_tag = get_latest_release_version(release)
+    head_ref = default_branch_sha or default_branch
+    comparison = (
+        _compare_release_with_branch(repository, release_tag, head_ref)
+        if release_tag and head_ref
+        else None
+    )
+    commits_since_release = _comparison_total_commits(comparison)
+    release_ahead = _comparison_count(comparison, "behind_by")
+    branch_ahead = _comparison_count(comparison, "ahead_by")
     if release_tag and checkout_path is not None:
         release_ref = fetch_repository_ref(
             checkout_path,
@@ -841,12 +860,9 @@ def get_latest_release_details(
         return {
             "version": release_tag,
             "date": get_release_date(release),
-            "commits_since_release": get_commits_since_release(
-                repository,
-                release=release,
-                default_branch=default_branch,
-                default_branch_sha=default_branch_sha,
-            ),
+            "commits_since_release": commits_since_release,
+            "latest_release_ahead_of_default_branch_by": release_ahead,
+            "default_branch_ahead_of_latest_release_by": branch_ahead,
             "release_bazel_version": bazel_version,
             "release_bazel_deps": bazel_deps,
         }
@@ -855,12 +871,9 @@ def get_latest_release_details(
     return {
         "version": release_tag,
         "date": get_release_date(release),
-        "commits_since_release": get_commits_since_release(
-            repository,
-            release=release,
-            default_branch=default_branch,
-            default_branch_sha=default_branch_sha,
-        ),
+        "commits_since_release": commits_since_release,
+        "latest_release_ahead_of_default_branch_by": release_ahead,
+        "default_branch_ahead_of_latest_release_by": branch_ahead,
         "release_bazel_version": detect_bazel_version(
             repository,
             tree_paths=release_tree,
@@ -879,6 +892,8 @@ def default_latest_release_details() -> LatestReleaseDetails:
         "version": None,
         "date": None,
         "commits_since_release": None,
+        "latest_release_ahead_of_default_branch_by": None,
+        "default_branch_ahead_of_latest_release_by": None,
         "release_bazel_version": None,
         "release_bazel_deps": (),
     }
@@ -924,19 +939,31 @@ def get_commits_since_release(
     default_branch: str | None,
     default_branch_sha: str | None,
 ) -> int | None:
-    if not hasattr(repository, "compare"):
-        return None
-
     release_tag = get_latest_release_version(release)
     head_ref = default_branch_sha or default_branch
     if release_tag is None or head_ref is None:
         return None
 
+    comparison = _compare_release_with_branch(repository, release_tag, head_ref)
+    return _comparison_total_commits(comparison)
+
+
+def _compare_release_with_branch(
+    repository: Any,
+    release_ref: str,
+    branch_ref: str,
+) -> Any | None:
+    if not hasattr(repository, "compare"):
+        return None
     try:
-        comparison = repository.compare(release_tag, head_ref)
+        return repository.compare(release_ref, branch_ref)
     except Exception:
         return None
 
+
+def _comparison_total_commits(comparison: Any | None) -> int | None:
+    if comparison is None:
+        return None
     try:
         total_commits = getattr(comparison, "total_commits", None)
         if isinstance(total_commits, int):
@@ -946,6 +973,16 @@ def get_commits_since_release(
         return total_commits if isinstance(total_commits, int) else None
     except Exception:
         return None
+
+
+def _comparison_count(comparison: Any | None, attribute: str) -> int | None:
+    if comparison is None:
+        return None
+    try:
+        count = getattr(comparison, attribute, None)
+    except Exception:
+        return None
+    return count if isinstance(count, int) else None
 
 
 def iso_date(value: object) -> str | None:

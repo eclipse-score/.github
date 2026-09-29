@@ -260,6 +260,7 @@ def _repo_filter_attributes(entry: RepoEntry) -> str:
     docs_value = "yes" if uses_docs_as_code(entry) else "no"
     return (
         f' data-repo-filter="{e(entry.name)}"'
+        f' data-repository-category="{e(entry.category)}"'
         f' data-integration="{integration_value}"'
         f' data-docs-as-code="{docs_value}"'
     )
@@ -641,6 +642,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         release_ref = '<span class="text-muted">—</span>'
 
     pin_hash = entry.content.reference_integration_hash
+    resolved_pin_hash = entry.content.reference_integration_resolved_hash or pin_hash
     pin_version = entry.content.reference_integration_version
     pin_label = pin_hash[:7] if pin_hash else pin_version
     has_integration_ref = bool(pin_label)
@@ -650,11 +652,11 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
     )
     if pin_label:
         pin_ref = e(pin_label)
-        if pin_hash:
+        if resolved_pin_hash:
             pin_ref = (
                 f'<a class="mono" href="https://github.com/{e(org_name)}/'
-                f'{e(entry.name)}/commit/{e(pin_hash)}" target="_blank" '
-                f'rel="noopener" title="{e(pin_hash)}">{pin_ref}</a>'
+                f'{e(entry.name)}/commit/{e(resolved_pin_hash)}" target="_blank" '
+                f'rel="noopener" title="{e(resolved_pin_hash)}">{pin_ref}</a>'
             )
     elif entry.content.referenced_by_reference_integration:
         pin_ref = '<span class="text-muted" title="Included without a version or commit pin">included</span>'
@@ -1238,7 +1240,7 @@ def _render_traceability_section(
         name_cell = repo_name_cell(r, org_name, bazel_icon=False)
         if not r.traceability:
             row_parts.append(
-                f'    <tr data-repo="{e(r.name)}">'
+                f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
                 f"<td>{name_cell}</td>"
                 f'<td class="text-right" colspan="6">'
                 f'<span class="text-muted">— not available</span></td>'
@@ -1276,11 +1278,14 @@ def _render_traceability_section(
             if ti == 0:
                 rowspan = f' rowspan="{len(types)}"' if len(types) > 1 else ""
                 row_parts.append(
-                    f'    <tr data-repo="{e(r.name)}">'
+                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
                     f"<td{rowspan}>{name_cell}</td>{cells}</tr>"
                 )
             else:
-                row_parts.append(f'    <tr data-repo="{e(r.name)}">{cells}</tr>')
+                row_parts.append(
+                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                    f"{cells}</tr>"
+                )
 
     rows = "\n".join(row_parts)
 

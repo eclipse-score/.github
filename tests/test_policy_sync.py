@@ -365,7 +365,7 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
 
     page = render_index_page(_categorized_snapshot(), report)
 
-    assert "style.display = tab === 'traceability' ? 'none' : '';" in page
+    assert "document.getElementById('filters').style.display = '';" in page
     assert 'data-category="Infrastructure"' in page
     assert 'data-category="Platform"' in page
     assert 'class="policy-sync-statistics"' in page

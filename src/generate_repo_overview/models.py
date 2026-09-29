@@ -99,6 +99,7 @@ class DeepContentSignals:
     reference_integration_branch: str | None = None
     reference_integration_version: str | None = None
     reference_integration_hash: str | None = None
+    reference_integration_resolved_hash: str | None = None
     reference_integration_release_ahead_of_main_by: int | None = None
     reference_integration_main_ahead_of_release_by: int | None = None
     reference_integration_pin_ahead_of_main_by: int | None = None
@@ -147,6 +148,9 @@ class DeepContentSignals:
             ),
             reference_integration_hash=cast(
                 "str | None", data.get("reference_integration_hash")
+            ),
+            reference_integration_resolved_hash=cast(
+                "str | None", data.get("reference_integration_resolved_hash")
             ),
             reference_integration_release_ahead_of_main_by=cast(
                 "int | None", data.get("reference_integration_release_ahead_of_main_by")
@@ -220,6 +224,8 @@ class VolatileMetricsSnapshot:
     latest_release_version: str | None = None
     latest_release_date: str | None = None
     commits_since_latest_release: int | None = None
+    latest_release_ahead_of_default_branch_by: int | None = None
+    default_branch_ahead_of_latest_release_by: int | None = None
     release_bazel_version: str | None = None
     release_bazel_deps: tuple[tuple[str, str], ...] = ()
     volatile_metrics_fetched_at: str | None = None
@@ -240,6 +246,12 @@ class VolatileMetricsSnapshot:
             commits_since_latest_release=cast(
                 "int | None",
                 data.get("commits_since_latest_release"),
+            ),
+            latest_release_ahead_of_default_branch_by=cast(
+                "int | None", data.get("latest_release_ahead_of_default_branch_by")
+            ),
+            default_branch_ahead_of_latest_release_by=cast(
+                "int | None", data.get("default_branch_ahead_of_latest_release_by")
             ),
             release_bazel_version=cast(
                 "str | None",

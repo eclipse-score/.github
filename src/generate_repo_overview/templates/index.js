@@ -37,9 +37,10 @@ function applyVisibility() {
     s.classList.toggle('hidden', !(matchTab && matchCat));
   });
   document.querySelectorAll('[data-repo-filter]').forEach(item => {
+    const matchCategory = activeCategory === 'all' || item.dataset.repositoryCategory === activeCategory;
     const matchIntegration = activeIntegration === 'all' || item.dataset.integration === activeIntegration;
     const matchDocs = activeDocs === 'all' || item.dataset.docsAsCode === activeDocs;
-    item.classList.toggle('repo-filter-hidden', !(matchIntegration && matchDocs));
+    item.classList.toggle('repo-filter-hidden', !(matchCategory && matchIntegration && matchDocs));
   });
   document.querySelectorAll('.section:not(.hidden)').forEach(section => {
     const items = section.querySelectorAll('[data-repo-filter]');
@@ -66,7 +67,7 @@ function activateState(tab, category, integration, docs) {
   activeIntegration = integration;
   activeDocs = docs;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.getElementById('filters').style.display = tab === 'traceability' ? 'none' : '';
+  document.getElementById('filters').style.display = '';
   renderFilters();
   versionViewToggle.style.display = tab === 'versions' ? 'flex' : 'none';
   applyVisibility();

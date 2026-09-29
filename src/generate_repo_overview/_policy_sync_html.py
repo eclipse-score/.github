@@ -156,7 +156,7 @@ def _render_policy_matrix_section(
     category_attr = f' data-category="{e(category)}"' if category is not None else ""
     if policies:
         matrix_rows = "\n".join(
-            _matrix_row(repository, policies, by_pair, repository_filters)
+            _matrix_row(repository, policies, by_pair, repository_filters, category)
             for repository in repositories
         )
         matrix_header = "".join(
@@ -235,6 +235,7 @@ def _matrix_row(
     policies: list[str],
     by_pair: dict[tuple[str, str], PolicySyncOutcome],
     repository_filters: Mapping[str, tuple[bool, bool]] | None,
+    category: str | None,
 ) -> str:
     cells = "".join(
         _matrix_cell_html(by_pair.get((repository, policy))) for policy in policies
@@ -244,6 +245,7 @@ def _matrix_row(
     docs_value = "yes" if docs_as_code else "no"
     return (
         f'        <tr data-repo-filter="{e(repository)}" '
+        f'data-repository-category="{e(category or "")}" '
         f'data-integration="{integration_value}" '
         f'data-docs-as-code="{docs_value}"><th>{e(repository)}</th>{cells}</tr>'
     )

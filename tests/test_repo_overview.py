@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -16,6 +17,7 @@ import generate_repo_overview.collector.registry_metadata as registry_metadata
 import generate_repo_overview.collector.repo_entry as repo_entry
 import generate_repo_overview.collector.signal_detection as signal_detection
 import generate_repo_overview.collector.snapshot_io as snapshot_io
+from generate_repo_overview._html_index import render_index_page
 from generate_repo_overview.collector.signal_detection import default_content_signals
 from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
@@ -896,6 +898,8 @@ def test_get_latest_release_details_returns_none_when_release_lookup_is_lazy() -
         "version": None,
         "date": None,
         "commits_since_release": None,
+        "latest_release_ahead_of_default_branch_by": None,
+        "default_branch_ahead_of_latest_release_by": None,
         "release_bazel_version": None,
         "release_bazel_deps": (),
     }
@@ -1082,6 +1086,137 @@ git_override(
         active_repository_names={"tooling"},
         org_name="eclipse-score",
     ) == {"score_tooling": "tooling"}
+
+
+def test_known_good_pin_parser_accepts_hashes_and_versions_and_ignores_invalid_entries() -> (
+    None
+):
+    content = json.dumps(
+        {
+            "modules": {
+                "Core": {
+                    "versioned": {
+                        "repo": "https://github.com/eclipse-score/versioned.git",
+                        "version": "1.2.3",
+                    },
+                    "hashed": {
+                        "repo": "https://github.com/eclipse-score/hashed.git",
+                        "hash": "abc1234",
+                        "branch": "integration",
+                    },
+                    "malformed": "not a module object",
+                    "inactive": {
+                        "repo": "https://github.com/eclipse-score/inactive.git",
+                        "version": "1.0.0",
+                    },
+                    "external": {
+                        "repo": "https://github.com/example/external.git",
+                        "hash": "deadbee",
+                    },
+                },
+                "malformed group": ["not a module group"],
+            }
+        }
+    )
+
+    pins = reference_integration.parse_known_good_pins(
+        content,
+        active_repository_names={"versioned", "hashed"},
+        org_name="eclipse-score",
+    )
+
+    assert pins == {
+        "versioned": reference_integration.KnownGoodPin(
+            module="versioned",
+            group="Core",
+            branch="main",
+            version="1.2.3",
+            commit_hash=None,
+        ),
+        "hashed": reference_integration.KnownGoodPin(
+            module="hashed",
+            group="Core",
+            branch="integration",
+            version=None,
+            commit_hash="abc1234",
+        ),
+    }
+
+
+def test_known_good_pin_parser_ignores_malformed_json() -> None:
+    assert (
+        reference_integration.parse_known_good_pins(
+            "{invalid json",
+            active_repository_names={"repo"},
+            org_name="eclipse-score",
+        )
+        == {}
+    )
+
+
+def test_latest_release_details_keep_divergence_from_single_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Repository:
+        compare_calls = 0
+
+        def get_latest_release(self) -> SimpleNamespace:
+            return SimpleNamespace(raw_data={"tag_name": "v1.2.3"})
+
+        def compare(self, base: str, head: str) -> SimpleNamespace:
+            self.compare_calls += 1
+            assert (base, head) == ("v1.2.3", "main-sha")
+            return SimpleNamespace(total_commits=7, ahead_by=7, behind_by=2)
+
+    monkeypatch.setattr(
+        repo_entry, "fetch_repository_tree_paths", lambda *_args, **_kwargs: ()
+    )
+    monkeypatch.setattr(
+        repo_entry, "detect_bazel_version", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        repo_entry, "detect_all_bazel_deps", lambda *_args, **_kwargs: ()
+    )
+    repository = Repository()
+
+    details = repo_entry.get_latest_release_details(
+        repository,
+        default_branch="main",
+        default_branch_sha="main-sha",
+    )
+
+    assert repository.compare_calls == 1
+    assert details["commits_since_release"] == 7
+    assert details["latest_release_ahead_of_default_branch_by"] == 2
+    assert details["default_branch_ahead_of_latest_release_by"] == 7
+
+
+def test_version_pin_uses_resolved_sha_for_commit_link() -> None:
+    snapshot = RepoSnapshot(
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
+        org_name="eclipse-score",
+        generated_at="2026-04-13T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="versioned",
+                description="Versioned repository",
+                category="Core",
+                subcategory="Modules",
+                content=DeepContentSignals(
+                    referenced_by_reference_integration=True,
+                    reference_integration_version="1.2.3",
+                    reference_integration_resolved_hash="abc123456789",
+                    reference_integration_pin_ahead_of_main_by=2,
+                    reference_integration_main_ahead_of_pin_by=0,
+                ),
+            ),
+        ),
+    )
+
+    html = render_index_page(snapshot)
+
+    assert ">1.2.3</a>" in html
+    assert "https://github.com/eclipse-score/versioned/commit/abc123456789" in html
 
 
 def test_reference_integration_maps_bazel_registry_modules_to_repositories(

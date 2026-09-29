@@ -362,13 +362,14 @@ def _render_versions_section(
 
     pin_version = entry.content.reference_integration_version
     pin_hash = entry.content.reference_integration_hash
+    resolved_pin_hash = entry.content.reference_integration_resolved_hash or pin_hash
     pin_label = pin_version or (pin_hash[:7] if pin_hash else None)
     if pin_label is not None:
         pin = e(pin_label)
-        if pin_hash:
+        if resolved_pin_hash:
             pin = (
                 f'<a class="mono" href="https://github.com/{e(snapshot.org_name)}/'
-                f'{e(entry.name)}/commit/{e(pin_hash)}" target="_blank" '
+                f'{e(entry.name)}/commit/{e(resolved_pin_hash)}" target="_blank" '
                 f'rel="noopener">{pin}</a>'
             )
         refint = f'<span class="badge green">{pin}</span>'

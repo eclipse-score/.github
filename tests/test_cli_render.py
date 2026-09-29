@@ -272,6 +272,8 @@ def test_render_details_traceability_tab(tmp_path: Path) -> None:
     assert "Traceability" in content
     assert 'data-repo="my-dac-repo"' in content
     assert 'data-repo="plain-repo"' not in content
+    assert 'data-repo-filter="my-dac-repo"' in content
+    assert 'data-repository-category="Infrastructure"' in content
     # Server-rendered metrics values
     assert "Feature" in content
     assert ">10<" in content  # req_total
