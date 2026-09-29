@@ -1,8 +1,17 @@
 name: Update Profile and Deploy Pages
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/refresh-profile.yml
+      - '*.toml'
+      - uv.lock
+      - src/**
   schedule:
-    - cron: '0 5 * * *'
+    # Run hourly, offset from the top of the hour.
+    - cron: '17 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -26,6 +35,11 @@ jobs:
           enable-cache: true
 
       - run: uv sync --all-groups --frozen
+
+      - name: Configure GitHub CLI credentials for Git
+        env:
+          GH_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}
+        run: gh auth setup-git
 
       - name: Restore snapshot cache
         uses: actions/cache@v4
