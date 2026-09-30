@@ -220,9 +220,7 @@ def resolve_reference_integration_pin(
                 # The collector uses PyGithub's lazy mode. An incomplete
                 # Commit can expose the requested ref as ``sha`` before
                 # GitHub has confirmed that the ref exists.
-                complete = getattr(commit, "complete", None)
-                if callable(complete):
-                    complete()
+                commit.complete()
                 resolved_sha = getattr(commit, "sha", None)
             except Exception:
                 continue
