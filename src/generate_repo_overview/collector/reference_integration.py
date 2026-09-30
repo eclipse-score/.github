@@ -224,7 +224,7 @@ def resolve_reference_integration_pin(
             version_refs.append(f"v{pin.version}")
         for version_ref in version_refs:
             try:
-                commit = cast(_CompletableCommit, get_commit(version_ref))
+                commit = cast("_CompletableCommit", get_commit(version_ref))
                 # The collector uses PyGithub's lazy mode. An incomplete
                 # Commit can expose the requested ref as ``sha`` before
                 # GitHub has confirmed that the ref exists.
