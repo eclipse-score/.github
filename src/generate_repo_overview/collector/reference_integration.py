@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Protocol, cast
 from urllib.parse import urlsplit
 
 from repo_cache import default_cache_directory
@@ -40,6 +40,14 @@ class KnownGoodPin:
 class GitRefComparison:
     right_ahead_by: int
     left_ahead_by: int
+
+
+class _CompletableCommit(Protocol):
+    """Minimal PyGithub commit interface needed to validate a lazy ref."""
+
+    sha: str
+
+    def complete(self) -> object: ...
 
 
 def fetch_reference_integration_repository_names(
@@ -216,12 +224,12 @@ def resolve_reference_integration_pin(
             version_refs.append(f"v{pin.version}")
         for version_ref in version_refs:
             try:
-                commit = get_commit(version_ref)
+                commit = cast(_CompletableCommit, get_commit(version_ref))
                 # The collector uses PyGithub's lazy mode. An incomplete
                 # Commit can expose the requested ref as ``sha`` before
                 # GitHub has confirmed that the ref exists.
                 commit.complete()
-                resolved_sha = getattr(commit, "sha", None)
+                resolved_sha = commit.sha
             except Exception:
                 continue
             if isinstance(resolved_sha, str) and resolved_sha:
