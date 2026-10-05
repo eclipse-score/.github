@@ -144,9 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "fetch-policy-report",
         aliases=["fetch-policy-sync-report", "fetch-policy-sync"],
-        help=(
-            "Fetch the configured policy-sync report; fail if it is unavailable."
-        ),
+        help=("Fetch the configured policy-sync report; fail if it is unavailable."),
     ).add_argument(
         "--org-config",
         type=Path,
