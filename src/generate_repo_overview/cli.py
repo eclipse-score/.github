@@ -144,7 +144,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "fetch-policy-report",
         aliases=["fetch-policy-sync-report", "fetch-policy-sync"],
-        help="Fetch the configured policy-sync report (best effort).",
+        help=(
+            "Fetch the configured policy-sync report; fail if it is unavailable."
+        ),
     ).add_argument(
         "--org-config",
         type=Path,
@@ -252,11 +254,18 @@ def run_fetch_policy_report(args: argparse.Namespace) -> int:
         config = load_org_config(args.org_config)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    fetch_policy_report(
+    report_fetched = fetch_policy_report(
         config.policy_report,
         token_env=args.token_env,
         status_prefix="repo-overview",
     )
+    if not report_fetched:
+        print_status(
+            "The policy sync report is unavailable; refusing to "
+            "publish an incomplete dashboard.",
+            prefix="repo-overview",
+        )
+        return 1
     return 0
 
 

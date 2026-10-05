@@ -20,8 +20,9 @@ Built-in commands:
   - Renders the HTML dashboard and repository detail pages.
 - `fetch-policy-report`
   - Downloads the latest completed policy-sync artifact configured in
-    `org_config.toml` using the GitHub CLI. The report is optional and the
-    command is best-effort.
+    `org_config.toml` using the GitHub CLI. Invoking this command requires a
+    report configuration and a valid report; otherwise it fails so a publishing
+    workflow can keep its last deployed view.
 
 The `collect` command performs a GitHub sync. Render commands never contact
 GitHub; run `fetch-policy-report` before `render-details` when the policy-sync

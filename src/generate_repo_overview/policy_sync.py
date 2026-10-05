@@ -228,15 +228,21 @@ def fetch_policy_report(
 ) -> bool:
     """Fetch the latest completed artifact from a scheduled ``main`` run.
 
-    A false return value means that no usable artifact was available.  Fetching
-    is deliberately best-effort because it is an enhancement to the Pages
-    dashboard and must not prevent the rest of the site from deploying.
+    A false return value means that no usable artifact was available or no
+    report source was configured.  The CLI decides whether that should prevent
+    a particular workflow from continuing.
     """
 
     if not config.enabled:
+        print_status("Policy sync report is not configured", prefix=status_prefix)
         return False
     resolved_token = token or _resolve_policy_token(token_env)
     runner = gh_runner or _run_gh
+    print_status(
+        f"Looking for artifact {config.artifact!r} from the latest completed "
+        f"scheduled run of {config.workflow!r} on main in {config.source_repo!r}",
+        prefix=status_prefix,
+    )
 
     try:
         run_id = _latest_completed_run_id(
@@ -270,24 +276,51 @@ def fetch_policy_report(
         if run_id is None:
             raise ValueError("no completed workflow run was found")
 
+        print_status(
+            f"Selected policy sync workflow run {run_id}; downloading "
+            f"artifact {config.artifact!r}",
+            prefix=status_prefix,
+        )
         with TemporaryDirectory(prefix="policy-sync-report-") as download_dir:
-            runner(
-                [
-                    "run",
-                    "download",
-                    str(run_id),
-                    "--repo",
+            try:
+                runner(
+                    [
+                        "run",
+                        "download",
+                        str(run_id),
+                        "--repo",
+                        config.source_repo,
+                        "--name",
+                        config.artifact,
+                        "--dir",
+                        download_dir,
+                    ],
+                    resolved_token,
+                )
+            except Exception as exc:
+                artifacts = _describe_run_artifacts(
                     config.source_repo,
-                    "--name",
-                    config.artifact,
-                    "--dir",
-                    download_dir,
-                ],
-                resolved_token,
-            )
+                    run_id,
+                    runner=runner,
+                    token=resolved_token,
+                )
+                raise RuntimeError(
+                    f"could not download artifact {config.artifact!r} from "
+                    f"run {run_id}; artifacts attached to that run: "
+                    f"{artifacts}; gh error: {exc}"
+                ) from exc
             matches = sorted(Path(download_dir).rglob(config.filename))
             if not matches:
-                raise ValueError(f"{config.filename!r} was not found in the artifact")
+                downloaded_files = sorted(
+                    str(path.relative_to(download_dir))
+                    for path in Path(download_dir).rglob("*")
+                    if path.is_file()
+                )
+                raise ValueError(
+                    f"{config.filename!r} was not found after downloading "
+                    f"artifact {config.artifact!r} from run {run_id}; "
+                    f"downloaded files: {downloaded_files or 'none'}"
+                )
             if len(matches) > 1:
                 raise ValueError(
                     f"artifact contains multiple {config.filename!r} files"
@@ -307,6 +340,39 @@ def fetch_policy_report(
         f"Wrote policy sync report to {config.cache_path}", prefix=status_prefix
     )
     return True
+
+
+def _describe_run_artifacts(
+    source_repo: str,
+    run_id: str,
+    *,
+    runner: Callable[[list[str], str | None], str],
+    token: str | None,
+) -> str:
+    """Summarize artifacts attached to a run when its download fails."""
+
+    try:
+        raw_artifacts = runner(
+            [
+                "api",
+                f"repos/{source_repo}/actions/runs/{run_id}/artifacts",
+                "--jq",
+                "[.artifacts[] | {name, expired, size_in_bytes}]",
+            ],
+            token,
+        )
+        artifacts = json.loads(raw_artifacts)
+    except Exception as exc:  # pragma: no cover - individual API failures vary
+        return f"could not query artifact list: {exc}"
+
+    if not artifacts:
+        return "none"
+    return ", ".join(
+        f"{artifact.get('name', '<unnamed>')} "
+        f"({'expired' if artifact.get('expired') else 'available'}, "
+        f"{artifact.get('size_in_bytes', 'unknown')} bytes)"
+        for artifact in artifacts
+    )
 
 
 fetch_policy_sync_report = fetch_policy_report
