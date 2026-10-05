@@ -231,6 +231,43 @@ def test_fetch_policy_report_downloads_latest_scheduled_main_artifact(
     assert json.loads(report_path.read_text(encoding="utf-8")) == _report_payload()
 
 
+def test_fetch_policy_report_reports_artifacts_when_download_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = PolicyReportConfig(
+        source_repo="org/tools",
+        workflow="repo-policy-sync.yml",
+        artifact="policy-report",
+        filename="report.json",
+        cache_path=tmp_path / "report.json",
+    )
+
+    def fake_gh(args: list[str], token: str | None) -> str:
+        del token
+        if args[:2] == ["run", "list"]:
+            return "11\n"
+        if args[:2] == ["run", "download"]:
+            assert args[2] == "11"
+            assert args[args.index("--repo") + 1] == "org/tools"
+            raise RuntimeError("no artifact matches any of the names or patterns")
+        assert args == [
+            "api",
+            "repos/org/tools/actions/runs/11/artifacts",
+            "--jq",
+            "[.artifacts[] | {name, expired, size_in_bytes}]",
+        ]
+        return json.dumps(
+            [{"name": "old-policy-report", "expired": True, "size_in_bytes": 1234}]
+        )
+
+    assert fetch_policy_report(config, gh_runner=fake_gh) is False
+
+    output = capsys.readouterr().err
+    assert "Selected policy sync workflow run 11" in output
+    assert "could not download artifact 'policy-report' from run 11" in output
+    assert "old-policy-report (expired, 1234 bytes)" in output
+
+
 def test_fetch_policy_report_is_non_fatal_when_no_run_exists(tmp_path: Path) -> None:
     config = PolicyReportConfig(
         source_repo="org/tools",
