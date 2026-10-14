@@ -39,6 +39,7 @@ Core S-CORE modules, libraries, and APIs.
 
 | Repository | Description |
 |------------|-------------|
+| [ai_platform](https://github.com/eclipse-score/ai_platform) | Repository for AI platform feature |
 | [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
 | [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
@@ -168,4 +169,5 @@ Repositories that are not yet assigned to a dedicated category.
 | [dev_playground](https://github.com/eclipse-score/dev_playground) | Repository for developer tools and playground |
 | [mcp-servers](https://github.com/eclipse-score/mcp-servers) | Repository for MCP servers |
 | [nlohmann_json](https://github.com/eclipse-score/nlohmann_json) | Nlohmann JSON Library |
+| [openssl](https://github.com/eclipse-score/openssl) | Bazelification of OpenSSL for S-CORE |
 | [score-crates](https://github.com/eclipse-score/score-crates) | Repository to provide a defined list of rust crates to be used as bzl_mods |
