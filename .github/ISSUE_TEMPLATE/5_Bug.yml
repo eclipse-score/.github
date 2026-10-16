@@ -29,6 +29,17 @@ body:
       required: true
   - type: textarea
     attributes:
+      label: Problem notifications
+      description: |
+        Record whether notification is needed and why, including if not needed.
+        Identify affected parties. If notification is needed, record who was notified,
+        when and how, with a link to an issue comment with an explicit mention or another communication reference.
+        Listing a recipient alone does not record a performed notification.
+        For suspected vulnerabilities, follow the project's confidential reporting policy.
+    validations:
+      required: false
+  - type: textarea
+    attributes:
       label: Analysis results
       description: |
         Documentation of the analysis results
