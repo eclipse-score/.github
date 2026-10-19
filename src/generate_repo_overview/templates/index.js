@@ -33,6 +33,9 @@ let activeDependencyView = 'component';
 const dependencyIntegrationViewToggle = document.getElementById('dependency-integration-view-toggle');
 let activeComponentIntegrationView = 'module';
 const componentIntegrationViewToggle = document.getElementById('component-integration-view-toggle');
+const dependencyIntegrationLegend = document.getElementById('dependency-integration-legend');
+const dependencyLegendToggle = dependencyIntegrationLegend.querySelector('.dependency-legend-toggle');
+const dependencyLegendContent = document.getElementById('dependency-legend-content');
 
 function applyVisibility() {
   document.querySelectorAll('.section').forEach(s => {
@@ -93,6 +96,7 @@ function activateState(tab, category, integration, docs) {
   versionViewToggle.style.display = tab === 'versions' ? 'flex' : 'none';
   dependencyIntegrationViewToggle.style.display = tab === 'dependency-integration' ? 'flex' : 'none';
   componentIntegrationViewToggle.style.display = tab === 'dependency-integration' && activeDependencyView === 'component' ? 'flex' : 'none';
+  dependencyIntegrationLegend.style.display = tab === 'dependency-integration' ? '' : 'none';
   applyVisibility();
 }
 
@@ -136,6 +140,12 @@ componentIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(butt
     activeComponentIntegrationView = button.dataset.componentIntegrationView;
     applyVisibility();
   });
+});
+
+dependencyLegendToggle.addEventListener('click', () => {
+  const isExpanded = dependencyLegendToggle.getAttribute('aria-expanded') === 'true';
+  dependencyLegendToggle.setAttribute('aria-expanded', String(!isExpanded));
+  dependencyLegendContent.hidden = isExpanded;
 });
 
 function renderFilters() {

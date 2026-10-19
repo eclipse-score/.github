@@ -460,6 +460,9 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
 
     content = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'data-tab="dependency-integration">Dependency Integration</button>' in content
+    assert 'id="dependency-integration-legend"' in content
+    assert "Known Good Version" in content
+    assert "Update Available means a newer version or commit is available" in content
     assert "Latest Update Available" in content
     assert "Integration Status" in content
     assert "score_common" in content

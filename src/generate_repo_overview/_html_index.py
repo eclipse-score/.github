@@ -70,6 +70,7 @@ def render_index_page(
         + _render_version_view_toggle()
         + _render_dependency_integration_view_toggle()
         + _render_component_integration_view_toggle()
+        + _render_dependency_integration_legend()
         + '<div id="sections">\n'
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, snapshot)
@@ -184,6 +185,25 @@ def _render_component_integration_view_toggle() -> str:
         'aria-pressed="true">View by Module</button>\n'
         '  <button class="view-toggle-btn" data-component-integration-view="dependency" '
         'aria-pressed="false">View by dependency</button>\n'
+        '</div>\n\n'
+    )
+
+
+def _render_dependency_integration_legend() -> str:
+    return (
+        '<div id="dependency-integration-legend" class="dependency-integration-legend">\n'
+        '  <button class="dependency-legend-toggle" aria-expanded="false" '
+        'aria-controls="dependency-legend-content">Legend</button>\n'
+        '  <div id="dependency-legend-content" hidden>\n'
+        '    <dl>\n'
+        '    <div><dt>Dependency</dt><dd>Bazel module used by the component.</dd></div>\n'
+        '    <div><dt>Component</dt><dd>Component that declares or uses the dependency.</dd></div>\n'
+        '    <div><dt>Module Version</dt><dd>Version declared by the component in its MODULE.bazel.</dd></div>\n'
+        '    <div><dt>Known Good Version</dt><dd>Version or commit hash pinned in reference-integration known_good.json.</dd></div>\n'
+        '    <div><dt>Latest Update Available</dt><dd>Latest known registry or release version.</dd></div>\n'
+        '    <div><dt>Integration Status</dt><dd>Mismatch means the module version differs from the known-good pin; Update Available means a newer version or commit is available. Both can apply.</dd></div>\n'
+        '    </dl>\n'
+        '  </div>\n'
         '</div>\n\n'
     )
 

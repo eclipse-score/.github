@@ -213,6 +213,29 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   align-items: center;
   gap: 0.35rem;
 }
+#dependency-integration-legend {
+  max-width: 1400px;
+  margin: 0 auto 0.8rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+#dependency-integration-legend[style*="display: none"] { display: none; }
+#dependency-integration-legend .dependency-legend-toggle {
+  color: var(--text);
+  font-weight: 600;
+}
+#dependency-integration-legend dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 0.65rem 1.2rem;
+  margin-top: 0.7rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+#dependency-integration-legend dt { color: #e6edf3; font-weight: 600; }
+#dependency-integration-legend dd { margin-top: 0.15rem; line-height: 1.45; }
 .view-toggle-label { margin-right: 0.25rem; color: var(--muted); font-size: 0.74rem; }
 .view-toggle-btn { padding: 0.32rem 0.7rem; font-size: 0.74rem; }
 .view-toggle-btn.active { color: #e6edf3; border-color: #58a6ff99; background: #1f6feb2b; }
