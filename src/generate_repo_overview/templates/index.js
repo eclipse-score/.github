@@ -1,5 +1,5 @@
 // Tab and category state share the URL hash so dashboard views can be bookmarked.
-const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability', 'policy-sync'];
+const TAB_IDS = ['overview', 'versions', 'dependency-integration', 'tech-stack', 'naming', 'traceability', 'policy-sync'];
 
 function getHashState() {
   const [hashTab, query = ''] = location.hash.slice(1).split('?');
@@ -29,18 +29,26 @@ function writeHashState(tab, category, integration, docs) {
 
 let activeVersionView = 'table';
 const versionViewToggle = document.getElementById('version-view-toggle');
+let activeDependencyView = 'component';
+const dependencyIntegrationViewToggle = document.getElementById('dependency-integration-view-toggle');
 
 function applyVisibility() {
   document.querySelectorAll('.section').forEach(s => {
     const matchTab = s.dataset.tab === activeTab;
     const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
-    s.classList.toggle('hidden', !(matchTab && matchCat));
+    const matchDependencyView = !s.dataset.dependencyView || s.dataset.dependencyView === activeDependencyView;
+    s.classList.toggle('hidden', !(matchTab && matchCat && matchDependencyView));
   });
   document.querySelectorAll('[data-repo-filter]').forEach(item => {
     const matchCategory = activeCategory === 'all' || item.dataset.repositoryCategory === activeCategory;
     const matchIntegration = activeIntegration === 'all' || item.dataset.integration === activeIntegration;
     const matchDocs = activeDocs === 'all' || item.dataset.docsAsCode === activeDocs;
     item.classList.toggle('repo-filter-hidden', !(matchCategory && matchIntegration && matchDocs));
+  });
+  document.querySelectorAll('.dependency-table-group').forEach(group => {
+    const rows = group.querySelectorAll('[data-repo-filter]');
+    const hasVisibleRows = Array.from(rows).some(row => !row.classList.contains('repo-filter-hidden'));
+    group.classList.toggle('hidden', !hasVisibleRows);
   });
   document.querySelectorAll('.section:not(.hidden)').forEach(section => {
     const items = section.querySelectorAll('[data-repo-filter]');
@@ -59,6 +67,11 @@ function applyVisibility() {
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
+  dependencyIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
+    const isActive = button.dataset.dependencyView === activeDependencyView;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 }
 
 function activateState(tab, category, integration, docs) {
@@ -70,6 +83,7 @@ function activateState(tab, category, integration, docs) {
   document.getElementById('filters').style.display = '';
   renderFilters();
   versionViewToggle.style.display = tab === 'versions' ? 'flex' : 'none';
+  dependencyIntegrationViewToggle.style.display = tab === 'dependency-integration' ? 'flex' : 'none';
   applyVisibility();
 }
 
@@ -97,6 +111,13 @@ window.addEventListener('hashchange', () => {
 versionViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
   button.addEventListener('click', () => {
     activeVersionView = button.dataset.versionView;
+    applyVisibility();
+  });
+});
+
+dependencyIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    activeDependencyView = button.dataset.dependencyView;
     applyVisibility();
   });
 });

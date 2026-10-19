@@ -18,7 +18,7 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 28
+SNAPSHOT_SCHEMA_VERSION = 29
 
 
 @dataclass(frozen=True, slots=True)

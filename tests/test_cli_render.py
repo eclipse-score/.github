@@ -5,6 +5,7 @@ from generate_repo_overview.collector import write_snapshot
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    RegistrySignals,
     RepoEntry,
     RepoSnapshot,
     SphinxItem,
@@ -375,3 +376,114 @@ def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:
 
     index_content = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="tools/index.html"' in index_content
+
+
+def test_dependency_integration_tab_compares_known_good_dependencies(
+    tmp_path: Path,
+) -> None:
+    snapshot = RepoSnapshot(
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
+        org_name="eclipse-score",
+        generated_at="2026-10-19T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="module-a",
+                description="Module A",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_deps=(
+                        ("score_common", "1.2.0"),
+                        ("score_tool", "1.2.0"),
+                        ("score_current_only", "2.0.0"),
+                        ("score_another_only", "0.9.0"),
+                    ),
+                    bazel_module_name="score_module_a",
+                    reference_integration_module="score_module_a",
+                ),
+            ),
+            RepoEntry(
+                name="common",
+                description="Common dependency",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_module_name="score_common",
+                    reference_integration_module="score_common",
+                    reference_integration_hash=(
+                        "ee40fece5abacb28ea641b448446a04175038b17"
+                    ),
+                    reference_integration_main_ahead_of_pin_by=126,
+                ),
+                registry=RegistrySignals(latest_bazel_registry_version="1.3.0"),
+            ),
+            RepoEntry(
+                name="tool",
+                description="Tool dependency",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_module_name="score_tool",
+                    reference_integration_module="score_tool",
+                    reference_integration_version="1.1.0",
+                ),
+                registry=RegistrySignals(latest_bazel_registry_version="1.3.0"),
+            ),
+            RepoEntry(
+                name="module-b",
+                description="Module B",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_module_name="score_module_b",
+                    bazel_deps=(("score_current_only", "2.1.0"),),
+                ),
+            ),
+        ),
+    )
+    snapshot_path = tmp_path / "repo_overview.json"
+    output_dir = tmp_path / "_site"
+    write_snapshot(snapshot, snapshot_path)
+
+    cli.main(
+        [
+            "render-details",
+            "--input",
+            str(snapshot_path),
+            "--output",
+            str(output_dir),
+        ]
+    )
+
+    content = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert 'data-tab="dependency-integration">Dependency Integration</button>' in content
+    assert "Latest Update Available" in content
+    assert "Integration Status" in content
+    assert "score_common" in content
+    assert "1.2.0" in content
+    assert "1.3.0" in content
+    assert "ee40fece5abacb28ea641b448446a04175038b17" in content
+    assert "Mismatch" in content
+    assert "Update Available" in content
+    assert 'data-dependency-view="component"' in content
+    assert 'data-dependency-view="other"' in content
+    assert "Other Dependency" in content
+    component_start = content.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component"'
+    )
+    other_start = content.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="other"'
+    )
+    component_view = content[component_start:other_start]
+    other_view = content[other_start:]
+    assert "score_current_only" not in component_view
+    assert '<h3>score_current_only</h3>' in other_view
+    assert '<h3>score_another_only</h3>' in other_view
+    assert "score_module_a" in other_view
+    assert "score_module_b" in other_view
+    assert "2.0.0" in other_view
+    assert "2.1.0" in other_view
+    assert "score_common" not in other_view
+    assert "score_tool" not in other_view
