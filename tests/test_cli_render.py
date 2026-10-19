@@ -436,7 +436,10 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
                 subcategory="Core",
                 content=DeepContentSignals(
                     bazel_module_name="score_module_b",
-                    bazel_deps=(("score_current_only", "2.1.0"),),
+                    bazel_deps=(
+                        ("score_common", "1.0.0"),
+                        ("score_current_only", "2.1.0"),
+                    ),
                 ),
             ),
         ),
@@ -487,3 +490,29 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     assert "2.1.0" in other_view
     assert "score_common" not in other_view
     assert "score_tool" not in other_view
+    assert 'data-component-integration-view="module"' in component_view
+    assert 'data-component-integration-view="dependency"' in content
+    dependency_view_start = content.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component" '
+        'data-component-integration-view="dependency"'
+    )
+    dependency_view = content[dependency_view_start:other_start]
+    common_table_start = dependency_view.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component" '
+        'data-component-integration-view="dependency">'
+    )
+    common_table_end = dependency_view.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component" '
+        'data-component-integration-view="dependency">',
+        common_table_start + 1,
+    )
+    common_table = dependency_view[common_table_start:common_table_end]
+    assert common_table.count("<th>") == 5
+    assert "Component" in common_table
+    assert "score_module_a" in common_table
+    assert "score_module_b" in common_table
+    assert "1.2.0" in common_table
+    assert "1.0.0" in common_table

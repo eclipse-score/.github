@@ -206,6 +206,13 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   align-items: center;
   gap: 0.35rem;
 }
+#component-integration-view-toggle {
+  max-width: 1400px;
+  margin: 0 auto 0.8rem;
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+}
 .view-toggle-label { margin-right: 0.25rem; color: var(--muted); font-size: 0.74rem; }
 .view-toggle-btn { padding: 0.32rem 0.7rem; font-size: 0.74rem; }
 .view-toggle-btn.active { color: #e6edf3; border-color: #58a6ff99; background: #1f6feb2b; }
@@ -344,6 +351,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
 @media (max-width: 700px) {
   #version-view-toggle { margin-bottom: 0.65rem; }
   #dependency-integration-view-toggle { margin-bottom: 0.65rem; }
+  #component-integration-view-toggle { margin-bottom: 0.65rem; }
   .versions-cards-view { grid-template-columns: 1fr; padding: 0.7rem; }
 }
 .section-header {

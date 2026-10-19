@@ -31,13 +31,16 @@ let activeVersionView = 'table';
 const versionViewToggle = document.getElementById('version-view-toggle');
 let activeDependencyView = 'component';
 const dependencyIntegrationViewToggle = document.getElementById('dependency-integration-view-toggle');
+let activeComponentIntegrationView = 'module';
+const componentIntegrationViewToggle = document.getElementById('component-integration-view-toggle');
 
 function applyVisibility() {
   document.querySelectorAll('.section').forEach(s => {
     const matchTab = s.dataset.tab === activeTab;
     const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
     const matchDependencyView = !s.dataset.dependencyView || s.dataset.dependencyView === activeDependencyView;
-    s.classList.toggle('hidden', !(matchTab && matchCat && matchDependencyView));
+    const matchComponentView = !s.dataset.componentIntegrationView || s.dataset.componentIntegrationView === activeComponentIntegrationView;
+    s.classList.toggle('hidden', !(matchTab && matchCat && matchDependencyView && matchComponentView));
   });
   document.querySelectorAll('[data-repo-filter]').forEach(item => {
     const matchCategory = activeCategory === 'all' || item.dataset.repositoryCategory === activeCategory;
@@ -72,6 +75,11 @@ function applyVisibility() {
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
+  componentIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
+    const isActive = button.dataset.componentIntegrationView === activeComponentIntegrationView;
+    button.classList.toggle('active', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
+  });
 }
 
 function activateState(tab, category, integration, docs) {
@@ -84,6 +92,7 @@ function activateState(tab, category, integration, docs) {
   renderFilters();
   versionViewToggle.style.display = tab === 'versions' ? 'flex' : 'none';
   dependencyIntegrationViewToggle.style.display = tab === 'dependency-integration' ? 'flex' : 'none';
+  componentIntegrationViewToggle.style.display = tab === 'dependency-integration' && activeDependencyView === 'component' ? 'flex' : 'none';
   applyVisibility();
 }
 
@@ -118,6 +127,13 @@ versionViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
 dependencyIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
   button.addEventListener('click', () => {
     activeDependencyView = button.dataset.dependencyView;
+    applyVisibility();
+  });
+});
+
+componentIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
+  button.addEventListener('click', () => {
+    activeComponentIntegrationView = button.dataset.componentIntegrationView;
     applyVisibility();
   });
 });
