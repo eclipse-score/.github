@@ -78,6 +78,8 @@ function applyVisibility() {
     button.classList.toggle('active', isActive);
     button.setAttribute('aria-pressed', String(isActive));
   });
+  componentIntegrationViewToggle.style.display =
+    activeTab === 'dependency-integration' && activeDependencyView === 'component' ? 'flex' : 'none';
   componentIntegrationViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
     const isActive = button.dataset.componentIntegrationView === activeComponentIntegrationView;
     button.classList.toggle('active', isActive);
@@ -95,7 +97,6 @@ function activateState(tab, category, integration, docs) {
   renderFilters();
   versionViewToggle.style.display = tab === 'versions' ? 'flex' : 'none';
   dependencyIntegrationViewToggle.style.display = tab === 'dependency-integration' ? 'flex' : 'none';
-  componentIntegrationViewToggle.style.display = tab === 'dependency-integration' && activeDependencyView === 'component' ? 'flex' : 'none';
   dependencyIntegrationLegend.style.display = tab === 'dependency-integration' ? '' : 'none';
   applyVisibility();
 }

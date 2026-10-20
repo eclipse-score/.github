@@ -400,6 +400,7 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
                     ),
                     bazel_module_name="score_module_a",
                     reference_integration_module="score_module_a",
+                    reference_integration_version="0.4.2",
                 ),
             ),
             RepoEntry(
@@ -466,6 +467,8 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     assert "Latest Update Available" in content
     assert "Integration Status" in content
     assert "score_common" in content
+    assert 'title="Known-good pin: 0.4.2">Known Good version: 0.4.2</span>' in content
+    assert 'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good version: ee40fec</span>' in content
     assert "1.2.0" in content
     assert "1.3.0" in content
     assert "ee40fece5abacb28ea641b448446a04175038b17" in content

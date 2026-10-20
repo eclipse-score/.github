@@ -188,6 +188,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   overflow: hidden;
 }
 .section.hidden { display: none; }
+.integration-module-pin { margin-left: 0.5rem; color: var(--text); font-family: inherit; font-size: 0.75rem; font-weight: 500; }
 .dependency-integration-table { overflow-x: auto; }
 .dependency-table-group { padding: 0.9rem 1rem; border-top: 1px solid var(--border); }
 .dependency-table-group.hidden { display: none; }

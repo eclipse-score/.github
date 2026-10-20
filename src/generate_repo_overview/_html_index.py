@@ -184,7 +184,7 @@ def _render_component_integration_view_toggle() -> str:
         '  <button class="view-toggle-btn active" data-component-integration-view="module" '
         'aria-pressed="true">View by Module</button>\n'
         '  <button class="view-toggle-btn" data-component-integration-view="dependency" '
-        'aria-pressed="false">View by dependency</button>\n'
+        'aria-pressed="false">View by Dependency</button>\n'
         '</div>\n\n'
     )
 
@@ -592,13 +592,29 @@ def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
             )
         table_body = "\n".join(rows)
         module_name = repo.content.reference_integration_module or repo.name
+        module_pin = (
+            repo.content.reference_integration_version
+            or repo.content.reference_integration_hash
+        )
+        module_pin_label = (
+            module_pin[:7]
+            if repo.content.reference_integration_hash and module_pin
+            else module_pin
+        )
+        module_pin_markup = (
+            f'<span class="integration-module-pin" '
+            f'title="Known-good pin: {e(module_pin)}">'
+            f'Known Good version: {e(module_pin_label)}</span>'
+            if module_pin and module_pin_label
+            else ""
+        )
         parts.append(
             f'<div class="section hidden" data-tab="dependency-integration" '
             f'data-dependency-view="component" '
             f'data-component-integration-view="module" '
             f'data-category="{e(repo.category)}">\n'
             '  <div class="section-header">\n'
-            f'    <span class="section-title"><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">{e(module_name)}</a></span>\n'
+            f'    <span class="section-title"><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">{e(module_name)}</a>{module_pin_markup}</span>\n'
             f'    <span class="section-count">{len(dependency_names)} dependencies</span>\n'
             '  </div>\n'
             '  <div class="dependency-integration-table">\n'
