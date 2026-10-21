@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from repo_cache import default_cache_directory
 
+from generate_repo_overview.console import print_status
 from generate_repo_overview.org_config import is_safe_repository_path
 
 from .git_checkout import sync_repository_checkout
@@ -247,22 +248,41 @@ def compare_git_refs(
     right_ref: str,
 ) -> GitRefComparison | None:
     """Compare refs and count commits unique to each side, including divergence."""
+
+    # PyGithub runs in lazy mode, so the HTTP request fires on attribute access
+    # rather than in ``compare()`` itself; those reads therefore live inside the
+    # same guard as the request so no lazy failure can escape the worker pool.
+    # A GitHub ``No common ancestor`` 404 is logged as a warning (it is an
+    # expected divergent-lineage case) and treated as uncomparable.
     compare = getattr(repository, "compare", None)
     if not callable(compare):
         return None
     try:
         result = compare(left_ref, right_ref)
-    except Exception:
+        right_ahead_by = getattr(result, "ahead_by", None)
+        left_ahead_by = getattr(result, "behind_by", None)
+    except Exception as exc:
+        if "No common ancestor" in str(exc):
+            print_status(
+                f"warning: {_repository_label(repository)}: refs {left_ref!r} "
+                f"and {right_ref!r} share no common ancestor; "
+                "reference-integration metrics are unavailable.",
+            )
         return None
-
-    right_ahead_by = getattr(result, "ahead_by", None)
-    left_ahead_by = getattr(result, "behind_by", None)
     if not isinstance(right_ahead_by, int) or not isinstance(left_ahead_by, int):
         return None
     return GitRefComparison(
         right_ahead_by=right_ahead_by,
         left_ahead_by=left_ahead_by,
     )
+
+
+def _repository_label(repository: object) -> str:
+    for attribute in ("full_name", "name"):
+        value = getattr(repository, attribute, None)
+        if isinstance(value, str) and value:
+            return value
+    return "<unknown>"
 
 
 def read_included_module_files(checkout_path: Path) -> dict[Path, str]:
