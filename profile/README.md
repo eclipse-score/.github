@@ -51,6 +51,7 @@ Core S-CORE modules, libraries, and APIs.
 | [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
 | [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework |
 | [scrample](https://github.com/eclipse-score/scrample) | Repository for example component |
+| [time](https://github.com/eclipse-score/time) | Time synchronization module |
 
 #### Incubation
 
@@ -61,7 +62,6 @@ Repositories for experimental or early-stage features.
 | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module |
 | [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) | Incubation repository for diagnostics feature |
 | [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | Incubation repository for SOME/IP gateway feature |
-| [time](https://github.com/eclipse-score/time) | Time synchronization module |
 
 ---
 
