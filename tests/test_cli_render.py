@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import generate_repo_overview.cli as cli
+from generate_repo_overview._html_index import _render_dependency_status_cells
 from generate_repo_overview.collector import write_snapshot
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
@@ -464,14 +465,14 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
         'data-tab="dependency-integration">Dependency Integration</button>' in content
     )
     assert 'id="dependency-integration-legend"' in content
-    assert "Known Good Version" in content
+    assert "Known Good Pin" in content
     assert "Update Available means a newer version or commit is available" in content
     assert "Latest Update Available" in content
     assert "Integration Status" in content
     assert "score_common" in content
-    assert 'title="Known-good pin: 0.4.2">Known Good version: 0.4.2</span>' in content
+    assert 'title="Known-good pin: 0.4.2">Known Good pin: 0.4.2</span>' in content
     assert (
-        'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good version: ee40fec</span>'
+        'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good pin: ee40fec</span>'
         in content
     )
     assert "1.2.0" in content
@@ -527,3 +528,48 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     assert "score_module_b" in common_table
     assert "1.2.0" in common_table
     assert "1.0.0" in common_table
+
+
+def test_dependency_status_distinguishes_version_and_commit_pins() -> None:
+    pinned_repo = RepoEntry(
+        name="common",
+        description="Common dependency",
+        category="Modules",
+        subcategory="Core",
+        content=DeepContentSignals(reference_integration_main_ahead_of_pin_by=3),
+    )
+    hash_update_status = _render_dependency_status_cells(
+        "1.2.0", "ee40fece5abacb28ea641b448446a04175038b17", "1.3.0", True, pinned_repo
+    )
+    assert "Mismatch" not in hash_update_status
+    assert "Update Available" in hash_update_status
+
+    hash_unknown_status = _render_dependency_status_cells(
+        "1.2.0", "ee40fece5abacb28ea641b448446a04175038b17", "1.3.0", True, None
+    )
+    assert "Mismatch" not in hash_unknown_status
+    assert "Freshness Unknown" in hash_unknown_status
+    assert "In sync" not in hash_unknown_status
+
+    hash_current_status = _render_dependency_status_cells(
+        "1.2.0",
+        "ee40fece5abacb28ea641b448446a04175038b17",
+        "1.3.0",
+        True,
+        RepoEntry(
+            name="common",
+            description="Common dependency",
+            category="Modules",
+            subcategory="Core",
+            content=DeepContentSignals(reference_integration_main_ahead_of_pin_by=0),
+        ),
+    )
+    assert "Mismatch" not in hash_current_status
+    assert "Pinned Commit" in hash_current_status
+    assert "In sync" not in hash_current_status
+
+    version_status = _render_dependency_status_cells(
+        "1.2.0", "1.1.0", "1.3.0", False, pinned_repo
+    )
+    assert "Mismatch" in version_status
+    assert "Update Available" in version_status

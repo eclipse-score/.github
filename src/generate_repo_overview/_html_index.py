@@ -199,9 +199,9 @@ def _render_dependency_integration_legend() -> str:
         "    <div><dt>Dependency</dt><dd>Bazel module used by the component.</dd></div>\n"
         "    <div><dt>Component</dt><dd>Component that declares or uses the dependency.</dd></div>\n"
         "    <div><dt>Module Version</dt><dd>Version declared by the component in its MODULE.bazel.</dd></div>\n"
-        "    <div><dt>Known Good Version</dt><dd>Version or commit hash pinned in reference-integration known_good.json.</dd></div>\n"
+        "    <div><dt>Known Good Pin</dt><dd>Version or commit hash pinned in reference-integration known_good.json.</dd></div>\n"
         "    <div><dt>Latest Update Available</dt><dd>Latest known registry or release version.</dd></div>\n"
-        "    <div><dt>Integration Status</dt><dd>Mismatch means the module version differs from the known-good pin; Update Available means a newer version or commit is available. Both can apply.</dd></div>\n"
+        "    <div><dt>Integration Status</dt><dd>Mismatch means the module version differs from a version pin; Update Available means a newer version or commit is available. Commit pins are checked against the repository default branch.</dd></div>\n"
         "    </dl>\n"
         "  </div>\n"
         "</div>\n\n"
@@ -604,7 +604,7 @@ def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
         module_pin_markup = (
             f'<span class="integration-module-pin" '
             f'title="Known-good pin: {e(module_pin)}">'
-            f"Known Good version: {e(module_pin_label)}</span>"
+            f"Known Good pin: {e(module_pin_label)}</span>"
             if module_pin and module_pin_label
             else ""
         )
@@ -619,7 +619,7 @@ def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
             "  </div>\n"
             '  <div class="dependency-integration-table">\n'
             "    <table><thead><tr>"
-            "<th>Dependency</th><th>Module Version</th><th>Known Good Version</th>"
+            "<th>Dependency</th><th>Module Version</th><th>Known Good Pin</th>"
             "<th>Latest Update Available</th><th>Integration Status</th>"
             "</tr></thead>\n"
             f"    <tbody>{table_body}</tbody></table>\n"
@@ -652,26 +652,33 @@ def _render_dependency_status_cells(
     pinned_repo: RepoEntry | None,
 ) -> str:
     statuses: list[str] = []
-    if current_version != known_good_version:
-        statuses.append('<span class="badge red">Mismatch</span>')
-    known_good_key = (
-        None if known_good_is_hash else parse_version_key(known_good_version)
-    )
-    latest_key = parse_version_key(latest_version)
-    update_available = (
-        known_good_key is not None
-        and latest_key is not None
-        and _version_key_is_newer(latest_key, known_good_key)
-    )
-    if (
-        known_good_is_hash
-        and pinned_repo is not None
-        and (pinned_repo.content.reference_integration_main_ahead_of_pin_by or 0) > 0
-    ):
-        update_available = True
-    if update_available:
-        statuses.append('<span class="badge yellow">Update Available</span>')
-    status_cell = " ".join(statuses) or '<span class="badge green">In sync</span>'
+    if known_good_is_hash:
+        pin_ahead_by = (
+            pinned_repo.content.reference_integration_main_ahead_of_pin_by
+            if pinned_repo is not None
+            else None
+        )
+        if pin_ahead_by is None:
+            statuses.append('<span class="badge yellow">Freshness Unknown</span>')
+        elif pin_ahead_by > 0:
+            statuses.append('<span class="badge yellow">Update Available</span>')
+        else:
+            statuses.append('<span class="badge green">Pinned Commit</span>')
+    else:
+        if current_version != known_good_version:
+            statuses.append('<span class="badge red">Mismatch</span>')
+        known_good_key = parse_version_key(known_good_version)
+        latest_key = parse_version_key(latest_version)
+        update_available = (
+            known_good_key is not None
+            and latest_key is not None
+            and _version_key_is_newer(latest_key, known_good_key)
+        )
+        if update_available:
+            statuses.append('<span class="badge yellow">Update Available</span>')
+        if not statuses:
+            statuses.append('<span class="badge green">In sync</span>')
+    status_cell = " ".join(statuses)
     return (
         f'<td class="mono">{e(current_version or "Not declared")}</td>'
         f'<td class="mono">{e(known_good_version or "Not declared")}</td>'
@@ -731,7 +738,7 @@ def _render_component_integration_by_dependency(
             "  </div>\n"
             '  <div class="dependency-integration-table">\n'
             "    <table><thead><tr><th>Component</th><th>Module Version</th>"
-            "<th>Known Good Version</th><th>Latest Update Available</th>"
+            "<th>Known Good Pin</th><th>Latest Update Available</th>"
             "<th>Integration Status</th></tr></thead>\n"
             f"    <tbody>{''.join(rows)}</tbody></table>\n"
             "  </div>\n"
