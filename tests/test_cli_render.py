@@ -460,7 +460,9 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     )
 
     content = (output_dir / "index.html").read_text(encoding="utf-8")
-    assert 'data-tab="dependency-integration">Dependency Integration</button>' in content
+    assert (
+        'data-tab="dependency-integration">Dependency Integration</button>' in content
+    )
     assert 'id="dependency-integration-legend"' in content
     assert "Known Good Version" in content
     assert "Update Available means a newer version or commit is available" in content
@@ -468,7 +470,10 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     assert "Integration Status" in content
     assert "score_common" in content
     assert 'title="Known-good pin: 0.4.2">Known Good version: 0.4.2</span>' in content
-    assert 'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good version: ee40fec</span>' in content
+    assert (
+        'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good version: ee40fec</span>'
+        in content
+    )
     assert "1.2.0" in content
     assert "1.3.0" in content
     assert "ee40fece5abacb28ea641b448446a04175038b17" in content
@@ -488,8 +493,8 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     component_view = content[component_start:other_start]
     other_view = content[other_start:]
     assert "score_current_only" not in component_view
-    assert '<h3>score_current_only</h3>' in other_view
-    assert '<h3>score_another_only</h3>' in other_view
+    assert "<h3>score_current_only</h3>" in other_view
+    assert "<h3>score_another_only</h3>" in other_view
     assert "score_module_a" in other_view
     assert "score_module_b" in other_view
     assert "2.0.0" in other_view

@@ -173,7 +173,7 @@ def _render_dependency_integration_view_toggle() -> str:
         'aria-pressed="true">Component Integration</button>\n'
         '  <button class="view-toggle-btn" data-dependency-view="other" '
         'aria-pressed="false">Other Dependency</button>\n'
-        '</div>\n\n'
+        "</div>\n\n"
     )
 
 
@@ -185,7 +185,7 @@ def _render_component_integration_view_toggle() -> str:
         'aria-pressed="true">View by Module</button>\n'
         '  <button class="view-toggle-btn" data-component-integration-view="dependency" '
         'aria-pressed="false">View by Dependency</button>\n'
-        '</div>\n\n'
+        "</div>\n\n"
     )
 
 
@@ -195,16 +195,16 @@ def _render_dependency_integration_legend() -> str:
         '  <button class="dependency-legend-toggle" aria-expanded="false" '
         'aria-controls="dependency-legend-content">Legend</button>\n'
         '  <div id="dependency-legend-content" hidden>\n'
-        '    <dl>\n'
-        '    <div><dt>Dependency</dt><dd>Bazel module used by the component.</dd></div>\n'
-        '    <div><dt>Component</dt><dd>Component that declares or uses the dependency.</dd></div>\n'
-        '    <div><dt>Module Version</dt><dd>Version declared by the component in its MODULE.bazel.</dd></div>\n'
-        '    <div><dt>Known Good Version</dt><dd>Version or commit hash pinned in reference-integration known_good.json.</dd></div>\n'
-        '    <div><dt>Latest Update Available</dt><dd>Latest known registry or release version.</dd></div>\n'
-        '    <div><dt>Integration Status</dt><dd>Mismatch means the module version differs from the known-good pin; Update Available means a newer version or commit is available. Both can apply.</dd></div>\n'
-        '    </dl>\n'
-        '  </div>\n'
-        '</div>\n\n'
+        "    <dl>\n"
+        "    <div><dt>Dependency</dt><dd>Bazel module used by the component.</dd></div>\n"
+        "    <div><dt>Component</dt><dd>Component that declares or uses the dependency.</dd></div>\n"
+        "    <div><dt>Module Version</dt><dd>Version declared by the component in its MODULE.bazel.</dd></div>\n"
+        "    <div><dt>Known Good Version</dt><dd>Version or commit hash pinned in reference-integration known_good.json.</dd></div>\n"
+        "    <div><dt>Latest Update Available</dt><dd>Latest known registry or release version.</dd></div>\n"
+        "    <div><dt>Integration Status</dt><dd>Mismatch means the module version differs from the known-good pin; Update Available means a newer version or commit is available. Both can apply.</dd></div>\n"
+        "    </dl>\n"
+        "  </div>\n"
+        "</div>\n\n"
     )
 
 
@@ -587,8 +587,8 @@ def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
                 f'data-integration="included" '
                 f'data-docs-as-code="{"yes" if uses_docs_as_code(repo) else "no"}">'
                 f'<td class="mono">{e(dependency_name)}</td>'
-                f'{_render_dependency_status_cells(current_version, known_good_version, latest_version, known_good_is_hash, repos_by_module.get(dependency_name))}'
-                '</tr>'
+                f"{_render_dependency_status_cells(current_version, known_good_version, latest_version, known_good_is_hash, repos_by_module.get(dependency_name))}"
+                "</tr>"
             )
         table_body = "\n".join(rows)
         module_name = repo.content.reference_integration_module or repo.name
@@ -604,7 +604,7 @@ def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
         module_pin_markup = (
             f'<span class="integration-module-pin" '
             f'title="Known-good pin: {e(module_pin)}">'
-            f'Known Good version: {e(module_pin_label)}</span>'
+            f"Known Good version: {e(module_pin_label)}</span>"
             if module_pin and module_pin_label
             else ""
         )
@@ -616,15 +616,15 @@ def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
             '  <div class="section-header">\n'
             f'    <span class="section-title"><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">{e(module_name)}</a>{module_pin_markup}</span>\n'
             f'    <span class="section-count">{len(dependency_names)} dependencies</span>\n'
-            '  </div>\n'
+            "  </div>\n"
             '  <div class="dependency-integration-table">\n'
-            '    <table><thead><tr>'
-            '<th>Dependency</th><th>Module Version</th><th>Known Good Version</th>'
-            '<th>Latest Update Available</th><th>Integration Status</th>'
-            '</tr></thead>\n'
-            f'    <tbody>{table_body}</tbody></table>\n'
-            '  </div>\n'
-            '</div>\n'
+            "    <table><thead><tr>"
+            "<th>Dependency</th><th>Module Version</th><th>Known Good Version</th>"
+            "<th>Latest Update Available</th><th>Integration Status</th>"
+            "</tr></thead>\n"
+            f"    <tbody>{table_body}</tbody></table>\n"
+            "  </div>\n"
+            "</div>\n"
         )
 
     parts.append(
@@ -676,7 +676,7 @@ def _render_dependency_status_cells(
         f'<td class="mono">{e(current_version or "Not declared")}</td>'
         f'<td class="mono">{e(known_good_version or "Not declared")}</td>'
         f'<td class="mono">{e(latest_version or "Unknown")}</td>'
-        f'<td>{status_cell}</td>'
+        f"<td>{status_cell}</td>"
     )
 
 
@@ -715,11 +715,11 @@ def _render_component_integration_by_dependency(
                 f'data-docs-as-code="{"yes" if uses_docs_as_code(repo) else "no"}"'
             )
             rows.append(
-                f'<tr {row_attributes}>'
+                f"<tr {row_attributes}>"
                 f'<td><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">'
-                f'{e(repo.content.bazel_module_name or repo.name)}</a></td>'
-                f'{_render_dependency_status_cells(current_version, known_good_version, latest_version, known_good_is_hash, pinned_repo)}'
-                '</tr>'
+                f"{e(repo.content.bazel_module_name or repo.name)}</a></td>"
+                f"{_render_dependency_status_cells(current_version, known_good_version, latest_version, known_good_is_hash, pinned_repo)}"
+                "</tr>"
             )
         sections.append(
             '<div class="section hidden" data-tab="dependency-integration" '
@@ -728,14 +728,14 @@ def _render_component_integration_by_dependency(
             '  <div class="section-header">\n'
             f'    <span class="section-title">{e(dependency_name)}</span>\n'
             f'    <span class="section-count">{len(uses)} components</span>\n'
-            '  </div>\n'
+            "  </div>\n"
             '  <div class="dependency-integration-table">\n'
-            '    <table><thead><tr><th>Component</th><th>Module Version</th>'
-            '<th>Known Good Version</th><th>Latest Update Available</th>'
-            '<th>Integration Status</th></tr></thead>\n'
-            f'    <tbody>{"".join(rows)}</tbody></table>\n'
-            '  </div>\n'
-            '</div>\n'
+            "    <table><thead><tr><th>Component</th><th>Module Version</th>"
+            "<th>Known Good Version</th><th>Latest Update Available</th>"
+            "<th>Integration Status</th></tr></thead>\n"
+            f"    <tbody>{''.join(rows)}</tbody></table>\n"
+            "  </div>\n"
+            "</div>\n"
         )
     return "".join(sections)
 
@@ -759,7 +759,7 @@ def _render_other_dependency_section(
                 f'data-integration="{"included" if repo.content.referenced_by_reference_integration else "excluded"}" '
                 f'data-docs-as-code="{"yes" if uses_docs_as_code(repo) else "no"}">'
                 f'<td><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">'
-                f'{e(component_name)}</a></td>'
+                f"{e(component_name)}</a></td>"
                 f'<td class="mono">{e(version)}</td></tr>'
             )
     if not rows_by_dependency:
@@ -767,35 +767,37 @@ def _render_other_dependency_section(
             '<div class="section hidden" data-tab="dependency-integration" '
             'data-dependency-view="other">\n'
             '  <p class="empty-state">No other dependencies found.</p>\n'
-            '</div>\n'
+            "</div>\n"
         )
     return (
         '<div class="section hidden" data-tab="dependency-integration" '
         'data-dependency-view="other">\n'
         '  <div class="section-header">\n'
         '    <span class="section-title">Other Dependencies</span>\n'
-            f'    <span class="section-count">{len(rows_by_dependency)} dependencies</span>\n'
-        '  </div>\n'
-            '  <div class="other-dependency-tables">\n'
-            + "".join(
-                '<div class="dependency-table-group">\n'
-                f'    <h3>{e(dependency_name)}</h3>\n'
-                '    <div class="dependency-integration-table">\n'
-                '      <table><thead><tr><th>Component</th>'
-                '<th>Module Version</th></tr></thead>\n'
-                f'      <tbody>{"".join(rows)}</tbody></table>\n'
-                '    </div>\n'
-                '  </div>\n'
-                for dependency_name, rows in sorted(
-                    rows_by_dependency.items(), key=lambda item: item[0].casefold()
-                )
+        f'    <span class="section-count">{len(rows_by_dependency)} dependencies</span>\n'
+        "  </div>\n"
+        '  <div class="other-dependency-tables">\n'
+        + "".join(
+            '<div class="dependency-table-group">\n'
+            f"    <h3>{e(dependency_name)}</h3>\n"
+            '    <div class="dependency-integration-table">\n'
+            "      <table><thead><tr><th>Component</th>"
+            "<th>Module Version</th></tr></thead>\n"
+            f"      <tbody>{''.join(rows)}</tbody></table>\n"
+            "    </div>\n"
+            "  </div>\n"
+            for dependency_name, rows in sorted(
+                rows_by_dependency.items(), key=lambda item: item[0].casefold()
             )
-            + '  </div>\n'
-        '</div>\n'
+        )
+        + "  </div>\n"
+        "</div>\n"
     )
 
 
-def _version_key_is_newer(candidate: tuple[int, ...], baseline: tuple[int, ...]) -> bool:
+def _version_key_is_newer(
+    candidate: tuple[int, ...], baseline: tuple[int, ...]
+) -> bool:
     width = max(len(candidate), len(baseline))
     return candidate + (0,) * (width - len(candidate)) > baseline + (0,) * (
         width - len(baseline)
