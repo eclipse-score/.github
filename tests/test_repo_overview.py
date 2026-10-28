@@ -1237,6 +1237,76 @@ def test_latest_release_details_keep_divergence_from_single_comparison(
     assert details["default_branch_ahead_of_latest_release_by"] == 7
 
 
+def test_compare_git_refs_happy_path_counts_divergence() -> None:
+    class Repository:
+        def compare(self, left: str, right: str) -> SimpleNamespace:
+            return SimpleNamespace(ahead_by=3, behind_by=1)
+
+    comparison = reference_integration.compare_git_refs(
+        Repository(),
+        left_ref="main",
+        right_ref="v1.0.0",
+    )
+
+    assert comparison == reference_integration.GitRefComparison(
+        right_ahead_by=3,
+        left_ahead_by=1,
+    )
+
+
+def test_compare_git_refs_returns_none_when_compare_itself_raises() -> None:
+    class Repository:
+        def compare(self, left: str, right: str) -> object:
+            raise RuntimeError("compare exploded")
+
+    assert (
+        reference_integration.compare_git_refs(
+            Repository(),
+            left_ref="main",
+            right_ref="v1.0.0",
+        )
+        is None
+    )
+
+
+def test_compare_git_refs_logs_warning_and_returns_none_for_no_common_ancestor(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A lazy 404 ``No common ancestor`` must not escape and must be surfaced."""
+    from github import GithubException
+
+    class LazyNoCommonAncestor:
+        @property
+        def ahead_by(self) -> int:
+            # Mirrors PyGithub lazy mode: the HTTP error fires on attribute
+            # access, after ``compare()`` has already returned.
+            raise GithubException(
+                404,
+                data={},
+                message=(
+                    "No common ancestor between archival-branch and "
+                    "6ea826c43f965f9ebe23cdc813566cf8141ebaf1."
+                ),
+            )
+
+    class Repository:
+        full_name = "example-org/ancient-repo"
+
+        def compare(self, left: str, right: str) -> LazyNoCommonAncestor:
+            return LazyNoCommonAncestor()
+
+    result = reference_integration.compare_git_refs(
+        Repository(),
+        left_ref="archival-branch",
+        right_ref="6ea826c43f965f9ebe23cdc813566cf8141ebaf1",
+    )
+
+    assert result is None
+    captured = capsys.readouterr()
+    assert "ancient-repo" in captured.err
+    assert "archival-branch" in captured.err
+
+
 def test_version_pin_uses_resolved_sha_for_commit_link() -> None:
     snapshot = RepoSnapshot(
         schema_version=SNAPSHOT_SCHEMA_VERSION,
