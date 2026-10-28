@@ -466,10 +466,17 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
     )
     assert 'id="dependency-integration-legend"' in content
     assert "Known Good Pin" in content
+    assert "In sync means the module version matches its version pin" in content
     assert "Update Available means a newer version or commit is available" in content
     assert "Latest Update Available" in content
     assert "Integration Status" in content
     assert "score_common" in content
+    assert (
+        'data-category="Modules" data-repo-filter="common" '
+        'data-repository-category="Modules" data-integration="excluded" '
+        'data-docs-as-code="no">'
+    ) in content
+    assert "0 dependencies" in content
     assert 'title="Known-good pin: 0.4.2">Known Good pin: 0.4.2</span>' in content
     assert (
         'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good pin: ee40fec</span>'
@@ -522,7 +529,13 @@ def test_dependency_integration_tab_compares_known_good_dependencies(
         common_table_start + 1,
     )
     common_table = dependency_view[common_table_start:common_table_end]
-    assert common_table.count("<th>") == 5
+    assert common_table.count("<th>") == 4
+    assert (
+        'score_common<span class="integration-module-pin" '
+        'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">'
+        "Known Good pin: ee40fec</span>"
+    ) in common_table
+    assert "<th>Known Good Pin</th>" not in common_table
     assert "Component" in common_table
     assert "score_module_a" in common_table
     assert "score_module_b" in common_table
@@ -573,3 +586,17 @@ def test_dependency_status_distinguishes_version_and_commit_pins() -> None:
     )
     assert "Mismatch" in version_status
     assert "Update Available" in version_status
+
+
+def test_dependency_status_orders_prerelease_pins() -> None:
+    for latest_version in ("1.2.0-rc.2", "1.2.0"):
+        status = _render_dependency_status_cells(
+            "1.2.0-rc.1",
+            "1.2.0-rc.1",
+            latest_version,
+            False,
+            None,
+        )
+
+        assert "Update Available" in status
+        assert "In sync" not in status
