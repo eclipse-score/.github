@@ -26,6 +26,7 @@ Get the latest stable release to start building or check the release notes for r
 
 | Repository | Description |
 |------------|-------------|
+| [contributor_training](https://github.com/eclipse-score/contributor_training) | Contributor training for S-CORE |
 | [process_description](https://github.com/eclipse-score/process_description) | Score project process description |
 | [score](https://github.com/eclipse-score/score) | Score project main repository |
 
