@@ -1,10 +1,12 @@
 from pathlib import Path
 
 import generate_repo_overview.cli as cli
+from generate_repo_overview._html_index import _render_dependency_status_cells
 from generate_repo_overview.collector import write_snapshot
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    RegistrySignals,
     RepoEntry,
     RepoSnapshot,
     SphinxItem,
@@ -375,3 +377,226 @@ def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:
 
     index_content = (output_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="tools/index.html"' in index_content
+
+
+def test_dependency_integration_tab_compares_known_good_dependencies(
+    tmp_path: Path,
+) -> None:
+    snapshot = RepoSnapshot(
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
+        org_name="eclipse-score",
+        generated_at="2026-10-19T12:00:00+00:00",
+        repos=(
+            RepoEntry(
+                name="module-a",
+                description="Module A",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_deps=(
+                        ("score_common", "1.2.0"),
+                        ("score_tool", "1.2.0"),
+                        ("score_current_only", "2.0.0"),
+                        ("score_another_only", "0.9.0"),
+                    ),
+                    bazel_module_name="score_module_a",
+                    reference_integration_module="score_module_a",
+                    reference_integration_version="0.4.2",
+                ),
+            ),
+            RepoEntry(
+                name="common",
+                description="Common dependency",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_module_name="score_common",
+                    reference_integration_module="score_common",
+                    reference_integration_hash=(
+                        "ee40fece5abacb28ea641b448446a04175038b17"
+                    ),
+                    reference_integration_main_ahead_of_pin_by=126,
+                ),
+                registry=RegistrySignals(latest_bazel_registry_version="1.3.0"),
+            ),
+            RepoEntry(
+                name="tool",
+                description="Tool dependency",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_module_name="score_tool",
+                    reference_integration_module="score_tool",
+                    reference_integration_version="1.1.0",
+                ),
+                registry=RegistrySignals(latest_bazel_registry_version="1.3.0"),
+            ),
+            RepoEntry(
+                name="module-b",
+                description="Module B",
+                category="Modules",
+                subcategory="Core",
+                content=DeepContentSignals(
+                    bazel_module_name="score_module_b",
+                    bazel_deps=(
+                        ("score_common", "1.0.0"),
+                        ("score_current_only", "2.1.0"),
+                    ),
+                ),
+            ),
+        ),
+    )
+    snapshot_path = tmp_path / "repo_overview.json"
+    output_dir = tmp_path / "_site"
+    write_snapshot(snapshot, snapshot_path)
+
+    cli.main(
+        [
+            "render-details",
+            "--input",
+            str(snapshot_path),
+            "--output",
+            str(output_dir),
+        ]
+    )
+
+    content = (output_dir / "index.html").read_text(encoding="utf-8")
+    assert (
+        'data-tab="dependency-integration">Dependency Integration</button>' in content
+    )
+    assert 'id="dependency-integration-legend"' in content
+    assert "Known Good Pin" in content
+    assert "In sync means the module version matches its version pin" in content
+    assert "Update Available means a newer version or commit is available" in content
+    assert "Latest Update Available" in content
+    assert "Integration Status" in content
+    assert "score_common" in content
+    assert (
+        'data-category="Modules" data-repo-filter="common" '
+        'data-repository-category="Modules" data-integration="excluded" '
+        'data-docs-as-code="no">'
+    ) in content
+    assert "0 dependencies" in content
+    assert 'title="Known-good pin: 0.4.2">Known Good pin: 0.4.2</span>' in content
+    assert (
+        'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">Known Good pin: ee40fec</span>'
+        in content
+    )
+    assert "1.2.0" in content
+    assert "1.3.0" in content
+    assert "ee40fece5abacb28ea641b448446a04175038b17" in content
+    assert "Mismatch" in content
+    assert "Update Available" in content
+    assert 'data-dependency-view="component"' in content
+    assert 'data-dependency-view="other"' in content
+    assert "Other Dependency" in content
+    component_start = content.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component"'
+    )
+    other_start = content.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="other"'
+    )
+    component_view = content[component_start:other_start]
+    other_view = content[other_start:]
+    assert "score_current_only" not in component_view
+    assert "<h3>score_current_only</h3>" in other_view
+    assert "<h3>score_another_only</h3>" in other_view
+    assert "score_module_a" in other_view
+    assert "score_module_b" in other_view
+    assert "2.0.0" in other_view
+    assert "2.1.0" in other_view
+    assert "score_common" not in other_view
+    assert "score_tool" not in other_view
+    assert 'data-component-integration-view="module"' in component_view
+    assert 'data-component-integration-view="dependency"' in content
+    dependency_view_start = content.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component" '
+        'data-component-integration-view="dependency"'
+    )
+    dependency_view = content[dependency_view_start:other_start]
+    common_table_start = dependency_view.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component" '
+        'data-component-integration-view="dependency">'
+    )
+    common_table_end = dependency_view.index(
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="component" '
+        'data-component-integration-view="dependency">',
+        common_table_start + 1,
+    )
+    common_table = dependency_view[common_table_start:common_table_end]
+    assert common_table.count("<th>") == 4
+    assert (
+        'score_common<span class="integration-module-pin" '
+        'title="Known-good pin: ee40fece5abacb28ea641b448446a04175038b17">'
+        "Known Good pin: ee40fec</span>"
+    ) in common_table
+    assert "<th>Known Good Pin</th>" not in common_table
+    assert "Component" in common_table
+    assert "score_module_a" in common_table
+    assert "score_module_b" in common_table
+    assert "1.2.0" in common_table
+    assert "1.0.0" in common_table
+
+
+def test_dependency_status_distinguishes_version_and_commit_pins() -> None:
+    pinned_repo = RepoEntry(
+        name="common",
+        description="Common dependency",
+        category="Modules",
+        subcategory="Core",
+        content=DeepContentSignals(reference_integration_main_ahead_of_pin_by=3),
+    )
+    hash_update_status = _render_dependency_status_cells(
+        "1.2.0", "ee40fece5abacb28ea641b448446a04175038b17", "1.3.0", True, pinned_repo
+    )
+    assert "Mismatch" not in hash_update_status
+    assert "Update Available" in hash_update_status
+
+    hash_unknown_status = _render_dependency_status_cells(
+        "1.2.0", "ee40fece5abacb28ea641b448446a04175038b17", "1.3.0", True, None
+    )
+    assert "Mismatch" not in hash_unknown_status
+    assert "Freshness Unknown" in hash_unknown_status
+    assert "In sync" not in hash_unknown_status
+
+    hash_current_status = _render_dependency_status_cells(
+        "1.2.0",
+        "ee40fece5abacb28ea641b448446a04175038b17",
+        "1.3.0",
+        True,
+        RepoEntry(
+            name="common",
+            description="Common dependency",
+            category="Modules",
+            subcategory="Core",
+            content=DeepContentSignals(reference_integration_main_ahead_of_pin_by=0),
+        ),
+    )
+    assert "Mismatch" not in hash_current_status
+    assert "Pinned Commit" in hash_current_status
+    assert "In sync" not in hash_current_status
+
+    version_status = _render_dependency_status_cells(
+        "1.2.0", "1.1.0", "1.3.0", False, pinned_repo
+    )
+    assert "Mismatch" in version_status
+    assert "Update Available" in version_status
+
+
+def test_dependency_status_orders_prerelease_pins() -> None:
+    for latest_version in ("1.2.0-rc.2", "1.2.0"):
+        status = _render_dependency_status_cells(
+            "1.2.0-rc.1",
+            "1.2.0-rc.1",
+            latest_version,
+            False,
+            None,
+        )
+
+        assert "Update Available" in status
+        assert "In sync" not in status

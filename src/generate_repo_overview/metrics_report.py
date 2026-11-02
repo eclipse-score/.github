@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 
 HANDLE_PATTERN = re.compile(r"@[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?")
+BAZEL_VERSION_PATTERN = re.compile(
+    r"^[vV]?(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)"
+    r"(?:-(?P<prerelease>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
 BAZEL_ICON_URL = "https://bazel.build/_pwa/bazel/icons/icon-72x72.png"
 
 
@@ -374,6 +379,53 @@ def parse_version_key(value: str | None) -> tuple[int, ...] | None:
     if not numeric_parts:
         return None
     return tuple(int(part) for part in numeric_parts[:3])
+
+
+def bazel_version_is_newer(candidate: str | None, baseline: str | None) -> bool:
+    candidate_version = _parse_bazel_version(candidate)
+    baseline_version = _parse_bazel_version(baseline)
+    if candidate_version is not None and baseline_version is not None:
+        candidate_core, candidate_prerelease = candidate_version
+        baseline_core, baseline_prerelease = baseline_version
+        if candidate_core != baseline_core:
+            return candidate_core > baseline_core
+        if candidate_prerelease is None:
+            return baseline_prerelease is not None
+        if baseline_prerelease is None:
+            return False
+        return candidate_prerelease > baseline_prerelease
+
+    candidate_key = parse_version_key(candidate)
+    baseline_key = parse_version_key(baseline)
+    if candidate_key is None or baseline_key is None:
+        return False
+    width = max(len(candidate_key), len(baseline_key))
+    return candidate_key + (0,) * (width - len(candidate_key)) > baseline_key + (0,) * (
+        width - len(baseline_key)
+    )
+
+
+def _parse_bazel_version(
+    value: str | None,
+) -> tuple[tuple[int, int, int], tuple[tuple[int, int | str], ...] | None] | None:
+    if value is None:
+        return None
+    match = BAZEL_VERSION_PATTERN.fullmatch(value.strip())
+    if match is None:
+        return None
+    core = (
+        int(match.group("major")),
+        int(match.group("minor")),
+        int(match.group("patch")),
+    )
+    prerelease = match.group("prerelease")
+    if prerelease is None:
+        return core, None
+    identifiers = tuple(
+        (0, int(identifier)) if identifier.isdigit() else (1, identifier)
+        for identifier in prerelease.split(".")
+    )
+    return core, identifiers
 
 
 def get_max_bazel_version(repos: list[RepoEntry]) -> tuple[int, ...] | None:

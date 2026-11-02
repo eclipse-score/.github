@@ -15,6 +15,7 @@ from ._html_common import (
     version_badge,
 )
 from .metrics_report import (
+    bazel_version_is_newer,
     get_latest_tracked_dep_version,
     get_max_bazel_version,
     group_repos_by_category,
@@ -68,9 +69,13 @@ def render_index_page(
         + _render_tab_bar()
         + _render_filters_placeholder()
         + _render_version_view_toggle()
+        + _render_dependency_integration_view_toggle()
+        + _render_component_integration_view_toggle()
+        + _render_dependency_integration_legend()
         + '<div id="sections">\n'
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, snapshot)
+        + _render_dependency_integration_sections(snapshot)
         + _render_automation_sections(categories, snapshot)
         + _render_naming_sections(categories, snapshot)
         + _render_traceability_section(repos, snapshot)
@@ -135,6 +140,7 @@ def _render_tab_bar() -> str:
         '<div class="tab-bar">\n'
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
+        '  <button class="tab-btn" data-tab="dependency-integration">Dependency Integration</button>\n'
         '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
         '  <button class="tab-btn" data-tab="naming">Naming</button>\n'
         '  <button class="tab-btn" data-tab="traceability">Traceability</button>\n'
@@ -156,6 +162,49 @@ def _render_version_view_toggle() -> str:
         'aria-pressed="true">Table</button>\n'
         '  <button class="view-toggle-btn" data-version-view="cards" '
         'aria-pressed="false">Cards</button>\n'
+        "</div>\n\n"
+    )
+
+
+def _render_dependency_integration_view_toggle() -> str:
+    return (
+        '<div id="dependency-integration-view-toggle" role="group" '
+        'aria-label="Choose dependency integration view">\n'
+        '  <button class="view-toggle-btn active" data-dependency-view="component" '
+        'aria-pressed="true">Component Integration</button>\n'
+        '  <button class="view-toggle-btn" data-dependency-view="other" '
+        'aria-pressed="false">Other Dependency</button>\n'
+        "</div>\n\n"
+    )
+
+
+def _render_component_integration_view_toggle() -> str:
+    return (
+        '<div id="component-integration-view-toggle" role="group" '
+        'aria-label="Choose Component Integration layout">\n'
+        '  <button class="view-toggle-btn active" data-component-integration-view="module" '
+        'aria-pressed="true">View by Module</button>\n'
+        '  <button class="view-toggle-btn" data-component-integration-view="dependency" '
+        'aria-pressed="false">View by Dependency</button>\n'
+        "</div>\n\n"
+    )
+
+
+def _render_dependency_integration_legend() -> str:
+    return (
+        '<div id="dependency-integration-legend" class="dependency-integration-legend">\n'
+        '  <button class="dependency-legend-toggle" aria-expanded="false" '
+        'aria-controls="dependency-legend-content">Legend</button>\n'
+        '  <div id="dependency-legend-content" hidden>\n'
+        "    <dl>\n"
+        "    <div><dt>Dependency</dt><dd>Bazel module used by the component.</dd></div>\n"
+        "    <div><dt>Component</dt><dd>Component that declares or uses the dependency.</dd></div>\n"
+        "    <div><dt>Module Version</dt><dd>Version declared by the component in its MODULE.bazel.</dd></div>\n"
+        "    <div><dt>Known Good Pin</dt><dd>Version or commit hash pinned in reference-integration known_good.json.</dd></div>\n"
+        "    <div><dt>Latest Update Available</dt><dd>Latest known registry or release version.</dd></div>\n"
+        "    <div><dt>Integration Status</dt><dd>In sync means the module version matches its version pin and no newer version is available. Mismatch means the module version differs from a version pin; Update Available means a newer version or commit is available. Commit pins are checked against the repository default branch.</dd></div>\n"
+        "    </dl>\n"
+        "  </div>\n"
         "</div>\n\n"
     )
 
@@ -489,6 +538,284 @@ def _render_versions_sections(
             f"</div>\n"
         )
     return "".join(parts)
+
+
+def _render_dependency_integration_sections(snapshot: RepoSnapshot) -> str:
+    repos = sorted(
+        (
+            repo
+            for repo in snapshot.repos
+            if repo.content.reference_integration_module is not None
+        ),
+        key=lambda repo: repo.name.casefold(),
+    )
+    repos_by_module = {
+        repo.content.bazel_module_name: repo
+        for repo in snapshot.repos
+        if repo.content.bazel_module_name
+    }
+    latest_versions = {
+        module_name: repo.registry.latest_bazel_registry_version
+        or repo.volatile.latest_release_version
+        for module_name, repo in repos_by_module.items()
+    }
+    known_good_pins = {
+        repo.content.reference_integration_module: (
+            repo.content.reference_integration_hash
+            or repo.content.reference_integration_version,
+            repo.content.reference_integration_hash is not None,
+        )
+        for repo in repos
+        if repo.content.reference_integration_module
+    }
+    parts: list[str] = []
+    for repo in repos:
+        current_versions = dict(repo.content.bazel_deps)
+        dependency_names = sorted(
+            (name for name in current_versions if name in known_good_pins),
+            key=str.casefold,
+        )
+        rows: list[str] = []
+        for dependency_name in dependency_names:
+            current_version = current_versions.get(dependency_name)
+            known_good_version, known_good_is_hash = known_good_pins.get(
+                dependency_name, (None, False)
+            )
+            latest_version = latest_versions.get(dependency_name)
+            rows.append(
+                f'<tr data-repo-filter="{e(repo.name)}" '
+                f'data-repository-category="{e(repo.category)}" '
+                f'data-integration="included" '
+                f'data-docs-as-code="{"yes" if uses_docs_as_code(repo) else "no"}">'
+                f'<td class="mono">{e(dependency_name)}</td>'
+                f"{_render_dependency_status_cells(current_version, known_good_version, latest_version, known_good_is_hash, repos_by_module.get(dependency_name))}"
+                "</tr>"
+            )
+        table_body = "\n".join(rows)
+        module_name = repo.content.reference_integration_module or repo.name
+        module_pin = (
+            repo.content.reference_integration_version
+            or repo.content.reference_integration_hash
+        )
+        module_pin_label = (
+            module_pin[:7]
+            if repo.content.reference_integration_hash and module_pin
+            else module_pin
+        )
+        module_pin_markup = (
+            f'<span class="integration-module-pin" '
+            f'title="Known-good pin: {e(module_pin)}">'
+            f"Known Good pin: {e(module_pin_label)}</span>"
+            if module_pin and module_pin_label
+            else ""
+        )
+        parts.append(
+            f'<div class="section hidden" data-tab="dependency-integration" '
+            f'data-dependency-view="component" '
+            f'data-component-integration-view="module" '
+            f'data-category="{e(repo.category)}"{_repo_filter_attributes(repo)}>\n'
+            '  <div class="section-header">\n'
+            f'    <span class="section-title"><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">{e(module_name)}</a>{module_pin_markup}</span>\n'
+            f'    <span class="section-count">{len(dependency_names)} dependencies</span>\n'
+            "  </div>\n"
+            '  <div class="dependency-integration-table">\n'
+            "    <table><thead><tr>"
+            "<th>Dependency</th><th>Module Version</th><th>Known Good Pin</th>"
+            "<th>Latest Update Available</th><th>Integration Status</th>"
+            "</tr></thead>\n"
+            f"    <tbody>{table_body}</tbody></table>\n"
+            "  </div>\n"
+            "</div>\n"
+        )
+
+    parts.append(
+        _render_component_integration_by_dependency(
+            snapshot,
+            known_good_pins=known_good_pins,
+            latest_versions=latest_versions,
+            repos_by_module=repos_by_module,
+        )
+    )
+    parts.append(
+        _render_other_dependency_section(
+            snapshot,
+            known_good_module_names=set(known_good_pins),
+        )
+    )
+    return "".join(parts)
+
+
+def _render_dependency_status_cells(
+    current_version: str | None,
+    known_good_version: str | None,
+    latest_version: str | None,
+    known_good_is_hash: bool,
+    pinned_repo: RepoEntry | None,
+    *,
+    include_known_good_pin: bool = True,
+) -> str:
+    statuses: list[str] = []
+    if known_good_is_hash:
+        pin_ahead_by = (
+            pinned_repo.content.reference_integration_main_ahead_of_pin_by
+            if pinned_repo is not None
+            else None
+        )
+        if pin_ahead_by is None:
+            statuses.append('<span class="badge yellow">Freshness Unknown</span>')
+        elif pin_ahead_by > 0:
+            statuses.append('<span class="badge yellow">Update Available</span>')
+        else:
+            statuses.append('<span class="badge green">Pinned Commit</span>')
+    else:
+        if current_version != known_good_version:
+            statuses.append('<span class="badge red">Mismatch</span>')
+        update_available = bazel_version_is_newer(
+            latest_version,
+            known_good_version,
+        )
+        if update_available:
+            statuses.append('<span class="badge yellow">Update Available</span>')
+        if not statuses:
+            statuses.append('<span class="badge green">In sync</span>')
+    status_cell = " ".join(statuses)
+    cells = [f'<td class="mono">{e(current_version or "Not declared")}</td>']
+    if include_known_good_pin:
+        cells.append(f'<td class="mono">{e(known_good_version or "Not declared")}</td>')
+    cells.extend(
+        (
+            f'<td class="mono">{e(latest_version or "Unknown")}</td>',
+            f"<td>{status_cell}</td>",
+        )
+    )
+    return "".join(cells)
+
+
+def _render_component_integration_by_dependency(
+    snapshot: RepoSnapshot,
+    *,
+    known_good_pins: dict[str, tuple[str | None, bool]],
+    latest_versions: dict[str, str | None],
+    repos_by_module: dict[str, RepoEntry],
+) -> str:
+    uses_by_dependency: dict[str, list[tuple[RepoEntry, str]]] = {}
+    for repo in snapshot.repos:
+        if repo.content.bazel_module_name is None:
+            continue
+        for dependency_name, current_version in repo.content.bazel_deps:
+            if dependency_name in known_good_pins:
+                uses_by_dependency.setdefault(dependency_name, []).append(
+                    (repo, current_version)
+                )
+
+    sections: list[str] = []
+    for dependency_name, uses in sorted(
+        uses_by_dependency.items(), key=lambda item: item[0].casefold()
+    ):
+        known_good_version, known_good_is_hash = known_good_pins[dependency_name]
+        latest_version = latest_versions.get(dependency_name)
+        pinned_repo = repos_by_module.get(dependency_name)
+        known_good_pin_label = (
+            known_good_version[:7]
+            if known_good_is_hash and known_good_version
+            else known_good_version
+        )
+        known_good_pin_markup = (
+            f'<span class="integration-module-pin" '
+            f'title="Known-good pin: {e(known_good_version)}">'
+            f"Known Good pin: {e(known_good_pin_label)}</span>"
+            if known_good_version and known_good_pin_label
+            else ""
+        )
+        rows: list[str] = []
+        for repo, current_version in sorted(
+            uses, key=lambda item: item[0].name.casefold()
+        ):
+            row_attributes = (
+                f'data-repo-filter="{e(repo.name)}" '
+                f'data-repository-category="{e(repo.category)}" '
+                f'data-integration="{"included" if repo.content.referenced_by_reference_integration else "excluded"}" '
+                f'data-docs-as-code="{"yes" if uses_docs_as_code(repo) else "no"}"'
+            )
+            rows.append(
+                f"<tr {row_attributes}>"
+                f'<td><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">'
+                f"{e(repo.content.bazel_module_name or repo.name)}</a></td>"
+                f"{_render_dependency_status_cells(current_version, known_good_version, latest_version, known_good_is_hash, pinned_repo, include_known_good_pin=False)}"
+                "</tr>"
+            )
+        sections.append(
+            '<div class="section hidden" data-tab="dependency-integration" '
+            'data-dependency-view="component" '
+            'data-component-integration-view="dependency">\n'
+            '  <div class="section-header">\n'
+            f'    <span class="section-title">{e(dependency_name)}{known_good_pin_markup}</span>\n'
+            f'    <span class="section-count">{len(uses)} components</span>\n'
+            "  </div>\n"
+            '  <div class="dependency-integration-table">\n'
+            "    <table><thead><tr><th>Component</th><th>Module Version</th>"
+            "<th>Latest Update Available</th>"
+            "<th>Integration Status</th></tr></thead>\n"
+            f"    <tbody>{''.join(rows)}</tbody></table>\n"
+            "  </div>\n"
+            "</div>\n"
+        )
+    return "".join(sections)
+
+
+def _render_other_dependency_section(
+    snapshot: RepoSnapshot,
+    *,
+    known_good_module_names: set[str],
+) -> str:
+    rows_by_dependency: dict[str, list[str]] = {}
+    for repo in sorted(snapshot.repos, key=lambda item: item.name.casefold()):
+        component_name = repo.content.bazel_module_name
+        if component_name is None:
+            continue
+        for dependency_name, version in repo.content.bazel_deps:
+            if dependency_name in known_good_module_names:
+                continue
+            rows_by_dependency.setdefault(dependency_name, []).append(
+                f'<tr data-repo-filter="{e(repo.name)}" '
+                f'data-repository-category="{e(repo.category)}" '
+                f'data-integration="{"included" if repo.content.referenced_by_reference_integration else "excluded"}" '
+                f'data-docs-as-code="{"yes" if uses_docs_as_code(repo) else "no"}">'
+                f'<td><a href="https://github.com/{e(snapshot.org_name)}/{e(repo.name)}">'
+                f"{e(component_name)}</a></td>"
+                f'<td class="mono">{e(version)}</td></tr>'
+            )
+    if not rows_by_dependency:
+        return (
+            '<div class="section hidden" data-tab="dependency-integration" '
+            'data-dependency-view="other">\n'
+            '  <p class="empty-state">No other dependencies found.</p>\n'
+            "</div>\n"
+        )
+    return (
+        '<div class="section hidden" data-tab="dependency-integration" '
+        'data-dependency-view="other">\n'
+        '  <div class="section-header">\n'
+        '    <span class="section-title">Other Dependencies</span>\n'
+        f'    <span class="section-count">{len(rows_by_dependency)} dependencies</span>\n'
+        "  </div>\n"
+        '  <div class="other-dependency-tables">\n'
+        + "".join(
+            '<div class="dependency-table-group">\n'
+            f"    <h3>{e(dependency_name)}</h3>\n"
+            '    <div class="dependency-integration-table">\n'
+            "      <table><thead><tr><th>Component</th>"
+            "<th>Module Version</th></tr></thead>\n"
+            f"      <tbody>{''.join(rows)}</tbody></table>\n"
+            "    </div>\n"
+            "  </div>\n"
+            for dependency_name, rows in sorted(
+                rows_by_dependency.items(), key=lambda item: item[0].casefold()
+            )
+        )
+        + "  </div>\n"
+        "</div>\n"
+    )
 
 
 def _versions_card(
