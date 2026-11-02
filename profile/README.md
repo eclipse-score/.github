@@ -42,7 +42,7 @@ Core S-CORE modules, libraries, and APIs.
 |------------|-------------|
 | [ai_platform](https://github.com/eclipse-score/ai_platform) | Repository for AI platform feature |
 | [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
-| [communication](https://github.com/eclipse-score/communication) | Repository for the communication module LoLa |
+| [communication](https://github.com/eclipse-score/communication) | Repository for the score::mw::com (with multiple bindings including LoLa), score::memory::shared, and score::message_passing |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
 | [inc_ecu_model](https://github.com/eclipse-score/inc_ecu_model) | Repository for an ECU model |
