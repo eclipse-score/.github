@@ -429,6 +429,7 @@ a:hover { text-decoration: underline; }
 .badge.orange { color: var(--orange); border-color: #e3702d55; background: #e3702d11; }
 .badge.red    { color: var(--red);    border-color: #f8514955; background: #f8514911; }
 .badge.muted  { color: var(--muted);  border-color: var(--border); }
+.workflow-pin { display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap; margin: 0.15rem 0.4rem 0.15rem 0; }
 .badge.fire   { color: var(--orange); border-color: #e3702d55; background: #e3702d11; }
 
 .lang-badge {

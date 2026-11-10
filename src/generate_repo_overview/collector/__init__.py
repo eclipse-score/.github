@@ -31,6 +31,7 @@ from . import (
     registry_metadata,
     repo_entry,
     traceability,
+    workflow_versions,
 )
 from .git_checkout import sync_repository_checkout
 from .registry_metadata import RegistrySignalsPayload
@@ -228,6 +229,9 @@ def collect_snapshot(
             repos=tuple(repos),
             tracked_deps=config.tracked_deps,
             workflow_signals=config.workflow_signals,
+            workflow_ref_resolutions=workflow_versions.fetch_workflow_ref_resolutions(
+                repos, github=github, status_prefix=status_prefix
+            ),
         )
         if cache_path is not None:
             write_snapshot(snapshot, cache_path)

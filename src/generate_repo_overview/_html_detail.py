@@ -283,7 +283,7 @@ def _render_workflows_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
     if not snapshot.workflow_signals:
         return ""
     rows = "".join(
-        f"<tr><th>{e(signal.label)}</th><td>{workflow_ref_badges(entry, signal.label)}</td></tr>"
+        f"<tr><th>{e(signal.label)}</th><td>{workflow_ref_badges(entry, signal.label, snapshot.workflow_ref_resolutions)}</td></tr>"
         for signal in snapshot.workflow_signals
     )
     return (

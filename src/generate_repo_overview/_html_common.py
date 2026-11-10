@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from .metrics_report import parse_version_key
 
 if TYPE_CHECKING:
-    from .models import RepoEntry
+    from .models import RepoEntry, WorkflowRefResolution
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -147,7 +147,11 @@ def version_badge(
     return f'<span class="badge red">{e(cleaned)}</span>'
 
 
-def workflow_ref_badges(entry: RepoEntry, label: str) -> str:
+def workflow_ref_badges(
+    entry: RepoEntry,
+    label: str,
+    resolutions: tuple[WorkflowRefResolution, ...] = (),
+) -> str:
     """Link each distinct configured workflow pin to its source on GitHub."""
     from urllib.parse import quote
 
@@ -166,7 +170,75 @@ def workflow_ref_badges(entry: RepoEntry, label: str) -> str:
             if len(pin) == 40 and all(c in "0123456789abcdefABCDEF" for c in pin)
             else pin
         )
-        badges.append(
-            f'<a class="badge muted mono" href="{e(url)}" title="{e(reference)}">{e(short_pin)}</a>'
+        resolution = next((r for r in resolutions if r.reference == reference), None)
+        display = (
+            resolution.version_tag
+            if resolution and resolution.version_tag
+            else short_pin
         )
+        title = reference
+        if resolution and resolution.resolved_sha:
+            title += f"\nResolved commit: {resolution.resolved_sha}"
+        badge = f'<a class="badge muted mono" href="{e(url)}" title="{e(title)}">{e(display)}</a>'
+        if resolution and resolution.latest_release:
+            release = resolution.latest_release
+            difference = render_ref_difference(
+                resolution.ahead_by,
+                resolution.behind_by,
+                left_ref=f"latest release {release}",
+                right_ref=f"workflow pin {pin}",
+            )
+            badge += f' <span class="text-muted">vs {e(release)}</span> {difference}'
+        badges.append(f'<span class="workflow-pin">{badge}</span>')
     return " ".join(badges) or '<span class="text-muted">—</span>'
+
+
+def render_ref_difference(
+    ahead_by: int | None,
+    behind_by: int | None,
+    *,
+    left_ref: str,
+    right_ref: str,
+) -> str:
+    """Show commits unique to either ref with a plain-language tooltip."""
+    if ahead_by is None or behind_by is None:
+        title = f"Could not compare {left_ref} with {right_ref}."
+        return f'<span class="git-ref-diff unavailable" title="{e(title)}">?</span>'
+    if ahead_by == 0 and behind_by == 0:
+        title = f"{left_ref} and {right_ref} point to the same commit."
+        return f'<span class="git-ref-diff equal" title="{e(title)}">=</span>'
+    arrows: list[str] = []
+    if ahead_by:
+        commit_word = "commit" if ahead_by == 1 else "commits"
+        missing_clause = "which is not" if ahead_by == 1 else "which are not"
+        title = (
+            f"{right_ref} is {ahead_by} {commit_word} ahead of {left_ref}. "
+            f"It contains {ahead_by} {commit_word} {missing_clause} in {left_ref}."
+        )
+        size_class = _ref_difference_size_class(ahead_by)
+        arrows.append(
+            f'<span class="git-ref-count {size_class}" title="{e(title)}">'
+            f"↑{ahead_by}</span>"
+        )
+    if behind_by:
+        commit_word = "commit" if behind_by == 1 else "commits"
+        missing_clause = "which is not" if behind_by == 1 else "which are not"
+        title = (
+            f"{left_ref} is {behind_by} {commit_word} ahead of {right_ref}. "
+            f"It contains {behind_by} {commit_word} {missing_clause} in {right_ref}."
+        )
+        size_class = _ref_difference_size_class(behind_by)
+        arrows.append(
+            f'<span class="git-ref-count {size_class}" title="{e(title)}">'
+            f"↓{behind_by}</span>"
+        )
+    return f'<span class="git-ref-diff">{" ".join(arrows)}</span>'
+
+
+def _ref_difference_size_class(commit_count: int) -> str:
+    """Color a difference by size without assigning meaning to its direction."""
+    if commit_count >= 20:
+        return "large"
+    if commit_count >= 5:
+        return "medium"
+    return "small"

@@ -10,6 +10,7 @@ from ._html_common import (
     CSS,
     e,
     language_badge,
+    render_ref_difference,
     repo_name_cell,
     uses_docs_as_code,
     version_badge,
@@ -586,57 +587,6 @@ def _versions_card(
     )
 
 
-def _render_ref_difference(
-    ahead_by: int | None,
-    behind_by: int | None,
-    *,
-    left_ref: str,
-    right_ref: str,
-) -> str:
-    """Show commits unique to either ref with a plain-language tooltip."""
-    if ahead_by is None or behind_by is None:
-        title = f"Could not compare {left_ref} with {right_ref}."
-        return f'<span class="git-ref-diff unavailable" title="{e(title)}">?</span>'
-    if ahead_by == 0 and behind_by == 0:
-        title = f"{left_ref} and {right_ref} point to the same commit."
-        return f'<span class="git-ref-diff equal" title="{e(title)}">=</span>'
-    arrows: list[str] = []
-    if ahead_by:
-        commit_word = "commit" if ahead_by == 1 else "commits"
-        missing_clause = "which is not" if ahead_by == 1 else "which are not"
-        title = (
-            f"{right_ref} is {ahead_by} {commit_word} ahead of {left_ref}. "
-            f"It contains {ahead_by} {commit_word} {missing_clause} in {left_ref}."
-        )
-        size_class = _ref_difference_size_class(ahead_by)
-        arrows.append(
-            f'<span class="git-ref-count {size_class}" title="{e(title)}">'
-            f"↑{ahead_by}</span>"
-        )
-    if behind_by:
-        commit_word = "commit" if behind_by == 1 else "commits"
-        missing_clause = "which is not" if behind_by == 1 else "which are not"
-        title = (
-            f"{left_ref} is {behind_by} {commit_word} ahead of {right_ref}. "
-            f"It contains {behind_by} {commit_word} {missing_clause} in {right_ref}."
-        )
-        size_class = _ref_difference_size_class(behind_by)
-        arrows.append(
-            f'<span class="git-ref-count {size_class}" title="{e(title)}">'
-            f"↓{behind_by}</span>"
-        )
-    return f'<span class="git-ref-diff">{" ".join(arrows)}</span>'
-
-
-def _ref_difference_size_class(commit_count: int) -> str:
-    """Color a difference by size without assigning meaning to its direction."""
-    if commit_count >= 20:
-        return "large"
-    if commit_count >= 5:
-        return "medium"
-    return "small"
-
-
 def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
     """Render release, integration, and branch refs with adjacent Git diffs."""
     release = entry.volatile.latest_release_version
@@ -676,7 +626,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
     )
     main_description = "main branch" if branch == "main" else f"default branch {branch}"
     release_diff = (
-        _render_ref_difference(
+        render_ref_difference(
             entry.content.reference_integration_release_ahead_of_main_by,
             entry.content.reference_integration_main_ahead_of_release_by,
             left_ref=main_description,
@@ -689,7 +639,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         )
     )
     integration_diff = (
-        _render_ref_difference(
+        render_ref_difference(
             entry.content.reference_integration_pin_ahead_of_main_by,
             entry.content.reference_integration_main_ahead_of_pin_by,
             left_ref=main_description,
@@ -785,7 +735,7 @@ def _render_workflow_sections(
     if not snapshot.workflow_signals:
         return ""
     headers = "".join(
-        f'<th data-sort="workflow-{index}" title="Tags or commit pins used by this repository.">'
+        f'<th data-sort="workflow-{index}" title="Workflow pins resolved to version tags where available. Arrows compare the pin with the latest release of the workflow repository: ↑ ahead, ↓ behind.">'
         f'{e(signal.label)} <span class="sort-arrow"></span></th>'
         for index, signal in enumerate(snapshot.workflow_signals)
     )
@@ -794,7 +744,7 @@ def _render_workflow_sections(
         rows: list[str] = []
         for entry in repos:
             cells = "".join(
-                f"<td>{workflow_ref_badges(entry, signal.label)}</td>"
+                f"<td>{workflow_ref_badges(entry, signal.label, snapshot.workflow_ref_resolutions)}</td>"
                 for signal in snapshot.workflow_signals
             )
             rows.append(

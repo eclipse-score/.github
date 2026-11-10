@@ -18,7 +18,7 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 29
+SNAPSHOT_SCHEMA_VERSION = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +63,29 @@ class WorkflowSignal:
 
     def to_dict(self) -> dict[str, str]:
         return {"label": self.label, "reference": self.reference}
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowRefResolution:
+    """Release context for one full workflow reference, refreshed each collection."""
+
+    reference: str
+    resolved_sha: str | None = None
+    version_tag: str | None = None
+    latest_release: str | None = None
+    ahead_by: int | None = None
+    behind_by: int | None = None
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> WorkflowRefResolution:
+        return cls(
+            reference=cast("str", data.get("reference", "")),
+            resolved_sha=cast("str | None", data.get("resolved_sha")),
+            version_tag=cast("str | None", data.get("version_tag")),
+            latest_release=cast("str | None", data.get("latest_release")),
+            ahead_by=cast("int | None", data.get("ahead_by")),
+            behind_by=cast("int | None", data.get("behind_by")),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,6 +397,7 @@ class RepoSnapshot:
     repos: tuple[RepoEntry, ...]
     tracked_deps: tuple[TrackedDep, ...] = ()
     workflow_signals: tuple[WorkflowSignal, ...] = ()
+    workflow_ref_resolutions: tuple[WorkflowRefResolution, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoSnapshot:
@@ -425,6 +449,11 @@ class RepoSnapshot:
             repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
             tracked_deps=tracked_deps,
             workflow_signals=workflow_signals,
+            workflow_ref_resolutions=tuple(
+                WorkflowRefResolution.from_dict(cast("Mapping[str, Any]", item))
+                for item in (data.get("workflow_ref_resolutions") or ())
+                if isinstance(item, dict) and isinstance(item.get("reference"), str)
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -435,6 +464,9 @@ class RepoSnapshot:
             "repos": [repo.to_dict() for repo in self.repos],
             "tracked_deps": [dep.to_dict() for dep in self.tracked_deps],
             "workflow_signals": [s.to_dict() for s in self.workflow_signals],
+            "workflow_ref_resolutions": [
+                asdict(r) for r in self.workflow_ref_resolutions
+            ],
         }
 
 
