@@ -25,12 +25,12 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -42,14 +42,14 @@ jobs:
         run: gh auth setup-git
 
       - name: Restore snapshot cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .cache/repo_overview.json
           key: snapshot-${{ github.run_id }}
           restore-keys: snapshot-
 
       - name: Restore repository checkout cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/repo-cache
           key: repo-cache-${{ runner.os }}-${{ github.run_id }}
