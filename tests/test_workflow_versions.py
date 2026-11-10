@@ -57,6 +57,35 @@ jobs:
 
 
 @pytest.mark.parametrize(
+    ("first_job", "second_job"), [("on", "yes"), ("off", "no"), ("true", "on")]
+)
+def test_boolean_like_job_ids_preserve_both_workflow_calls(
+    first_job: str, second_job: str
+) -> None:
+    """Distinct job IDs must not collide through YAML boolean key conversion."""
+    nightly_reference = "example/workflows/.github/workflows/nightly.yml@"
+    content = f"""
+jobs:
+  {first_job}:
+    uses: {REFERENCE}v1
+  {second_job}:
+    uses: {nightly_reference}v2
+"""
+    payload = signal_detection._inspect_repository_content(
+        {".github/workflows/ci.yml"},
+        lambda _: content,
+        workflow_signals=(*SIGNALS, WorkflowSignal("Nightly", nightly_reference)),
+        top_languages=(),
+    )
+
+    assert payload["matched_workflow_signals"] == ("Daily <CI>", "Nightly")
+    assert payload["workflow_refs"] == (
+        ("Daily <CI>", REFERENCE + "v1"),
+        ("Nightly", nightly_reference + "v2"),
+    )
+
+
+@pytest.mark.parametrize(
     "content", ["", "[]", "jobs: []", "jobs: {invalid: null}", "jobs: ["]
 )
 def test_unusable_workflow_has_no_pins(content: str) -> None:

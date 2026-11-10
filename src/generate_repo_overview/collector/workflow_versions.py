@@ -167,7 +167,8 @@ def _matching_version_tag(
         if tag_sha == sha
         and ("/" not in tag or tag.startswith(f"{workflow_name}/"))
         and re.fullmatch(
-            r"v?\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.-]+)?", tag.rsplit("/", 1)[-1]
+            r"v?\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?",
+            tag.rsplit("/", 1)[-1],
         )
     ]
     return max(

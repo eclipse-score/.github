@@ -575,7 +575,9 @@ def detect_workflow_refs(
 
 def _workflow_job_refs(content: str) -> set[str]:
     try:
-        workflow = yaml.safe_load(content)
+        # Inspection needs only mappings and strings. Preserve job IDs such as
+        # on and yes as distinct keys instead of coercing both to boolean True.
+        workflow = yaml.load(content, Loader=yaml.BaseLoader)
     except yaml.YAMLError:
         return set()
     if not isinstance(workflow, dict):

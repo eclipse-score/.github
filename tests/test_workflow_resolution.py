@@ -165,6 +165,24 @@ def test_version_tag_formats_resolve_sha_pins(tag: str) -> None:
     assert result.version_tag == tag
 
 
+@pytest.mark.parametrize("prefix", ["", "daily/"])
+@pytest.mark.parametrize("suffix", ["+build.5", "-rc.1+build.5"])
+def test_version_tags_with_build_metadata_keep_workflow_specific_precedence(
+    prefix: str, suffix: str
+) -> None:
+    """Prerelease and build metadata can coexist on a matching version tag."""
+    tag = f"{prefix}v1.2.3{suffix}"
+    source = _source(
+        ("v1.0.0", SHA if prefix else NEXT_SHA), (tag, SHA), release="v1.0.0"
+    )
+    github = Mock()
+    github.get_repo.return_value = source
+
+    (result,) = fetch_workflow_ref_resolutions([_repo(DAILY + SHA)], github=github)
+
+    assert result.version_tag == tag
+
+
 def test_partial_api_failures_preserve_available_context_and_other_sources() -> None:
     broken = _source()
     broken.get_tags.side_effect = RuntimeError("Cannot list tags")
