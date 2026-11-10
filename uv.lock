@@ -245,6 +245,7 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "pygithub" },
+    { name = "pyyaml" },
     { name = "repo-cache" },
     { name = "tqdm" },
 ]
@@ -260,6 +261,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "pygithub" },
+    { name = "pyyaml" },
     { name = "repo-cache", git = "https://github.com/eclipse-score/tools?subdirectory=repo_cache" },
     { name = "tqdm" },
 ]

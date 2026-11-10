@@ -1,5 +1,6 @@
 // Tab and category state share the URL hash so dashboard views can be bookmarked.
-const TAB_IDS = ['overview', 'versions', 'tech-stack', 'naming', 'traceability', 'policy-sync'];
+// Optional tabs cannot be activated through stale bookmarks when absent.
+const TAB_IDS = Array.from(document.querySelectorAll('.tab-btn'), button => button.dataset.tab);
 
 function getHashState() {
   const [hashTab, query = ''] = location.hash.slice(1).split('?');

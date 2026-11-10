@@ -60,6 +60,28 @@ repository.
 Use `--config /path/to/file.toml` with `render-overview` to select another
 profile configuration.
 
+### Tracked Workflows
+
+Configure one `[[signals.workflow_signals]]` entry per reusable workflow:
+
+```toml
+[[signals.workflow_signals]]
+label = "Daily"
+reference = "eclipse-score/cicd-workflows/.github/workflows/daily.yml@"
+```
+
+The **Workflows** tab appears only when at least one workflow is configured.
+Each column shows the distinct tags, branches, or commit pins used by a repository,
+linked to the reusable workflow source. Full commit hashes are shortened for display;
+the full reference remains available on hover. Multiple pins are shown together,
+and `—` means the repository does not call that workflow.
+
+Collection parses job-level `uses` entries in `.github/workflows/*.yml` and
+`*.yaml`. Comments, shell snippets, step-level actions, and calls nested inside
+external workflows do not count as direct adoption. Invalid YAML files are skipped.
+Keep the trailing `@` in the configured prefix to match any version of one workflow.
+Workflow pins also appear on repository detail pages.
+
 ## Cache Controls
 
 `collect` reuses deep repository signals while the default-branch SHA is

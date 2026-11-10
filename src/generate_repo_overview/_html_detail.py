@@ -12,6 +12,7 @@ from ._html_common import (
     language_badge,
     uses_docs_as_code,
     version_badge,
+    workflow_ref_badges,
 )
 from .metrics_report import tracked_dep_label
 from .models import DEFAULT_CATEGORY, DEFAULT_SUBCATEGORY, LockfileStatus
@@ -39,7 +40,8 @@ def render_detail_page(
         + _render_stat_grid(entry)
         + _render_release_section(entry)
         + _render_dep_diff_section(entry)
-        + _render_tooling_section(entry, snapshot)
+        + _render_tooling_section(entry)
+        + _render_workflows_section(entry, snapshot)
         + _render_lockfile_error_section(entry)
         + _render_ownership_section(entry)
         + _render_versions_section(entry, snapshot, max_bazel, latest_dep_versions)
@@ -247,13 +249,11 @@ def _dep_status_badge(status: str, css_class: str) -> str:
     return f'<span class="badge {css_class}">{e(status)}</span>'
 
 
-def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
+def _render_tooling_section(entry: RepoEntry) -> str:
     c = entry.content
     signals: list[tuple[bool, str]] = [
         (c.has_ci, "GitHub Actions (CI)"),
     ]
-    for label in (s.label for s in snapshot.workflow_signals):
-        signals.append((label in c.matched_workflow_signals, label))
     signals.extend(
         [
             (c.has_lint_config, "Lint Config"),
@@ -276,6 +276,20 @@ def _render_tooling_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
         '  <div class="section-header"><span class="section-title">Build &amp; Tooling</span></div>\n'
         f'  <div class="detail-body"><div class="signal-grid">\n{items}\n  </div></div>\n'
         "</section>\n\n"
+    )
+
+
+def _render_workflows_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
+    if not snapshot.workflow_signals:
+        return ""
+    rows = "".join(
+        f"<tr><th>{e(signal.label)}</th><td>{workflow_ref_badges(entry, signal.label)}</td></tr>"
+        for signal in snapshot.workflow_signals
+    )
+    return (
+        '<section class="detail-section"><div class="section-header">'
+        '<span class="section-title">Workflows</span></div>'
+        f'<div class="detail-body"><table>{rows}</table></div></section>\n'
     )
 
 

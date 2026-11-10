@@ -59,9 +59,9 @@ repo = "eclipse-score/docs-as-code"
 module_name = "score_docs_as_code"
 
 # Named workflow signals.  Each entry has a human-readable label shown in the
-# metrics output, and a reference string to search for inside
-# .github/workflows/*.yml files.  A repository is flagged for a signal when
-# any of its workflow files contain the reference string.
+# metrics output, and a prefix matching job-level uses references in
+# .github/workflows/*.yml and *.yaml files. The Workflows tab shows each
+# distinct tag, branch, or commit pin. Omit these entries to hide the tab.
 [[signals.workflow_signals]]
 label = "Daily Workflow"
 reference = "eclipse-score/cicd-workflows/.github/workflows/daily.yml@"

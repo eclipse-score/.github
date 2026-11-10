@@ -145,3 +145,28 @@ def version_badge(
         ):
             return f'<span class="badge yellow">{e(cleaned)}</span>'
     return f'<span class="badge red">{e(cleaned)}</span>'
+
+
+def workflow_ref_badges(entry: RepoEntry, label: str) -> str:
+    """Link each distinct configured workflow pin to its source on GitHub."""
+    from urllib.parse import quote
+
+    badges: list[str] = []
+    for reference in sorted(
+        {ref for name, ref in entry.content.workflow_refs if name == label}
+    ):
+        workflow, _, pin = reference.rpartition("@")
+        segments = workflow.split("/", 2)
+        if len(segments) != 3 or not pin:
+            continue
+        owner, repo, path = segments
+        url = f"https://github.com/{quote(owner, safe='')}/{quote(repo, safe='')}/blob/{quote(pin, safe='')}/{quote(path, safe='/')}"
+        short_pin = (
+            pin[:12]
+            if len(pin) == 40 and all(c in "0123456789abcdefABCDEF" for c in pin)
+            else pin
+        )
+        badges.append(
+            f'<a class="badge muted mono" href="{e(url)}" title="{e(reference)}">{e(short_pin)}</a>'
+        )
+    return " ".join(badges) or '<span class="text-muted">—</span>'

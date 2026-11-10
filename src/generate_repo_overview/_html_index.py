@@ -13,6 +13,7 @@ from ._html_common import (
     repo_name_cell,
     uses_docs_as_code,
     version_badge,
+    workflow_ref_badges,
 )
 from .metrics_report import (
     get_latest_tracked_dep_version,
@@ -65,12 +66,13 @@ def render_index_page(
         f"  <style>{CSS}</style>\n"
         "</head>\n<body>\n"
         + _render_header(snapshot, repos)
-        + _render_tab_bar()
+        + _render_tab_bar(show_workflows=bool(snapshot.workflow_signals))
         + _render_filters_placeholder()
         + _render_version_view_toggle()
         + '<div id="sections">\n'
         + _render_overview_sections(categories, snapshot.org_name)
         + _render_versions_sections(categories, snapshot)
+        + _render_workflow_sections(categories, snapshot)
         + _render_automation_sections(categories, snapshot)
         + _render_naming_sections(categories, snapshot)
         + _render_traceability_section(repos, snapshot)
@@ -130,12 +132,18 @@ def _render_language_distribution(repos: list[RepoEntry]) -> str:
     return " ".join(parts)
 
 
-def _render_tab_bar() -> str:
+def _render_tab_bar(*, show_workflows: bool = False) -> str:
+    workflow_tab = (
+        '  <button class="tab-btn" data-tab="workflows">Workflows</button>\n'
+        if show_workflows
+        else ""
+    )
     return (
         '<div class="tab-bar">\n'
         '  <button class="tab-btn active" data-tab="overview">Repository Overview</button>\n'
         '  <button class="tab-btn" data-tab="versions">Versions</button>\n'
-        '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
+        + workflow_tab
+        + '  <button class="tab-btn" data-tab="tech-stack">Tech Stack</button>\n'
         '  <button class="tab-btn" data-tab="naming">Naming</button>\n'
         '  <button class="tab-btn" data-tab="traceability">Traceability</button>\n'
         '  <button class="tab-btn" data-tab="policy-sync">Policy Sync</button>\n'
@@ -770,20 +778,48 @@ def _versions_row(
     )
 
 
+def _render_workflow_sections(
+    categories: list[tuple[str, list[RepoEntry]]],
+    snapshot: RepoSnapshot,
+) -> str:
+    if not snapshot.workflow_signals:
+        return ""
+    headers = "".join(
+        f'<th data-sort="workflow-{index}" title="Tags or commit pins used by this repository.">'
+        f'{e(signal.label)} <span class="sort-arrow"></span></th>'
+        for index, signal in enumerate(snapshot.workflow_signals)
+    )
+    parts: list[str] = []
+    for category, repos in categories:
+        rows: list[str] = []
+        for entry in repos:
+            cells = "".join(
+                f"<td>{workflow_ref_badges(entry, signal.label)}</td>"
+                for signal in snapshot.workflow_signals
+            )
+            rows.append(
+                f"<tr{_repo_filter_attributes(entry)}>"
+                f"<td>{repo_name_cell(entry, snapshot.org_name)}</td>{cells}</tr>"
+            )
+        parts.append(
+            f'<div class="section hidden" data-tab="workflows" data-category="{e(category)}">'
+            f'<div class="section-header"><span class="section-title">{e(category)}</span>'
+            f'<span class="section-count">{len(repos)}</span></div>'
+            '<table><thead><tr><th data-sort="name">Repository '
+            f'<span class="sort-arrow"></span></th>{headers}</tr></thead>'
+            f"<tbody>{''.join(rows)}</tbody></table></div>\n"
+        )
+    return "".join(parts)
+
+
 def _render_automation_sections(
     categories: list[tuple[str, list[RepoEntry]]],
     snapshot: RepoSnapshot,
 ) -> str:
-    signal_labels = tuple(s.label for s in snapshot.workflow_signals)
     org_name = snapshot.org_name
     parts: list[str] = []
     for category, cat_repos in categories:
-        rows = "\n".join(_automation_row(r, org_name, signal_labels) for r in cat_repos)
-        signal_headers = "".join(
-            f'      <th data-sort="signal-{i}" class="text-center" title="Whether this repository matches the {e(label)} workflow signal.">'
-            f'{e(label)} <span class="sort-arrow"></span></th>\n'
-            for i, label in enumerate(signal_labels)
-        )
+        rows = "\n".join(_automation_row(r, org_name) for r in cat_repos)
         parts.append(
             f'<div class="section hidden" data-tab="tech-stack" data-category="{e(category)}">\n'
             f'  <div class="section-header">\n'
@@ -800,7 +836,6 @@ def _render_automation_sections(
             f'      <th data-sort="pyproject" class="text-center" title="Whether this repository has a pyproject.toml — the standard configuration file for Python projects.">Pyproject <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="precommit" class="text-center" title="Whether this repository runs automated checks (formatting, linting, etc.) before each commit is accepted.">Pre-commit <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="ci" class="text-center" title="Whether this repository has automated CI/CD pipelines that run on every push or pull request.">GitHub Actions <span class="sort-arrow"></span></th>\n'
-            f"{signal_headers}"
             f'      <th data-sort="coverage" class="text-center" title="Whether this repository measures test coverage — tracking how much of the code is exercised by automated tests.">Coverage <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
@@ -844,9 +879,7 @@ def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
     return '<span class="text-muted">—</span>', "Not a Bazel module repository."
 
 
-def _automation_row(
-    entry: RepoEntry, org_name: str, signal_labels: tuple[str, ...]
-) -> str:
+def _automation_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = repo_name_cell(entry, org_name, bazel_icon=False)
     filter_attrs = _repo_filter_attributes(entry)
     c = entry.content
@@ -884,16 +917,6 @@ def _automation_row(
         else "This repository does not measure test coverage.",
     }
 
-    signal_cells = ""
-    for label in signal_labels:
-        matched = label in c.matched_workflow_signals
-        tip = (
-            f"This repository matches the {label} workflow signal."
-            if matched
-            else f"This repository does not match the {label} workflow signal."
-        )
-        signal_cells += f'      <td class="text-center" data-tooltip="{e(tip)}">{_yesno(matched)}</td>\n'
-
     langs = entry.content.top_languages
     lang_cell = (
         " ".join(language_badge(lang) for lang in langs)
@@ -912,7 +935,6 @@ def _automation_row(
         f'      <td class="text-center" data-tooltip="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'
         f'      <td class="text-center" data-tooltip="{e(tips["ci"])}">{_presence(c.has_ci, "⚙️")}</td>\n'
-        f"{signal_cells}"
         f'      <td class="text-center" data-tooltip="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
         f"    </tr>"
     )

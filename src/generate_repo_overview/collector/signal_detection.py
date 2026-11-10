@@ -3,7 +3,9 @@ from __future__ import annotations
 import fnmatch
 import re
 import subprocess
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, cast
+
+import yaml
 
 from generate_repo_overview.models import LockfileStatus, SphinxItem
 
@@ -30,6 +32,7 @@ class DeepContentPayload(TypedDict):
     has_lint_config: bool
     has_ci: bool
     matched_workflow_signals: tuple[str, ...]
+    workflow_refs: tuple[tuple[str, str], ...]
     has_coverage_config: bool
     top_languages: tuple[str, ...]
     bazel_deps: tuple[tuple[str, str], ...]
@@ -163,6 +166,11 @@ def _inspect_repository_content(
         tree_paths=tree_paths,
         read_text=read_text,
     )
+    workflow_refs = detect_workflow_refs(
+        tree_paths=tree_paths,
+        read_text=read_text,
+        workflow_signals=workflow_signals,
+    )
     return {
         "is_bazel_repo": detect_is_bazel_repo(tree_paths),
         "has_bazel_module": any(
@@ -186,11 +194,10 @@ def _inspect_repository_content(
             tree_contains_path(tree_paths, path) for path in LINT_CONFIG_PATHS
         ),
         "has_ci": any(tree_contains_path(tree_paths, path) for path in CI_PATHS),
-        "matched_workflow_signals": detect_matched_workflow_signals(
-            tree_paths=tree_paths,
-            read_text=read_text,
-            workflow_signals=workflow_signals,
+        "matched_workflow_signals": tuple(
+            dict.fromkeys(label for label, _ in workflow_refs)
         ),
+        "workflow_refs": workflow_refs,
         "has_coverage_config": any(
             tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
         ),
@@ -220,6 +227,7 @@ def default_content_signals() -> DeepContentPayload:
         "has_lint_config": False,
         "has_ci": False,
         "matched_workflow_signals": (),
+        "workflow_refs": (),
         "has_coverage_config": False,
         "top_languages": (),
         "bazel_lockfile_status": LockfileStatus.UNKNOWN,
@@ -519,30 +527,74 @@ def detect_matched_workflow_signals(
     read_text: Callable[[str], str | None],
     workflow_signals: tuple[WorkflowSignal, ...] = (),
 ) -> tuple[str, ...]:
-    """Return labels of workflow signals whose reference string appears in any workflow file."""
+    """Return the configured labels used by reusable workflow jobs."""
+    return tuple(
+        dict.fromkeys(
+            label
+            for label, _ in detect_workflow_refs(
+                tree_paths=tree_paths,
+                read_text=read_text,
+                workflow_signals=workflow_signals,
+            )
+        )
+    )
+
+
+def detect_workflow_refs(
+    *,
+    tree_paths: set[str],
+    read_text: Callable[[str], str | None],
+    workflow_signals: tuple[WorkflowSignal, ...] = (),
+) -> tuple[tuple[str, str], ...]:
+    """Collect distinct (signal label, full uses reference) pairs from workflow jobs.
+
+    Parse YAML so comments and shell examples do not count as adoption. Only
+    job-level uses calls reusable workflows; step-level uses invokes actions.
+    Keep every pin when callers use multiple versions.
+    """
     if not workflow_signals:
         return ()
-
-    workflow_contents: list[str] = []
-    workflow_paths = sorted(
-        path
-        for path in tree_paths
-        if path.startswith(WORKFLOW_PATH_PREFIX)
-        and path.endswith(WORKFLOW_FILE_SUFFIXES)
+    references: set[str] = set()
+    for path in sorted(tree_paths):
+        if not (
+            path.startswith(WORKFLOW_PATH_PREFIX)
+            and path.endswith(WORKFLOW_FILE_SUFFIXES)
+        ):
+            continue
+        content = read_text(path)
+        if content is None:
+            continue
+        references.update(_workflow_job_refs(content))
+    return tuple(
+        (signal.label, reference)
+        for signal in workflow_signals
+        for reference in sorted(references)
+        if reference.startswith(signal.reference)
     )
-    for workflow_path in workflow_paths:
-        content = read_text(workflow_path)
-        if content is not None:
-            workflow_contents.append(content)
 
-    if not workflow_contents:
-        return ()
 
-    matched: list[str] = []
-    for signal in workflow_signals:
-        if any(signal.reference in content for content in workflow_contents):
-            matched.append(signal.label)
-    return tuple(matched)
+def _workflow_job_refs(content: str) -> set[str]:
+    try:
+        workflow = yaml.safe_load(content)
+    except yaml.YAMLError:
+        return set()
+    if not isinstance(workflow, dict):
+        return set()
+    jobs = cast("dict[str, object]", workflow).get("jobs")
+    if not isinstance(jobs, dict):
+        return set()
+    references: set[str] = set()
+    for job in cast("dict[str, object]", jobs).values():
+        if not isinstance(job, dict):
+            continue
+        reference = cast("dict[str, object]", job).get("uses")
+        if (
+            isinstance(reference, str)
+            and "@" in reference
+            and reference.rsplit("@", 1)[1]
+        ):
+            references.add(reference)
+    return references
 
 
 def fetch_text_file(repository: Any, path: str, *, ref: str | None) -> str | None:

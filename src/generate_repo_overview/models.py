@@ -18,7 +18,7 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 28
+SNAPSHOT_SCHEMA_VERSION = 29
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +110,7 @@ class DeepContentSignals:
     has_pre_commit_config: bool = False
     has_ci: bool = False
     matched_workflow_signals: tuple[str, ...] = ()
+    workflow_refs: tuple[tuple[str, str], ...] = ()
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[tuple[str, str], ...] = ()
@@ -172,6 +173,7 @@ class DeepContentSignals:
             matched_workflow_signals=normalize_string_tuple(
                 data.get("matched_workflow_signals")
             ),
+            workflow_refs=normalize_string_pairs(data.get("workflow_refs")),
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
