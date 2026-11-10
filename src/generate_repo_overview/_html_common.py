@@ -179,8 +179,13 @@ def workflow_ref_badges(
         title = reference
         if resolution and resolution.resolved_sha:
             title += f"\nResolved commit: {resolution.resolved_sha}"
-        badge = f'<a class="badge muted mono" href="{e(url)}" title="{e(title)}">{e(display)}</a>'
-        if resolution and resolution.latest_release:
+        color = "green" if resolution and resolution.version_tag else "muted"
+        badge = f'<a class="badge {color} mono" href="{e(url)}" title="{e(title)}">{e(display)}</a>'
+        if (
+            resolution
+            and resolution.latest_release
+            and _show_workflow_release_difference(resolution)
+        ):
             release = resolution.latest_release
             difference = render_ref_difference(
                 resolution.ahead_by,
@@ -191,6 +196,21 @@ def workflow_ref_badges(
             badge += f' <span class="text-muted">vs {e(release)}</span> {difference}'
         badges.append(f'<span class="workflow-pin">{badge}</span>')
     return " ".join(badges) or '<span class="text-muted">—</span>'
+
+
+def _show_workflow_release_difference(resolution: WorkflowRefResolution) -> bool:
+    if not resolution.latest_release:
+        return False
+    tag = resolution.version_tag
+    if not tag:
+        return True
+    # Workflow-specific and global tags describe separate version series.
+    # A matching tag already identifies the release without a redundant diff.
+    if tag.rpartition("/")[0] != resolution.latest_release.rpartition("/")[0]:
+        return False
+    return tag != resolution.latest_release and not (
+        resolution.ahead_by == 0 and resolution.behind_by == 0
+    )
 
 
 def render_ref_difference(

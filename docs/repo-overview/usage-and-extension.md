@@ -86,7 +86,10 @@ During collection, pins are resolved against tags in the workflow source
 repository. An exact version tag replaces the abbreviated hash in the display;
 the link still targets the original pin, which remains visible on hover.
 Workflow-specific tags such as `on-pr/v1.2.3` take precedence over global version
-tags at the same commit; tags for other workflows are ignored.
+tags at the same commit; tags for other workflows are ignored. Version tags use
+green labels. A tag at the latest release omits the redundant comparison;
+older tags keep their comparison. Workflow-specific tags such as `on-pr/v0.0.0`
+are not compared with releases from a different tag series, such as `v0.0.3`.
 
 Next to each pin, `vs <release>` compares it with the latest published release
 of the **workflow source repository**. As in the Versions tab, `↑N` means the

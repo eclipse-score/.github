@@ -211,7 +211,7 @@ def test_unavailable_repository_is_attempted_once_and_does_not_abort_collection(
 @pytest.mark.parametrize(
     ("ahead", "behind", "expected"),
     [
-        (0, 0, "=</span>"),
+        (0, 0, None),
         (3, 0, "↑3"),
         (0, 7, "↓7"),
         (2, 21, "↓21"),
@@ -219,7 +219,7 @@ def test_unavailable_repository_is_attempted_once_and_does_not_abort_collection(
     ],
 )
 def test_resolved_pins_roundtrip_and_render_in_both_views_without_losing_original_link(
-    ahead: int | None, behind: int | None, expected: str
+    ahead: int | None, behind: int | None, expected: str | None
 ) -> None:
     resolution = WorkflowRefResolution(
         reference=DAILY + SHA,
@@ -245,8 +245,12 @@ def test_resolved_pins_roundtrip_and_render_in_both_views_without_losing_origina
         assert ">v1.0.0</a>" in page
         assert f"/blob/{SHA}/.github/workflows/daily.yml" in page
         assert DAILY + SHA in page
-        assert "vs v2.0.0" in page
-        assert expected in page
+        assert 'class="badge green mono"' in page
+        if expected:
+            assert "vs v2.0.0" in page
+            assert expected in page
+        else:
+            assert "vs v2.0.0" not in page
         if ahead and behind:
             assert "↑2" in page
             assert "↓21" in page
@@ -267,15 +271,15 @@ def test_release_context_is_escaped_in_version_labels_and_tooltips() -> None:
         (
             WorkflowRefResolution(
                 reference=DAILY + SHA,
-                version_tag='<script>alert("tag")</script>',
-                latest_release='<script>alert("release")</script>',
+                version_tag='<script data-tag="tag">',
+                latest_release='<script data-tag="release">',
                 ahead_by=1,
                 behind_by=0,
             ),
         ),
     )
-    assert "<script>" not in html
-    assert "&lt;script&gt;" in html
+    assert "<script" not in html
+    assert "&lt;script" in html
     assert "&quot;release&quot;" in html
 
 
@@ -336,3 +340,43 @@ def test_collect_snapshot_refreshes_workflow_releases_while_reusing_consumer_con
     assert second.workflow_ref_resolutions[0].version_tag == "v3.0.0"
     assert second.workflow_ref_resolutions[0].ahead_by == 0
     assert RepoSnapshot.from_dict(json.loads(cache_path.read_text())) == second
+
+
+@pytest.mark.parametrize("pin_type", ["sha", "tag"])
+@pytest.mark.parametrize(
+    ("tag", "release", "show_difference"),
+    [
+        ("v0.0.3", "v0.0.3", False),
+        ("v0.0.1", "v0.0.3", True),
+        ("on-pr/v0.0.0", "v0.0.3", False),
+        ("on-pr/v0.0.0", "on-pr/v0.0.1", True),
+        ("on-pr/v0.0.0", "docs/v0.0.3", False),
+    ],
+)
+def test_green_version_labels_compare_only_differing_releases_in_the_same_series(
+    pin_type: str, tag: str, release: str, show_difference: bool
+) -> None:
+    """Both direct tags and SHA pins resolved to tags follow the same display rules."""
+    from generate_repo_overview._html_common import workflow_ref_badges
+
+    pin = SHA if pin_type == "sha" else tag
+    reference = DAILY + pin
+    html = workflow_ref_badges(
+        _repo(reference),
+        "Daily",
+        (
+            WorkflowRefResolution(
+                reference=reference,
+                version_tag=tag,
+                latest_release=release,
+                ahead_by=0,
+                behind_by=73,
+            ),
+        ),
+    )
+
+    assert 'class="badge green mono"' in html
+    assert f">{tag}</a>" in html
+    assert (f"vs {release}" in html) == show_difference
+    assert ("↓73" in html) == show_difference
+    assert f"/blob/{pin.replace('/', '%2F')}/" in html
