@@ -3,10 +3,12 @@ from __future__ import annotations
 import fnmatch
 import re
 import subprocess
+from time import monotonic
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 import yaml
 
+from generate_repo_overview.console import print_status
 from generate_repo_overview.models import LockfileStatus, SphinxItem
 
 from .git_checkout import list_repository_paths, read_repository_text
@@ -92,6 +94,8 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
         return LockfileStatus.UNKNOWN, None
     if not (checkout_path / "MODULE.bazel.lock").exists():
         return LockfileStatus.MISSING, None
+    started = monotonic()
+    print_status(f"{checkout_path}: starting Bazel lockfile check (timeout {BAZEL_LOCKFILE_TIMEOUT_SECONDS}s)")
     try:
         result = subprocess.run(
             ["bazel", "mod", "deps", "--lockfile_mode=error"],
@@ -102,10 +106,15 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
             text=True,
             timeout=BAZEL_LOCKFILE_TIMEOUT_SECONDS,
         )
-    except OSError:
+    except OSError as exc:
+        print_status(f"{checkout_path}: Bazel lockfile check could not start: {exc}")
         return LockfileStatus.UNKNOWN, None
     except subprocess.TimeoutExpired:
+        print_status(f"{checkout_path}: Bazel lockfile check timed out after {monotonic() - started:.1f}s")
         return LockfileStatus.TIMEOUT, None
+    print_status(
+        f"{checkout_path}: Bazel lockfile check exited {result.returncode} after {monotonic() - started:.1f}s"
+    )
     if result.returncode != 0:
         return LockfileStatus.ERROR, result.stderr.strip() or None
     return LockfileStatus.OK, None

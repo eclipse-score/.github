@@ -58,7 +58,27 @@ jobs:
       - name: Collect metrics
         env:
           GITHUB_TOKEN: ${{ secrets.SCORE_BOT_CLASSIC_PAT }}
-        run: uv run generate-repo-overview collect --org-config org_config.toml
+        run: |
+          # Emit diagnostics during collection so they survive a runner shutdown.
+          # Process names show accumulating Bazel JVMs without logging arguments
+          # that could contain credentials.
+          monitor_resources() {
+            sample_sleep_pid=""
+            trap 'kill "$sample_sleep_pid" 2>/dev/null || true; exit 0' TERM
+            while true; do
+              date --utc --iso-8601=seconds
+              free -m
+              df -h / "$HOME/.cache"
+              ps -eo pid,ppid,comm,%cpu,rss --sort=-rss | sed -n '1,16p'
+              sleep 30 &
+              sample_sleep_pid=$!
+              wait "$sample_sleep_pid"
+            done
+          }
+          monitor_resources &
+          monitor_pid=$!
+          trap 'kill "$monitor_pid" 2>/dev/null || true; wait "$monitor_pid" || true' EXIT
+          uv run generate-repo-overview collect --org-config org_config.toml
 
       - name: Render overview (MD)
         run: uv run generate-repo-overview render-overview

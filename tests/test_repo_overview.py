@@ -2380,7 +2380,9 @@ def test_snapshot_from_dict_filters_empty_tracked_deps() -> None:
     assert loaded.tracked_deps[0].repo == "org/valid"
 
 
-def test_load_snapshot_if_present_ignores_mismatched_schema(tmp_path: Path) -> None:
+def test_load_snapshot_if_present_ignores_mismatched_schema(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     cache_path = tmp_path / "repo_overview.json"
     cache_path.write_text(
         (
@@ -2395,3 +2397,8 @@ def test_load_snapshot_if_present_ignores_mismatched_schema(tmp_path: Path) -> N
     )
 
     assert snapshot_io.load_snapshot_if_present(cache_path) is None
+    # A full collection after a schema change must be explainable in CI logs.
+    diagnostics = capsys.readouterr().err
+    assert "Cannot reuse snapshot cache" in diagnostics
+    assert "Unsupported snapshot schema version 2" in diagnostics
+    assert "collecting without cached data" in diagnostics

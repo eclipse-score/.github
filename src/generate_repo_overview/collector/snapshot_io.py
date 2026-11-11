@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+from generate_repo_overview.console import print_status
 from generate_repo_overview.models import RepoSnapshot
 
 if TYPE_CHECKING:
@@ -18,10 +19,14 @@ def load_snapshot(path: Path) -> RepoSnapshot:
 
 def load_snapshot_if_present(path: Path) -> RepoSnapshot | None:
     if not path.exists():
+        print_status(f"Snapshot cache {path} is absent; collecting without cached data")
         return None
     try:
-        return load_snapshot(path)
-    except (OSError, ValueError, json.JSONDecodeError):
+        snapshot = load_snapshot(path)
+        print_status(f"Loaded snapshot cache {path} with {len(snapshot.repos)} repositories")
+        return snapshot
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print_status(f"Cannot reuse snapshot cache {path}; collecting without cached data: {exc}")
         return None
 
 

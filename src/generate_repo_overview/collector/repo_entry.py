@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
+from generate_repo_overview.console import print_status
 from generate_repo_overview.constants import DEFAULT_REPOSITORY_CHECKOUTS
 from generate_repo_overview.models import (
     DEFAULT_CATEGORY,
@@ -110,6 +111,7 @@ def collect_repository_entry(
     github_token: str | None = None,
 ) -> RepoEntry:
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
+    print_status(f"{repository_name}: syncing default-branch checkout")
     checkout_path, default_branch_sha = _sync_content_checkout(
         repository_name=repository_name,
         repository=repository,
@@ -130,6 +132,7 @@ def collect_repository_entry(
         github_token=github_token,
     )
     if fast_entry is not None:
+        print_status(f"{repository_name}: reused cached content")
         return fast_entry
 
     return collect_repository_entry_slow_path(
@@ -201,6 +204,7 @@ def maybe_collect_repository_entry_fast_path(
     content_signals["referenced_by_reference_integration"] = (
         referenced_by_reference_integration
     )
+    print_status(f"{repository_name}: collecting volatile API metrics")
     volatile_metrics = collect_volatile_metrics(
         repository,
         default_branch=default_branch,
@@ -252,6 +256,7 @@ def collect_repository_entry_slow_path(
     )
 
     if cached_content_signals is None:
+        print_status(f"{repository_name}: inspecting repository content")
         if checkout_path is not None:
             content_signals = inspect_repository_checkout(
                 checkout_path,
@@ -280,6 +285,7 @@ def collect_repository_entry_slow_path(
     content_signals["referenced_by_reference_integration"] = (
         referenced_by_reference_integration
     )
+    print_status(f"{repository_name}: collecting volatile API metrics")
     volatile_metrics = collect_volatile_metrics(
         repository,
         default_branch=default_branch,

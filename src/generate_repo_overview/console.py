@@ -4,4 +4,4 @@ import sys
 
 
 def print_status(message: str, *, prefix: str = "repo-overview") -> None:
-    print(f"[{prefix}] {message}", file=sys.stderr)
+    print(f"[{prefix}] {message}", file=sys.stderr, flush=True)

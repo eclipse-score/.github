@@ -7,6 +7,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from functools import partial
+from time import monotonic
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from tqdm import tqdm
@@ -502,10 +503,18 @@ def fetch_repositories(
 
         for future in as_completed(futures):
             index, repository_name = futures[future]
-            entry = future.result()
+            try:
+                entry = future.result()
+            except Exception:
+                print_status(f"{repository_name}: collection failed", prefix=status_prefix)
+                raise
             repos_by_index[index] = entry
             progress.update(1)
             progress.set_postfix_str(repository_name)
+            print_status(
+                f"Finished {len(repos_by_index)}/{total_repositories} repositories ({repository_name})",
+                prefix=status_prefix,
+            )
 
     return [repos_by_index[index] for index in range(1, total_repositories + 1)]
 
@@ -516,7 +525,9 @@ def _collect_entry_with_reference_refs(
     pin: reference_integration.KnownGoodPin | None,
 ) -> RepoEntry:
     """Collect a repository and compare its release and integration refs in a worker."""
+    started = monotonic()
     entry = collect_entry()
+    print_status(f"{entry.name}: comparing release and integration refs")
     raw_default_branch = getattr(repository, "default_branch", None)
     main_branch = (
         raw_default_branch.strip()
@@ -568,6 +579,7 @@ def _collect_entry_with_reference_refs(
             reference_integration_hash=pin.commit_hash,
             reference_integration_resolved_hash=resolved_pin_hash,
         )
+    print_status(f"{entry.name}: completed collection in {monotonic() - started:.1f}s")
     return replace(entry, content=replace(entry.content, **content_changes))
 
 
