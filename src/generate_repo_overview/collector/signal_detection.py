@@ -95,7 +95,9 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
     if not (checkout_path / "MODULE.bazel.lock").exists():
         return LockfileStatus.MISSING, None
     started = monotonic()
-    print_status(f"{checkout_path}: starting Bazel lockfile check (timeout {BAZEL_LOCKFILE_TIMEOUT_SECONDS}s)")
+    print_status(
+        f"{checkout_path}: starting Bazel lockfile check (timeout {BAZEL_LOCKFILE_TIMEOUT_SECONDS}s)"
+    )
     try:
         result = subprocess.run(
             ["bazel", "mod", "deps", "--lockfile_mode=error"],
@@ -110,7 +112,9 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
         print_status(f"{checkout_path}: Bazel lockfile check could not start: {exc}")
         return LockfileStatus.UNKNOWN, None
     except subprocess.TimeoutExpired:
-        print_status(f"{checkout_path}: Bazel lockfile check timed out after {monotonic() - started:.1f}s")
+        print_status(
+            f"{checkout_path}: Bazel lockfile check timed out after {monotonic() - started:.1f}s"
+        )
         return LockfileStatus.TIMEOUT, None
     print_status(
         f"{checkout_path}: Bazel lockfile check exited {result.returncode} after {monotonic() - started:.1f}s"

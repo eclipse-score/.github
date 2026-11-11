@@ -23,10 +23,14 @@ def load_snapshot_if_present(path: Path) -> RepoSnapshot | None:
         return None
     try:
         snapshot = load_snapshot(path)
-        print_status(f"Loaded snapshot cache {path} with {len(snapshot.repos)} repositories")
+        print_status(
+            f"Loaded snapshot cache {path} with {len(snapshot.repos)} repositories"
+        )
         return snapshot
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        print_status(f"Cannot reuse snapshot cache {path}; collecting without cached data: {exc}")
+        print_status(
+            f"Cannot reuse snapshot cache {path}; collecting without cached data: {exc}"
+        )
         return None
 
 

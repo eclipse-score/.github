@@ -506,7 +506,9 @@ def fetch_repositories(
             try:
                 entry = future.result()
             except Exception:
-                print_status(f"{repository_name}: collection failed", prefix=status_prefix)
+                print_status(
+                    f"{repository_name}: collection failed", prefix=status_prefix
+                )
                 raise
             repos_by_index[index] = entry
             progress.update(1)
