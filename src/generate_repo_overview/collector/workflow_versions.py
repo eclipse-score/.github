@@ -35,6 +35,8 @@ class _TagLike(Protocol):
 class _ReleaseLike(Protocol):
     tag_name: str
 
+    def complete(self) -> object: ...
+
 
 class _RepositoryLike(Protocol):
     def get_tags(self) -> Iterable[_TagLike]: ...
@@ -132,7 +134,11 @@ def _fetch_release_context(
     except Exception:
         tags = {}
     try:
-        latest_release = repository.get_latest_release().tag_name
+        release = repository.get_latest_release()
+        # Lazy PyGithub releases can infer tag_name="latest" from the endpoint
+        # URL. Fetch the response before using the actual tag as a Git ref.
+        release.complete()
+        latest_release = release.tag_name
     except Exception:
         latest_release = None
     return _ReleaseContext(repository, tags, latest_release)

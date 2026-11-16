@@ -48,7 +48,7 @@ def _source(*tags: tuple[str, str], release: str | None = "v2.0.0") -> Mock:
         for name, sha in tags
     ]
     if release:
-        source.get_latest_release.return_value = SimpleNamespace(tag_name=release)
+        source.get_latest_release.return_value = Mock(tag_name=release)
     else:
         source.get_latest_release.side_effect = RuntimeError("No published release")
     source.get_commit.return_value = Mock(sha=SHA)
@@ -72,8 +72,43 @@ def test_shared_pins_fetch_source_metadata_and_comparisons_only_once() -> None:
     github.get_repo.assert_called_once_with(SOURCE)
     source.get_tags.assert_called_once_with()
     source.get_latest_release.assert_called_once_with()
+    source.get_latest_release.return_value.complete.assert_called_once_with()
     source.get_commit.assert_not_called()
     source.compare.assert_called_once_with("v2.0.0", SHA)
+
+
+def test_lazy_release_endpoint_placeholder_is_replaced_before_comparing_pins() -> None:
+    """PyGithub 2.9.1 derives 'latest' from the URL until the release is fetched."""
+    source = _source(("v1.0.0", SHA))
+    release = Mock(tag_name="latest")
+    release.complete.side_effect = lambda: setattr(release, "tag_name", "v2.0.0")
+    source.get_latest_release.return_value = release
+    source.compare.return_value = SimpleNamespace(ahead_by=0, behind_by=7)
+    github = Mock()
+    github.get_repo.return_value = source
+
+    (result,) = fetch_workflow_ref_resolutions([_repo(DAILY + SHA)], github=github)
+
+    assert result.latest_release == "v2.0.0"
+    assert (result.ahead_by, result.behind_by) == (0, 7)
+    source.compare.assert_called_once_with("v2.0.0", SHA)
+
+
+def test_lazy_release_fetch_failure_preserves_tag_without_comparing_placeholder() -> None:
+    """An inaccessible release must not turn the endpoint name into a Git ref."""
+    source = _source(("v1.0.0", SHA))
+    release = Mock(tag_name="latest")
+    release.complete.side_effect = RuntimeError("No published release")
+    source.get_latest_release.return_value = release
+    github = Mock()
+    github.get_repo.return_value = source
+
+    (result,) = fetch_workflow_ref_resolutions([_repo(DAILY + SHA)], github=github)
+
+    assert result.version_tag == "v1.0.0"
+    assert result.latest_release is None
+    assert result.ahead_by is None
+    source.compare.assert_not_called()
 
 
 @pytest.mark.parametrize("pin", ["main", SHA[:12]])
@@ -126,7 +161,7 @@ def test_new_tags_releases_and_moved_branches_refresh_without_consumer_changes()
     source.get_tags.return_value = [
         SimpleNamespace(name="v3.0.0", commit=SimpleNamespace(sha=NEXT_SHA))
     ]
-    source.get_latest_release.return_value = SimpleNamespace(tag_name="v3.0.0")
+    source.get_latest_release.return_value = Mock(tag_name="v3.0.0")
     source.get_commit.return_value = Mock(sha=NEXT_SHA)
     source.compare.return_value = SimpleNamespace(ahead_by=0, behind_by=0)
     (after,) = fetch_workflow_ref_resolutions(cached_repos, github=github)
@@ -348,7 +383,7 @@ def test_collect_snapshot_refreshes_workflow_releases_while_reusing_consumer_con
     source.get_tags.return_value = [
         SimpleNamespace(name="v3.0.0", commit=SimpleNamespace(sha=SHA))
     ]
-    source.get_latest_release.return_value = SimpleNamespace(tag_name="v3.0.0")
+    source.get_latest_release.return_value = Mock(tag_name="v3.0.0")
     source.compare.return_value = SimpleNamespace(ahead_by=0, behind_by=0)
     second = collector.collect_snapshot(config=config, cache_path=cache_path)
 
