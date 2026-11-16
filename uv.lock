@@ -260,7 +260,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pygithub" },
+    { name = "pygithub", specifier = ">=2.10.0" },
     { name = "pyyaml" },
     { name = "repo-cache", git = "https://github.com/eclipse-score/tools?subdirectory=repo_cache" },
     { name = "tqdm" },
