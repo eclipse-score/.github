@@ -44,6 +44,7 @@ Core S-CORE modules, libraries, and APIs.
 | [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
 | [communication](https://github.com/eclipse-score/communication) | Repository for the score::mw::com (with multiple bindings including LoLa), score::memory::shared, and score::message_passing |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
+| [diagnostics](https://github.com/eclipse-score/diagnostics) | Repository for diagnostics feature |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
 | [inc_ecu_model](https://github.com/eclipse-score/inc_ecu_model) | Repository for an ECU model |
 | [inc_security_crypto](https://github.com/eclipse-score/inc_security_crypto) | Incubation repository for Security & Cryptography feature |
@@ -61,7 +62,6 @@ Repositories for experimental or early-stage features.
 | Repository | Description |
 |------------|-------------|
 | [inc_daal](https://github.com/eclipse-score/inc_daal) | Incubation repository for DAAL module |
-| [inc_diagnostics](https://github.com/eclipse-score/inc_diagnostics) | Incubation repository for diagnostics feature |
 | [inc_someip_gateway](https://github.com/eclipse-score/inc_someip_gateway) | Incubation repository for SOME/IP gateway feature |
 
 ---
