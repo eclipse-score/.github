@@ -146,6 +146,7 @@ class DeepContentSignals:
     repo_sphinx_modules: tuple[SphinxItem, ...] = ()
     sphinx_project_name: str | None = None
     sphinx_project_prefix: str | None = None
+    has_dependabot_config: bool | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
@@ -193,6 +194,9 @@ class DeepContentSignals:
             has_pyproject_toml=bool(data.get("has_pyproject_toml", False)),
             has_pre_commit_config=bool(data.get("has_pre_commit_config", False)),
             has_ci=bool(data.get("has_ci", False)),
+            has_dependabot_config=cast(
+                "bool | None", data.get("has_dependabot_config")
+            ),
             matched_workflow_signals=normalize_string_tuple(
                 data.get("matched_workflow_signals")
             ),
@@ -254,6 +258,8 @@ class VolatileMetricsSnapshot:
     release_bazel_version: str | None = None
     release_bazel_deps: tuple[tuple[str, str], ...] = ()
     volatile_metrics_fetched_at: str | None = None
+    open_renovate_prs: int | None = None
+    open_dependabot_prs: int | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> VolatileMetricsSnapshot:
@@ -264,6 +270,8 @@ class VolatileMetricsSnapshot:
             open_prs=cast("int", data.get("open_prs", 0)),
             open_ready_prs=cast("int", data.get("open_ready_prs", 0)),
             open_draft_prs=cast("int", data.get("open_draft_prs", 0)),
+            open_renovate_prs=cast("int | None", data.get("open_renovate_prs")),
+            open_dependabot_prs=cast("int | None", data.get("open_dependabot_prs")),
             latest_release_version=cast(
                 "str | None", data.get("latest_release_version")
             ),

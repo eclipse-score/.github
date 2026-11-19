@@ -124,6 +124,8 @@ def test_build_repo_entry_uses_custom_properties_and_description_fallback() -> N
             "open_prs": 0,
             "open_ready_prs": 0,
             "open_draft_prs": 0,
+            "open_renovate_prs": None,
+            "open_dependabot_prs": None,
             "latest_release_version": None,
             "latest_release_date": None,
             "commits_since_latest_release": None,

@@ -188,6 +188,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   overflow: hidden;
 }
 .section.hidden { display: none; }
+.overview-table { overflow-x: auto; }
 #version-view-toggle {
   max-width: 1400px;
   margin: 0 auto 0.8rem;

@@ -30,6 +30,7 @@ def _make_snapshot() -> RepoSnapshot:
                     bazel_version="8.4.2",
                     has_lint_config=True,
                     has_ci=True,
+                    has_dependabot_config=False,
                     has_coverage_config=False,
                 ),
                 volatile=VolatileMetricsSnapshot(
@@ -38,6 +39,8 @@ def _make_snapshot() -> RepoSnapshot:
                     open_prs=1,
                     open_ready_prs=1,
                     open_draft_prs=0,
+                    open_renovate_prs=1,
+                    open_dependabot_prs=0,
                     latest_release_date="2026-04-01",
                 ),
                 stars=3,
@@ -52,6 +55,7 @@ def _make_snapshot() -> RepoSnapshot:
                     is_bazel_repo=True,
                     has_bazel_module=True,
                     bazel_module_name="score_logging",
+                    has_dependabot_config=True,
                     sphinx_features=(
                         SphinxItem(
                             path="docs/features/log_trace/logging",
@@ -85,6 +89,9 @@ def _make_snapshot() -> RepoSnapshot:
                     ),
                     sphinx_project_name="S-CORE Logging",
                     sphinx_project_prefix="LOGGING_",
+                ),
+                volatile=VolatileMetricsSnapshot(
+                    open_renovate_prs=0, open_dependabot_prs=0
                 ),
             ),
             RepoEntry(
@@ -150,6 +157,23 @@ def test_render_details_writes_html(tmp_path: Path) -> None:
     content = index.read_text(encoding="utf-8")
     assert "Cross-Repo Metrics" in content
     assert "<!DOCTYPE html>" in content
+    assert 'data-sort="renovate-prs"' in content
+    assert 'data-sort="dependabot-prs"' in content
+    assert 'data-sort="dependabot-config"' not in content
+    assert (
+        '<td class="text-right" data-sort-value="1">1</td>\n'
+        '      <td class="text-right" data-sort-value="0"><span class="badge red" '
+        'role="img" aria-label="No open Dependabot PRs. No Dependabot configuration file found on the default branch."'
+    ) in content
+    assert (
+        '<td class="text-right" data-sort-value="0">0</td>\n'
+        '      <td class="text-right" data-sort-value="0"><span class="badge green" '
+        'role="img" aria-label="No open Dependabot PRs. Dependabot configuration file found on the default branch."'
+    ) in content
+    assert (
+        '<td class="text-right text-muted" data-sort-value="-1" title="Open pull request count unavailable">—</td>'
+        in content
+    )
 
 
 def test_render_details_writes_repo_detail_pages(tmp_path: Path) -> None:

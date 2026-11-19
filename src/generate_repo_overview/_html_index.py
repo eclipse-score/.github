@@ -182,17 +182,19 @@ def _render_overview_sections(
             f'    <span class="section-title">{e(category)}</span>\n'
             f'    <span class="section-count">{len(cat_repos)}</span>\n'
             f"  </div>\n"
-            f"  <table>\n"
+            f'  <div class="overview-table"><table>\n'
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="merged" class="text-right" title="Number of pull requests merged into the main branch in the last 30 days. A higher number means more active development.">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="issues" class="text-right" data-tooltip="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="renovate-prs" class="text-right" title="Open pull requests from Renovate, including drafts.">Renovate PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="dependabot-prs" class="text-right" title="Open pull requests from Dependabot, including drafts. If there are none, ✓ means a Dependabot configuration file was found on the default branch. X means no file was found there.">Dependabot PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="stars" class="text-right">Stars / Forks <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
-            f"  </table>\n"
+            f"  </table></div>\n"
             f"</div>\n"
         )
     return "".join(parts)
@@ -256,10 +258,36 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
         f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
         f'      <td class="text-right" data-sort-value="{entry.volatile.open_issues}" data-tooltip="{e(issues_tip)}">{issues_cell}</td>\n'
         f'      <td class="text-right" data-sort-value="{total_prs}" data-tooltip="{e(prs_tip)}">{prs_cell}</td>\n'
+        f"{_render_dependency_pr_count(entry.volatile.open_renovate_prs)}"
+        f"{_render_dependency_pr_count(entry.volatile.open_dependabot_prs, configured=entry.content.has_dependabot_config)}"
         f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
         f'      <td class="text-right" data-tooltip="{e(stars_tip)}">{stars_forks}</td>\n'
         f"    </tr>"
     )
+
+
+def _render_dependency_pr_count(
+    count: int | None, *, configured: bool | None = None
+) -> str:
+    if count is None:
+        return (
+            '      <td class="text-right text-muted" data-sort-value="-1" '
+            'title="Open pull request count unavailable">—</td>\n'
+        )
+    label = str(count)
+    if count == 0 and configured is not None:
+        color, symbol = ("green", "✓") if configured else ("red", "X")
+        config_status = (
+            "Dependabot configuration file found"
+            if configured
+            else "No Dependabot configuration file found"
+        )
+        description = f"No open Dependabot PRs. {config_status} on the default branch."
+        label = (
+            f'<span class="badge {color}" role="img" aria-label="{description}" '
+            f'title="{description}">{symbol}</span>'
+        )
+    return f'      <td class="text-right" data-sort-value="{count}">{label}</td>\n'
 
 
 def _repo_filter_attributes(entry: RepoEntry) -> str:

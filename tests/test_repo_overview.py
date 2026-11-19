@@ -212,6 +212,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
                     codeowners=("@infra-team",),
                     has_lint_config=True,
                     has_ci=True,
+                    has_dependabot_config=False,
                     matched_workflow_signals=("Daily Workflow",),
                     has_coverage_config=False,
                 ),
@@ -757,6 +758,7 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
             codeowners=("@infra-team",),
             has_lint_config=True,
             has_ci=True,
+            has_dependabot_config=False,
             matched_workflow_signals=("Daily Workflow",),
             has_coverage_config=False,
         ),
@@ -791,12 +793,14 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
     assert entry.volatile.volatile_metrics_fetched_at == "2026-04-17T12:00:00+00:00"
 
 
-def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
+def test_get_open_pull_request_counts_splits_ready_draft_and_bot_authors() -> None:
     repository = SimpleNamespace(
         get_pulls=lambda state="open": [
-            SimpleNamespace(draft=False),
-            SimpleNamespace(raw_data={"draft": True}),
-            SimpleNamespace(draft=False),
+            SimpleNamespace(draft=False, user=SimpleNamespace(login="renovate[bot]")),
+            SimpleNamespace(
+                raw_data={"draft": True}, user=SimpleNamespace(login="dependabot[bot]")
+            ),
+            SimpleNamespace(draft=False, user=SimpleNamespace(login="dependabot-fan")),
         ]
     )
 
@@ -804,6 +808,8 @@ def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
         "ready": 2,
         "draft": 1,
         "total": 3,
+        "renovate": 1,
+        "dependabot": 1,
     }
     assert (
         repo_entry.get_open_issue_count(
@@ -812,6 +818,42 @@ def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
         )
         == 2
     )
+
+
+@pytest.mark.parametrize("suffix", ["yml", "yaml"])
+def test_cached_repository_backfills_dependabot_config_from_checkout(
+    tmp_path: Path, suffix: str
+) -> None:
+    config = tmp_path / ".github" / f"dependabot.{suffix}"
+    config.parent.mkdir()
+    config.write_text("version: 2\n", encoding="utf-8")
+    cached_entry = RepoEntry(
+        name="tools",
+        description="Tooling",
+        category="Infrastructure",
+        subcategory="Tooling",
+        default_branch="main",
+        default_branch_sha="abc123",
+        volatile=VolatileMetricsSnapshot(
+            volatile_metrics_fetched_at=datetime.now(UTC).isoformat()
+        ),
+    )
+
+    entry = repo_entry.maybe_collect_repository_entry_fast_path(
+        repository_name="tools",
+        repository=SimpleNamespace(),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        referenced_by_reference_integration=False,
+        cached_entry=cached_entry,
+        default_branch="main",
+        default_branch_sha="abc123",
+        checkout_path=tmp_path,
+    )
+
+    assert entry is not None
+    assert entry.content.has_dependabot_config is True
+    assert entry.volatile == cached_entry.volatile
 
 
 def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window(

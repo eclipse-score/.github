@@ -33,6 +33,7 @@ class DeepContentPayload(TypedDict):
     has_pre_commit_config: bool
     has_lint_config: bool
     has_ci: bool
+    has_dependabot_config: bool | None
     matched_workflow_signals: tuple[str, ...]
     workflow_refs: tuple[tuple[str, str], ...]
     has_coverage_config: bool
@@ -52,6 +53,7 @@ PYPROJECT_PATHS = ("pyproject.toml",)
 PRE_COMMIT_PATHS = (".pre-commit-config.yaml",)
 LINT_CONFIG_PATHS = GITLINT_PATHS + PRE_COMMIT_PATHS
 CI_PATHS = (".github/workflows",)
+DEPENDABOT_CONFIG_PATHS = {".github/dependabot.yml", ".github/dependabot.yaml"}
 COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
 BAZEL_VERSION_PATHS = (".bazelversion",)
 MODULE_PATHS = ("MODULE.bazel",)
@@ -207,6 +209,7 @@ def _inspect_repository_content(
             tree_contains_path(tree_paths, path) for path in LINT_CONFIG_PATHS
         ),
         "has_ci": any(tree_contains_path(tree_paths, path) for path in CI_PATHS),
+        "has_dependabot_config": has_dependabot_config(tree_paths),
         "matched_workflow_signals": tuple(
             dict.fromkeys(label for label, _ in workflow_refs)
         ),
@@ -239,6 +242,7 @@ def default_content_signals() -> DeepContentPayload:
         "has_pre_commit_config": False,
         "has_lint_config": False,
         "has_ci": False,
+        "has_dependabot_config": None,
         "matched_workflow_signals": (),
         "workflow_refs": (),
         "has_coverage_config": False,
@@ -361,6 +365,12 @@ def fetch_repository_tree_paths(repository: Any, *, ref: str | None) -> set[str]
         for item in getattr(tree, "tree", [])
         if isinstance((path := getattr(item, "path", None)), str)
     }
+
+
+def has_dependabot_config(tree_paths: set[str]) -> bool | None:
+    if not tree_paths:
+        return None
+    return not DEPENDABOT_CONFIG_PATHS.isdisjoint(tree_paths)
 
 
 def tree_contains_path(tree_paths: set[str], candidate: str) -> bool:
