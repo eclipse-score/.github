@@ -764,7 +764,14 @@ def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
     renovate_count = dependabot_count = 0
     for pull_request in pull_requests:
         login = getattr(getattr(pull_request, "user", None), "login", None)
-        if login == "renovate[bot]":
+        # S-CORE's self-hosted Renovate uses an account shared with other automation.
+        if login == "renovate[bot]" or (
+            login == "eclipse-score-bot"
+            and any(
+                getattr(label, "name", None) == "renovate"
+                for label in getattr(pull_request, "labels", ())
+            )
+        ):
             renovate_count += 1
         elif login == "dependabot[bot]":
             dependabot_count += 1

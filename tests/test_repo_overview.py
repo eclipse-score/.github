@@ -692,8 +692,10 @@ def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_m
     assert entry.registry == RegistrySignals()
 
 
-def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_fetch(
+@pytest.mark.parametrize("legacy_snapshot", [False, True], ids=["expired", "legacy"])
+def test_collect_repository_entry_refreshes_volatile_metrics_with_cached_content(
     monkeypatch: pytest.MonkeyPatch,
+    legacy_snapshot: bool,
 ) -> None:
     class FixedDatetime(datetime):
         @classmethod
@@ -774,6 +776,16 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
         ),
     )
 
+    if legacy_snapshot:
+        # The timestamp is fresh, but the snapshot predates the PR counters.
+        cached_data = cached_entry.to_dict()
+        cached_data["volatile"]["volatile_metrics_fetched_at"] = FixedDatetime.now(
+            UTC
+        ).isoformat()
+        cached_data["volatile"].pop("open_renovate_prs")
+        cached_data["volatile"].pop("open_dependabot_prs")
+        cached_entry = RepoEntry.from_dict(cached_data)
+
     entry = repo_entry.collect_repository_entry(
         repository_name="tools",
         repository=repo,
@@ -787,6 +799,8 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
     assert entry.volatile.open_prs == 2
     assert entry.volatile.open_ready_prs == 1
     assert entry.volatile.open_draft_prs == 1
+    assert entry.volatile.open_renovate_prs == 0
+    assert entry.volatile.open_dependabot_prs == 0
     assert entry.volatile.open_issues == 4
     assert entry.volatile.latest_release_version == "v1.0.0"
     assert entry.volatile.commits_since_latest_release == 4
@@ -800,24 +814,51 @@ def test_get_open_pull_request_counts_splits_ready_draft_and_bot_authors() -> No
             SimpleNamespace(
                 raw_data={"draft": True}, user=SimpleNamespace(login="dependabot[bot]")
             ),
-            SimpleNamespace(draft=False, user=SimpleNamespace(login="dependabot-fan")),
+            SimpleNamespace(
+                draft=False,
+                user=SimpleNamespace(login="eclipse-score-bot"),
+                labels=[SimpleNamespace(name="renovate")],
+            ),
+            SimpleNamespace(
+                draft=False,
+                user=SimpleNamespace(login="eclipse-score-bot"),
+                labels=[SimpleNamespace(name="automation")],
+            ),
+            SimpleNamespace(
+                draft=False,
+                user=SimpleNamespace(login="contributor"),
+                labels=[SimpleNamespace(name="renovate")],
+            ),
         ]
     )
 
     assert repo_entry.get_open_pull_request_counts(repository) == {
-        "ready": 2,
+        "ready": 4,
         "draft": 1,
-        "total": 3,
-        "renovate": 1,
+        "total": 5,
+        "renovate": 2,
         "dependabot": 1,
     }
     assert (
         repo_entry.get_open_issue_count(
-            SimpleNamespace(open_issues_count=5),
-            open_pull_request_total=3,
+            SimpleNamespace(open_issues_count=7),
+            open_pull_request_total=5,
         )
         == 2
     )
+
+
+def test_unavailable_bot_counts_do_not_invalidate_snapshot_timestamp() -> None:
+    fetched_at = "2026-04-17T12:00:00+00:00"
+    volatile = VolatileMetricsSnapshot.from_dict(
+        {
+            "volatile_metrics_fetched_at": fetched_at,
+            "open_renovate_prs": None,
+            "open_dependabot_prs": None,
+        }
+    )
+
+    assert volatile.volatile_metrics_fetched_at == fetched_at
 
 
 @pytest.mark.parametrize("suffix", ["yml", "yaml"])

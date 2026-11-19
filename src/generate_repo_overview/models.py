@@ -263,6 +263,11 @@ class VolatileMetricsSnapshot:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> VolatileMetricsSnapshot:
+        fetched_at = cast("str | None", data.get("volatile_metrics_fetched_at"))
+        # Refresh activity metrics for snapshots from before bot PR counts were
+        # collected. Explicit null counts are valid when GitHub is unavailable.
+        if "open_renovate_prs" not in data or "open_dependabot_prs" not in data:
+            fetched_at = None
         return cls(
             last_push_date=cast("str | None", data.get("last_push_date")),
             merged_prs_30_days=cast("int", data.get("merged_prs_30_days", 0)),
@@ -291,10 +296,7 @@ class VolatileMetricsSnapshot:
                 data.get("release_bazel_version"),
             ),
             release_bazel_deps=normalize_string_pairs(data.get("release_bazel_deps")),
-            volatile_metrics_fetched_at=cast(
-                "str | None",
-                data.get("volatile_metrics_fetched_at"),
-            ),
+            volatile_metrics_fetched_at=fetched_at,
         )
 
 
