@@ -161,14 +161,18 @@ def test_render_details_writes_html(tmp_path: Path) -> None:
     assert 'data-sort="dependabot-prs"' in content
     assert 'data-sort="dependabot-config"' not in content
     assert (
-        '<td class="text-right" data-sort-value="1">1</td>\n'
-        '      <td class="text-right" data-sort-value="0"><span class="badge red" '
-        'role="img" aria-label="No open Dependabot PRs. No Dependabot configuration file found on the default branch."'
+        '<td class="text-right" data-sort-value="1"><span class="badge yellow">1</span></td>\n'
+        '      <td class="text-right" data-sort-value="0" '
+        'title="No open Dependabot PRs. No Dependabot configuration file found on the default branch." '
+        'aria-label="No open Dependabot PRs. No Dependabot configuration file found on the default branch.">'
+        '<span class="badge red">not configured</span></td>'
     ) in content
     assert (
         '<td class="text-right" data-sort-value="0">0</td>\n'
-        '      <td class="text-right" data-sort-value="0"><span class="badge green" '
-        'role="img" aria-label="No open Dependabot PRs. Dependabot configuration file found on the default branch."'
+        '      <td class="text-right" data-sort-value="0" '
+        'title="No open Dependabot PRs. Dependabot configuration file found on the default branch." '
+        'aria-label="No open Dependabot PRs. Dependabot configuration file found on the default branch.">'
+        '<span class="badge green">0</span></td>'
     ) in content
     assert (
         '<td class="text-right text-muted" data-sort-value="-1" title="Open pull request count unavailable">—</td>'

@@ -189,7 +189,7 @@ def _render_overview_sections(
             f'      <th data-sort="issues" class="text-right" data-tooltip="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="renovate-prs" class="text-right" title="Open pull requests from Renovate, including drafts.">Renovate PRs <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="dependabot-prs" class="text-right" title="Open pull requests from Dependabot, including drafts. If there are none, ✓ means a Dependabot configuration file was found on the default branch. X means no file was found there.">Dependabot PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="dependabot-prs" class="text-right" title="Open pull requests from Dependabot, including drafts. A green 0 means there are no open PRs and a Dependabot configuration file was found on the default branch. Not configured means there are no open PRs and no configuration file was found.">Dependabot PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="stars" class="text-right">Stars / Forks <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
@@ -275,19 +275,22 @@ def _render_dependency_pr_count(
             'title="Open pull request count unavailable">—</td>\n'
         )
     label = str(count)
-    if count == 0 and configured is not None:
-        color, symbol = ("green", "✓") if configured else ("red", "X")
+    cell_description = ""
+    if count > 0:
+        label = f'<span class="badge yellow">{count}</span>'
+    elif count == 0 and configured is not None:
+        color, status_label = (
+            ("green", "0") if configured else ("red", "not configured")
+        )
         config_status = (
             "Dependabot configuration file found"
             if configured
             else "No Dependabot configuration file found"
         )
         description = f"No open Dependabot PRs. {config_status} on the default branch."
-        label = (
-            f'<span class="badge {color}" role="img" aria-label="{description}" '
-            f'title="{description}">{symbol}</span>'
-        )
-    return f'      <td class="text-right" data-sort-value="{count}">{label}</td>\n'
+        cell_description = f' title="{description}" aria-label="{description}"'
+        label = f'<span class="badge {color}">{status_label}</span>'
+    return f'      <td class="text-right" data-sort-value="{count}"{cell_description}>{label}</td>\n'
 
 
 def _repo_filter_attributes(entry: RepoEntry) -> str:
