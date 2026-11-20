@@ -50,6 +50,7 @@ def render_index_page(
         repo.name: category
         for category, category_repos in categories
         for repo in category_repos
+        if not repo.owner or repo.owner.casefold() == snapshot.org_name.casefold()
     }
     repository_filters = {
         repo.name: (
@@ -57,13 +58,14 @@ def render_index_page(
             uses_docs_as_code(repo),
         )
         for repo in repos
+        if not repo.owner or repo.owner.casefold() == snapshot.org_name.casefold()
     }
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n'
         '  <meta charset="UTF-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
-        f"  <title>Cross-Repo Metrics — {e(snapshot.org_name)}</title>\n"
+        f"  <title>Cross-Repo Metrics — {e(', '.join(snapshot.organization_names))}</title>\n"
         f"  <style>{CSS}</style>\n"
         "</head>\n<body>\n"
         + _render_header(snapshot, repos)
@@ -203,7 +205,7 @@ def _render_overview_sections(
 def _overview_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = repo_name_cell(entry, org_name)
     filter_attrs = _repo_filter_attributes(entry)
-    repo_url = f"https://github.com/{org_name}/{entry.name}"
+    repo_url = f"https://github.com/{entry.owner or org_name}/{entry.name}"
 
     merged = _render_merged_badge(entry.volatile.merged_prs_30_days)
     issues_cell = _render_issues_cell(entry.volatile.open_issues, repo_url)
@@ -252,7 +254,7 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
     stars_tip = f"{entry.stars} star{'s' if entry.stars != 1 else ''} · {entry.forks} fork{'s' if entry.forks != 1 else ''}"
 
     return (
-        f'    <tr{filter_attrs} data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
+        f'    <tr{filter_attrs} data-name="{e(entry.full_name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
         f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
@@ -299,7 +301,7 @@ def _repo_filter_attributes(entry: RepoEntry) -> str:
     )
     docs_value = "yes" if uses_docs_as_code(entry) else "no"
     return (
-        f' data-repo-filter="{e(entry.name)}"'
+        f' data-repo-filter="{e(entry.full_name)}"'
         f' data-repository-category="{e(entry.category)}"'
         f' data-integration="{integration_value}"'
         f' data-docs-as-code="{docs_value}"'
@@ -623,7 +625,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
     release = entry.volatile.latest_release_version
     if release:
         release_ref = (
-            f'<a href="https://github.com/{e(org_name)}/{e(entry.name)}/'
+            f'<a href="https://github.com/{e(entry.owner or org_name)}/{e(entry.name)}/'
             f'releases/tag/{e(release)}" target="_blank" rel="noopener">'
             f"{e(release)}</a>"
         )
@@ -643,7 +645,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         pin_ref = e(pin_label)
         if resolved_pin_hash:
             pin_ref = (
-                f'<a class="mono" href="https://github.com/{e(org_name)}/'
+                f'<a class="mono" href="https://github.com/{e(entry.owner or org_name)}/'
                 f'{e(entry.name)}/commit/{e(resolved_pin_hash)}" target="_blank" '
                 f'rel="noopener" title="{e(resolved_pin_hash)}">{pin_ref}</a>'
             )
@@ -826,10 +828,10 @@ def _render_automation_sections(
     return "".join(parts)
 
 
-def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
+def _lockfile_cell(entry: RepoEntry, org_name: str) -> tuple[str, str]:
     status = entry.content.bazel_lockfile_status
     has_error = bool(entry.content.bazel_lockfile_error_output)
-    url = f"{e(entry.name)}/index.html#lockfile-error"
+    url = f"{e(entry.detail_path(org_name))}#lockfile-error"
 
     if status == LockfileStatus.OK:
         return (
@@ -875,7 +877,7 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
             return '<span class="badge green">yes</span>'
         return '<span class="text-muted">no</span>'
 
-    lockfile_cell, lockfile_tip = _lockfile_cell(entry)
+    lockfile_cell, lockfile_tip = _lockfile_cell(entry, org_name)
 
     tips = {
         "bazel": "This repository uses Bazel as its build system."
@@ -956,7 +958,8 @@ def _render_naming_sections(
                 entry,
                 snapshot.org_name,
                 is_platform_source=(
-                    f"{snapshot.org_name}/{entry.name}" in platform_sources
+                    f"{entry.owner or snapshot.org_name}/{entry.name}"
+                    in platform_sources
                 ),
             )
             for entry in bazel_repos
@@ -1332,7 +1335,7 @@ def _render_traceability_section(
 def _render_footer(snapshot: RepoSnapshot) -> str:
     return (
         f"\n<footer>\n"
-        f"  Cross-repo metrics for <strong>{e(snapshot.org_name)}</strong> "
+        f"  Cross-repo metrics for <strong>{e(', '.join(snapshot.organization_names))}</strong> "
         f"— generated {e(snapshot.generated_at)}\n"
         f'  <div class="machine-readable">'
         f'<a href="data.json">Machine-readable JSON</a>'

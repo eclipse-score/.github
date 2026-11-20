@@ -47,7 +47,7 @@ def render_all_pages(
     if policy_report_json is not None:
         pages[policy_report_filename] = policy_report_json
     for entry in repos:
-        pages[f"{entry.name}/index.html"] = render_detail_page(
+        pages[entry.detail_path(snapshot.org_name)] = render_detail_page(
             entry, snapshot, max_bazel, latest_dep_versions
         )
     return pages

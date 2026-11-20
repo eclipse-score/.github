@@ -356,6 +356,11 @@ def render_repo_table(entries: list[RepoEntry], org_name: str) -> list[str]:
 
 
 def render_repo_row(entry: RepoEntry, org_name: str) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
+    url = f"https://github.com/{entry.owner or org_name}/{entry.name}"
     safe_description = escape_markdown_table_cell(entry.description)
-    return f"| [{entry.name}]({url}) | {safe_description} |"
+    name = (
+        entry.full_name
+        if entry.owner and entry.owner.casefold() != org_name.casefold()
+        else entry.name
+    )
+    return f"| [{name}]({url}) | {safe_description} |"

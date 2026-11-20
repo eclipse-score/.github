@@ -90,7 +90,7 @@ def render_versions_section(
     dep_labels = [tracked_dep_label(dep) for dep in tracked_deps]
 
     def render_row(entry: RepoEntry, *, org_name: str) -> str:
-        url = f"https://github.com/{org_name}/{entry.name}"
+        url = f"https://github.com/{entry.owner or org_name}/{entry.name}"
         bazel_cell = render_bazel_version_status(
             entry.content.bazel_version, max_bazel_version
         )
@@ -148,7 +148,7 @@ def render_automation_section(
     signal_labels = tuple(s.label for s in snapshot.workflow_signals)
 
     def render_row(entry: RepoEntry, *, org_name: str) -> str:
-        url = f"https://github.com/{org_name}/{entry.name}"
+        url = f"https://github.com/{entry.owner or org_name}/{entry.name}"
         signal_cells = " | ".join(
             render_bool(label in entry.content.matched_workflow_signals)
             for label in signal_labels
@@ -249,7 +249,7 @@ def group_repos_by_category(
 
 
 def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
+    url = f"https://github.com/{entry.owner or org_name}/{entry.name}"
     return (
         f"| {render_repo_link_with_bazel_icon(entry, url)} | {render_ownership_cell(entry)} | "
         f"{render_merged_pr_count(entry.volatile.merged_prs_30_days)} | "
@@ -388,9 +388,8 @@ def get_max_bazel_version(repos: list[RepoEntry]) -> tuple[int, ...] | None:
 def get_latest_tracked_dep_version(
     repos: list[RepoEntry], dep: TrackedDep
 ) -> str | None:
-    repo_short_name = dep.repo.rsplit("/", 1)[-1]
     for repo in repos:
-        if repo.name == repo_short_name:
+        if repo.matches_repository(dep.repo):
             v = repo.volatile.latest_release_version
             return v.removeprefix("v").strip() if v else None
     return None

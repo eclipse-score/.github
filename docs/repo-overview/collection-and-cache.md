@@ -66,6 +66,7 @@ errors.
 
 ## Schema Changes
 
-The loader accepts only the current snapshot schema version. An incompatible
-snapshot is ignored and replaced by a fresh collection. This prevents fields
-added by new detectors or views from receiving stale defaults indefinitely.
+The loader accepts schema 31 and can read schema 30 snapshots. A schema 30
+repository without an owner belongs to the snapshot's primary organization.
+New snapshots use schema 31 so earlier generators cannot silently flatten a
+multi-organization snapshot. Other versions require a fresh collection.

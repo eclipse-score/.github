@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, cast
@@ -18,7 +19,8 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 30
+SNAPSHOT_SCHEMA_VERSION = 31
+_LEGACY_SNAPSHOT_SCHEMA_VERSION = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -342,8 +344,33 @@ class RepoEntry:
     forks: int = 0
     traceability: tuple[TraceabilityTypeMetrics, ...] = ()
 
+    owner: str = ""
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.owner}/{self.name}" if self.owner else self.name
+
+    def detail_path(self, primary_org: str) -> str:
+        # Snapshots can be loaded from disk. Each name must be a single GitHub path segment.
+        parts = (self.owner, self.name) if self.owner else (self.name,)
+        if any(
+            part in {".", ".."} or not re.fullmatch(r"[a-zA-Z0-9_.-]+", part)
+            for part in parts
+        ):
+            raise ValueError(f"Invalid repository name in snapshot: {self.full_name!r}")
+        if self.owner and self.owner.casefold() != primary_org.casefold():
+            # The @ prefix reserves a namespace outside the GitHub repository name alphabet.
+            return f"@orgs/{self.full_name}/index.html"
+        return f"{self.name}/index.html"
+
+    def matches_repository(self, repository: str) -> bool:
+        identity = repository if self.owner else repository.rsplit("/", 1)[-1]
+        return self.full_name.casefold() == identity.casefold()
+
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> RepoEntry:
+    def from_dict(
+        cls, data: Mapping[str, Any], *, default_owner: str = ""
+    ) -> RepoEntry:
         content_payload = cast("Mapping[str, Any]", data.get("content", {}))
         registry_payload = cast("Mapping[str, Any]", data.get("registry", {}))
         volatile_payload = cast("Mapping[str, Any]", data.get("volatile", {}))
@@ -351,6 +378,7 @@ class RepoEntry:
 
         return cls(
             name=cast("str", data.get("name", "")),
+            owner=cast("str", data.get("owner") or default_owner),
             description=cast("str", data.get("description", "(no description)")),
             category=cast("str", data.get("category", DEFAULT_CATEGORY)),
             subcategory=cast("str", data.get("subcategory", DEFAULT_SUBCATEGORY)),
@@ -408,6 +436,11 @@ class RepoSnapshot:
     tracked_deps: tuple[TrackedDep, ...] = ()
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     workflow_ref_resolutions: tuple[WorkflowRefResolution, ...] = ()
+    additional_org_names: tuple[str, ...] = ()
+
+    @property
+    def organization_names(self) -> tuple[str, ...]:
+        return (self.org_name, *self.additional_org_names)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoSnapshot:
@@ -416,7 +449,10 @@ class RepoSnapshot:
             raise ValueError("Snapshot payload must contain a 'repos' list.")
 
         schema_version = data.get("schema_version", SNAPSHOT_SCHEMA_VERSION)
-        if schema_version != SNAPSHOT_SCHEMA_VERSION:
+        if schema_version not in (
+            SNAPSHOT_SCHEMA_VERSION,
+            _LEGACY_SNAPSHOT_SCHEMA_VERSION,
+        ):
             raise ValueError(
                 "Unsupported snapshot schema version "
                 f"{schema_version}; expected {SNAPSHOT_SCHEMA_VERSION}."
@@ -432,6 +468,10 @@ class RepoSnapshot:
             )
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
+        # Schema 30 stored the organization once, at the snapshot level.
+        default_owner = (
+            org_name if schema_version == _LEGACY_SNAPSHOT_SCHEMA_VERSION else ""
+        )
 
         tracked_deps = tuple(
             TrackedDep.from_dict(cast("Mapping[str, Any]", item))
@@ -453,10 +493,16 @@ class RepoSnapshot:
         )
 
         return cls(
-            schema_version=cast("int", schema_version),
+            schema_version=SNAPSHOT_SCHEMA_VERSION,
             org_name=org_name,
             generated_at=generated_at,
-            repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
+            repos=tuple(
+                RepoEntry.from_dict(repo, default_owner=default_owner)
+                for repo in typed_repos_data
+            ),
+            additional_org_names=normalize_string_tuple(
+                data.get("additional_org_names")
+            ),
             tracked_deps=tracked_deps,
             workflow_signals=workflow_signals,
             workflow_ref_resolutions=tuple(
@@ -470,6 +516,7 @@ class RepoSnapshot:
         return {
             "schema_version": self.schema_version,
             "org_name": self.org_name,
+            "additional_org_names": list(self.additional_org_names),
             "generated_at": self.generated_at,
             "repos": [repo.to_dict() for repo in self.repos],
             "tracked_deps": [dep.to_dict() for dep in self.tracked_deps],
@@ -544,6 +591,6 @@ def is_tracked_dep_repo(
 ) -> bool:
     return any(
         lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
-        or entry.name == dep.repo.rsplit("/", 1)[-1]
+        or entry.matches_repository(dep.repo)
         for dep in tracked_deps
     )
