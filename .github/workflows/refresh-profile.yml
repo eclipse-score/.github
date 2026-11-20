@@ -84,7 +84,7 @@ jobs:
         run: uv run generate-repo-overview render-overview
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           title: Update profile README
           author: eclipse-score-bot <187756813+eclipse-score-bot@users.noreply.github.com>
