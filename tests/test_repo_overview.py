@@ -393,6 +393,42 @@ def test_fetch_repositories_uses_resolved_registry_repository_cache_key(
     assert observed_registry_repositories == ["Eclipse-Score/Bazel_Registry"]
 
 
+@pytest.mark.parametrize("lazy", [False, True])
+def test_fetch_repositories_skips_missing_external_reference_integration(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], lazy: bool
+) -> None:
+    from github import GithubException
+
+    class MissingRepository:
+        @property
+        def default_branch(self) -> str:
+            raise GithubException(404, {"message": "Not Found"}, {})
+
+    def get_repo(name: str) -> MissingRepository:
+        assert name == "other-org/integration"
+        if not lazy:
+            raise GithubException(404, {"message": "Not Found"}, {})
+        return MissingRepository()
+
+    monkeypatch.setattr(
+        collector, "fetch_active_repositories", lambda *_args, **_kwargs: {}
+    )
+    assert (
+        collector.fetch_repositories(
+            cast("Any", SimpleNamespace(login="first-org")),
+            config=OrgConfig(
+                org_name="first-org", reference_integration_repo="other-org/integration"
+            ),
+            github=SimpleNamespace(get_repo=get_repo),
+        )
+        == []
+    )
+    assert (
+        "Reference integration repository other-org/integration is unavailable"
+        in capsys.readouterr().err
+    )
+
+
 def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None:
     class FakeRepo:
         default_branch = "main"
@@ -1153,22 +1189,58 @@ include(":nested.MODULE.bazel")
     ) == ("score_root", "score_tooling", "score_logging")
 
 
-def test_reference_integration_maps_git_overrides_to_active_repositories() -> None:
-    assert reference_integration.get_git_override_repositories_from_text(
-        """
-git_override(
-    module_name = "score_tooling",
-    commit = "abc123",
-    remote = "https://github.com/eclipse-score/tooling.git",
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        (
+            'git_override(module_name = "score_tooling", remote = "https://github.com/FIRST-ORG/Tooling.git")',
+            ({"tooling"}, set()),
+        ),
+        (
+            'git_override(module_name = "score_tooling", remote = "git@github.com:first-org/tooling.git")',
+            ({"tooling"}, set()),
+        ),
+        (
+            'git_override(module_name = "score_tooling", remote = "ssh://git@github.com/first-org/tooling.git")',
+            ({"tooling"}, set()),
+        ),
+        (
+            '# git_override(module_name = "score_tooling", remote = "https://github.com/first-org/tooling.git")',
+            ({"tooling"}, {"tooling"}),
+        ),
+    ],
 )
-git_override(
-    module_name = "external",
-    remote = "https://github.com/example/external.git",
-)
-""".strip(),
-        active_repository_names={"tooling"},
-        org_name="eclipse-score",
-    ) == {"score_tooling": "tooling"}
+def test_reference_integration_resolves_active_overrides_before_registry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    override: str,
+    expected: tuple[set[str], set[str]],
+) -> None:
+    (tmp_path / "MODULE.bazel").write_text(
+        f'bazel_dep(name = "score_tooling")\n{override}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        reference_integration, "sync_repository_checkout", lambda **kwargs: tmp_path
+    )
+    monkeypatch.setattr(
+        reference_integration,
+        "get_bazel_registry_repositories_by_module",
+        lambda **kwargs: {"score_tooling": "tooling"},
+    )
+    repository = SimpleNamespace(
+        default_branch="main", full_name="first-org/integration"
+    )
+
+    def collect(org_name: str) -> set[str]:
+        return reference_integration.fetch_reference_integration_repository_names(
+            reference_integration_repository=repository,
+            active_repository_names={"tooling"},
+            registry_repository="second-org/registry",
+            org_name=org_name,
+        )
+
+    assert (collect("first-org"), collect("second-org")) == expected
 
 
 def test_known_good_pin_parser_accepts_hashes_and_versions_and_ignores_invalid_entries() -> (
@@ -1179,7 +1251,7 @@ def test_known_good_pin_parser_accepts_hashes_and_versions_and_ignores_invalid_e
             "modules": {
                 "Core": {
                     "versioned": {
-                        "repo": "https://github.com/eclipse-score/versioned.git",
+                        "repo": "https://github.com/Eclipse-Score/Versioned.git",
                         "version": "1.2.3",
                     },
                     "hashed": {

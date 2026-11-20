@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 from generate_repo_overview.collector.platform_docs import (
@@ -209,6 +210,26 @@ def test_association_skips_ambiguous_matches() -> None:
     ]
 
     assert associate_sphinx_items((item,), repos) == {}
+
+
+def test_association_prefers_source_organization_when_repo_aliases_tie() -> None:
+    item = SphinxItem(
+        path="docs/features/logging",
+        title="Logging",
+        identifier="feat__logging",
+        source_repo="first-org/platform",
+    )
+    repo = _module_repo("logging", "score_logging")
+    first = replace(repo, owner="first-org")
+    second = replace(repo, owner="second-org")
+
+    assert associate_sphinx_items((item,), [first, second]) == {
+        "first-org/logging": (item,),
+    }
+    # A unique cross-organization match still works.
+    assert associate_sphinx_items((item,), [second]) == {
+        "second-org/logging": (item,),
+    }
 
 
 def test_association_uses_sphinx_project_prefix() -> None:

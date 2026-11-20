@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import fnmatch
+import re
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PureWindowsPath
 from typing import Any, cast
 
@@ -65,6 +66,17 @@ PolicySyncConfig = PolicyReportConfig
 
 
 @dataclass(frozen=True, slots=True)
+class OrganizationSettings:
+    """Repository filters and optional signal and grouping overrides."""
+
+    name: str
+    repo_include_patterns: tuple[str, ...] = ()
+    grouping_levels: tuple[GroupingLevel, ...] | None = None
+    reference_integration_repo: str | None = None
+    registry_repo: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class OrgConfig:
     """Organization-specific settings loaded from a TOML config file."""
 
@@ -77,6 +89,31 @@ class OrgConfig:
     platform_repos: tuple[str, ...] = ()
     grouping_levels: tuple[GroupingLevel, ...] = ()
     policy_report: PolicyReportConfig = field(default_factory=PolicyReportConfig)
+
+    additional_organizations: tuple[OrganizationSettings, ...] = ()
+
+    def collection_configs(self) -> tuple[OrgConfig, ...]:
+        return (
+            self,
+            *(
+                replace(
+                    self,
+                    org_name=settings.name,
+                    repo_include_patterns=settings.repo_include_patterns,
+                    grouping_levels=self.grouping_levels
+                    if settings.grouping_levels is None
+                    else settings.grouping_levels,
+                    reference_integration_repo=self.reference_integration_repo
+                    if settings.reference_integration_repo is None
+                    else settings.reference_integration_repo,
+                    registry_repo=self.registry_repo
+                    if settings.registry_repo is None
+                    else settings.registry_repo,
+                    additional_organizations=(),
+                )
+                for settings in self.additional_organizations
+            ),
+        )
 
     def repo_matches_filter(self, repo_name: str) -> bool:
         if not self.repo_include_patterns:
@@ -158,7 +195,53 @@ def load_org_config(path: Path) -> OrgConfig:
         platform_repos=platform_repos,
         grouping_levels=grouping_levels,
         policy_report=policy_report,
+        additional_organizations=_parse_organizations(
+            raw.get("organizations", {}), primary_org=org_name.strip()
+        ),
     )
+
+
+def _parse_organizations(
+    value: object, *, primary_org: str
+) -> tuple[OrganizationSettings, ...]:
+    if not isinstance(value, dict):
+        raise ValueError("'organizations' must be a table.")
+
+    settings: list[OrganizationSettings] = []
+    seen = {primary_org.casefold()}
+    for name, overrides in cast("dict[str, Any]", value).items():
+        if not re.fullmatch(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*", name):
+            raise ValueError(f"Invalid GitHub organization name: {name!r}.")
+        if name.casefold() in seen:
+            raise ValueError(f"Duplicate GitHub organization: {name!r}.")
+        if not isinstance(overrides, dict):
+            raise ValueError(f"Organization settings for {name!r} must be a table.")
+        seen.add(name.casefold())
+        settings.append(
+            OrganizationSettings(
+                name=name,
+                repo_include_patterns=_parse_string_list(
+                    overrides.get("repo_include_patterns")
+                ),
+                grouping_levels=_parse_grouping_levels(overrides["grouping_levels"])
+                if "grouping_levels" in overrides
+                else None,
+                reference_integration_repo=_parse_repo_override(
+                    overrides, "reference_integration_repo"
+                ),
+                registry_repo=_parse_repo_override(overrides, "registry_repo"),
+            )
+        )
+    return tuple(settings)
+
+
+def _parse_repo_override(overrides: dict[str, Any], key: str) -> str | None:
+    value = overrides.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or (value and not is_safe_repository_path(value)):
+        raise ValueError(f"{key} must be empty or in 'org/repo' format.")
+    return value
 
 
 def _str_or(value: object, default: str) -> str:

@@ -51,11 +51,11 @@ def enrich_repositories_from_platform_docs(
                 entry.content,
                 sphinx_features=_merge_sphinx_items(
                     entry.content.sphinx_features,
-                    features_by_repo.get(entry.name, ()),
+                    features_by_repo.get(entry.full_name, ()),
                 ),
                 sphinx_modules=_merge_sphinx_items(
                     entry.content.sphinx_modules,
-                    modules_by_repo.get(entry.name, ()),
+                    modules_by_repo.get(entry.full_name, ()),
                 ),
             ),
         )
@@ -166,14 +166,30 @@ def associate_sphinx_items(
     associated: dict[str, list[SphinxItem]] = {}
     for item in items:
         ranked = sorted(
-            ((_match_score(item, entry), entry.name) for entry in repos),
+            (
+                (_match_score(item, entry), entry.full_name, entry.owner.casefold())
+                for entry in repos
+            ),
             reverse=True,
         )
         if not ranked or ranked[0][0] < MATCH_THRESHOLD:
             continue
-        if len(ranked) > 1 and ranked[0][0] - ranked[1][0] < MATCH_MARGIN:
-            continue
-        associated.setdefault(ranked[0][1], []).append(item)
+        best_score, match, _ = ranked[0]
+        if len(ranked) > 1 and best_score - ranked[1][0] < MATCH_MARGIN:
+            # Use the platform's organization to resolve an otherwise ambiguous match.
+            source_owner, separator, _ = item.source_repo.casefold().partition("/")
+            matching_source = [
+                name
+                for score, name, owner in ranked
+                if separator
+                and owner == source_owner
+                and score >= MATCH_THRESHOLD
+                and best_score - score < MATCH_MARGIN
+            ]
+            if len(matching_source) != 1:
+                continue
+            match = matching_source[0]
+        associated.setdefault(match, []).append(item)
     return {
         repo_name: tuple(sorted(repo_items, key=lambda item: item.path))
         for repo_name, repo_items in associated.items()

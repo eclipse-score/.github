@@ -25,6 +25,10 @@ BAZEL_DEP_PATTERN = re.compile(r"\bbazel_dep\s*\((?P<body>.*?)\)", re.DOTALL)
 GIT_OVERRIDE_PATTERN = re.compile(r"\bgit_override\s*\((?P<body>.*?)\)", re.DOTALL)
 NAME_PATTERN = re.compile(r'\bname\s*=\s*"(?P<value>[^"]+)"')
 MODULE_NAME_PATTERN = re.compile(r'\bmodule_name\s*=\s*"(?P<value>[^"]+)"')
+COMMENT_OR_STRING_PATTERN = re.compile(
+    r"""(?P<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|#[^\n]*""",
+    re.DOTALL,
+)
 REMOTE_PATTERN = re.compile(r'\bremote\s*=\s*"(?P<value>[^"]+)"')
 
 
@@ -81,25 +85,33 @@ def fetch_reference_integration_repository_names(
 
     module_file_contents = read_included_module_files(checkout_path)
     module_names = get_bazel_dep_names_from_contents(module_file_contents.values())
-    git_override_repositories = get_git_override_repositories_by_module(
-        module_file_contents.values(),
-        active_repository_names=active_repository_names,
-        org_name=org_name,
-    )
+    git_override_remotes = {
+        module_name: remote
+        for content in module_file_contents.values()
+        for module_name, remote in _get_git_override_remotes(content).items()
+    }
     registry_repositories = get_bazel_registry_repositories_by_module(
         active_repository_names=active_repository_names,
         registry_repository=registry_repository,
+        org_name=org_name,
     )
 
-    repositories: list[str] = []
+    # GitHub names compare case-insensitively, but the collector keys use API spelling.
+    names_by_casefold = {name.casefold(): name for name in active_repository_names}
+    repositories: set[str] = set()
     for module_name in module_names:
-        repository_name = git_override_repositories.get(module_name)
-        if repository_name is None:
+        if module_name in git_override_remotes:
+            repository_name = parse_github_remote_repository_name(
+                git_override_remotes[module_name], org_name=org_name
+            )
+        else:
             repository_name = registry_repositories.get(module_name)
         if repository_name is not None:
-            repositories.append(repository_name)
+            active_name = names_by_casefold.get(repository_name.casefold())
+            if active_name is not None:
+                repositories.add(active_name)
 
-    return set(dedupe_preserving_order(repositories))
+    return repositories
 
 
 def fetch_reference_integration_pins(
@@ -156,6 +168,7 @@ def parse_known_good_pins(
     if not isinstance(modules, dict):
         return {}
 
+    names_by_casefold = {name.casefold(): name for name in active_repository_names}
     versions: dict[str, KnownGoodPin] = {}
     for group_name, group in modules.items():
         if not isinstance(group, dict):
@@ -165,7 +178,7 @@ def parse_known_good_pins(
                 module,
                 module_name=str(module_name),
                 group_name=str(group_name),
-                active_repository_names=active_repository_names,
+                names_by_casefold=names_by_casefold,
                 org_name=org_name,
             )
             if parsed_pin is not None:
@@ -179,7 +192,7 @@ def _parse_known_good_module(
     *,
     module_name: str,
     group_name: str,
-    active_repository_names: set[str],
+    names_by_casefold: dict[str, str],
     org_name: str,
 ) -> tuple[str, KnownGoodPin] | None:
     if not isinstance(module, dict):
@@ -191,7 +204,10 @@ def _parse_known_good_module(
         repository_url,
         org_name=org_name,
     )
-    if repository_name not in active_repository_names:
+    if repository_name is None:
+        return None
+    active_name = names_by_casefold.get(repository_name.casefold())
+    if active_name is None:
         return None
     raw_version = module.get("version")
     raw_hash = module.get("hash")
@@ -201,7 +217,7 @@ def _parse_known_good_module(
         return None
     raw_branch = module.get("branch")
     branch = raw_branch.strip() if isinstance(raw_branch, str) else ""
-    return repository_name, KnownGoodPin(
+    return active_name, KnownGoodPin(
         module=module_name,
         group=group_name,
         branch=branch or "main",
@@ -378,50 +394,19 @@ def get_bazel_dep_names(text: str | None) -> tuple[str, ...]:
     return dedupe_preserving_order(names)
 
 
-def get_git_override_repositories_by_module(
-    contents: Iterable[str],
-    *,
-    active_repository_names: set[str],
-    org_name: str,
-) -> dict[str, str]:
-    repositories_by_module: dict[str, str] = {}
-    for content in contents:
-        repositories_by_module.update(
-            get_git_override_repositories_from_text(
-                content,
-                active_repository_names=active_repository_names,
-                org_name=org_name,
-            )
-        )
-    return repositories_by_module
-
-
-def get_git_override_repositories_from_text(
-    text: str | None,
-    *,
-    active_repository_names: set[str],
-    org_name: str,
-) -> dict[str, str]:
-    if not text:
-        return {}
-
-    repositories_by_module: dict[str, str] = {}
-    for match in GIT_OVERRIDE_PATTERN.finditer(text):
+def _get_git_override_remotes(text: str) -> dict[str, str]:
+    remotes: dict[str, str] = {}
+    # Strip comments while retaining quoted values such as remote URLs.
+    code = COMMENT_OR_STRING_PATTERN.sub(
+        lambda match: match.group("string") or "", text
+    )
+    for match in GIT_OVERRIDE_PATTERN.finditer(code):
         body = match.group("body")
-        module_name_match = MODULE_NAME_PATTERN.search(body)
-        remote_match = REMOTE_PATTERN.search(body)
-        if module_name_match is None or remote_match is None:
-            continue
-        repository_name = parse_github_remote_repository_name(
-            remote_match.group("value"),
-            org_name=org_name,
-        )
-        if repository_name is None or repository_name not in active_repository_names:
-            continue
-        module_name = module_name_match.group("value").strip()
-        if module_name:
-            repositories_by_module[module_name] = repository_name
-    return repositories_by_module
+        module = MODULE_NAME_PATTERN.search(body)
+        remote = REMOTE_PATTERN.search(body)
+        if module and remote and (module_name := module.group("value").strip()):
+            remotes[module_name] = remote.group("value")
+    return remotes
 
 
 def parse_github_remote_repository_name(
@@ -429,8 +414,10 @@ def parse_github_remote_repository_name(
     *,
     org_name: str,
 ) -> str | None:
+    if remote.startswith("git@github.com:"):
+        remote = f"ssh://git@github.com/{remote.removeprefix('git@github.com:')}"
     parsed = urlsplit(remote)
-    if parsed.netloc != "github.com":
+    if parsed.hostname != "github.com":
         return None
 
     path_parts = [part for part in parsed.path.strip("/").split("/") if part]
@@ -438,7 +425,7 @@ def parse_github_remote_repository_name(
         return None
 
     owner, repository_name = path_parts
-    if owner != org_name:
+    if owner.casefold() != org_name.casefold():
         return None
 
     return repository_name.removesuffix(".git") or None
@@ -448,6 +435,7 @@ def get_bazel_registry_repositories_by_module(
     *,
     active_repository_names: set[str],
     registry_repository: str,
+    org_name: str = "",
 ) -> dict[str, str]:
     if not is_safe_repository_path(registry_repository):
         return {}
@@ -467,6 +455,7 @@ def get_bazel_registry_repositories_by_module(
         metadata_by_repo = parse_bazel_registry_metadata(
             content,
             active_repository_names=active_repository_names,
+            org_name=org_name,
         )
         for repository_name in metadata_by_repo:
             repositories_by_module.setdefault(module_name, repository_name)
