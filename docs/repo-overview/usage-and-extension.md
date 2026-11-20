@@ -83,9 +83,18 @@ override `grouping_levels`, `registry_repo`, or `reference_integration_repo`.
 Use an empty grouping list or an empty repository string to disable the
 corresponding setting for that organization.
 
+The dashboard lists each organization's groups together in the combined view.
+Use the **Organization** selector to scope the tabs and summary to one
+organization. The selected organization can be bookmarked with the tab and
+other filters.
+
 The snapshot and cache distinguish repositories by `owner/repo`. Primary
 organization detail URLs keep their existing `<repo>/index.html` format.
 Additional organizations use `@orgs/<owner>/<repo>/index.html`.
+
+Policy report entries with short repository names use the primary organization
+by default. Set `repository_owner` in `[policy_report]` when those names refer
+to another organization. Entries that include `owner/repo` use their own owner.
 
 ### Tracked Workflows
 

@@ -84,12 +84,10 @@ def repo_name_cell(
     include_description: bool = True,
 ) -> str:
     detail_url = e(entry.detail_path(org_name))
-    is_secondary_org = entry.owner and entry.owner.casefold() != org_name.casefold()
-    name = entry.full_name if is_secondary_org else entry.name
     org_name = entry.owner or org_name
     github_url = f"https://github.com/{org_name}/{entry.name}"
     docs_link_str = docs_url(org_name, entry.name)
-    cell = f'<a href="{detail_url}">{e(name)}</a>'
+    cell = f'<a href="{detail_url}">{e(entry.name)}</a>'
     if bazel_icon and entry.content.is_bazel_repo:
         cell += f" {BAZEL_ICON}"
     cell += (

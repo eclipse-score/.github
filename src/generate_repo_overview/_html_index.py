@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -43,22 +43,57 @@ def render_index_page(
     *,
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
+    policy_report_owner: str = "",
 ) -> str:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
-    categories = group_repos_by_category(repos)
-    repository_categories = {
-        repo.name: category
+    if snapshot.additional_org_names:
+        repos_by_org = {
+            org: [
+                replace(repo, category=f"{org} / {repo.category}")
+                for repo in repos
+                if (repo.owner or snapshot.org_name).casefold() == org.casefold()
+            ]
+            for org in snapshot.organization_names
+        }
+        categories = [
+            group
+            for entries in repos_by_org.values()
+            for group in group_repos_by_category(entries)
+        ]
+    else:
+        repos_by_org = {snapshot.org_name: repos}
+        categories = group_repos_by_category(repos)
+    qualify_policy_repos = bool(snapshot.additional_org_names or policy_report_owner)
+    if policy_report is not None and qualify_policy_repos:
+        report_owner = policy_report_owner or snapshot.org_name
+        policy_report = replace(
+            policy_report,
+            outcomes=tuple(
+                outcome
+                if "/" in outcome.repository
+                else replace(outcome, repository=f"{report_owner}/{outcome.repository}")
+                for outcome in policy_report.outcomes
+            ),
+        )
+    policy_repo_keys = {
+        key: (repo, category)
         for category, category_repos in categories
         for repo in category_repos
-        if not repo.owner or repo.owner.casefold() == snapshot.org_name.casefold()
+        for key in (
+            f"{repo.owner or snapshot.org_name}/{repo.name}".casefold(),
+            repo.name.casefold(),
+        )
+        if "/" in key or not qualify_policy_repos
+    }
+    repository_categories = {
+        key: category for key, (_, category) in policy_repo_keys.items()
     }
     repository_filters = {
-        repo.name: (
+        key: (
             repo.content.referenced_by_reference_integration,
             uses_docs_as_code(repo),
         )
-        for repo in repos
-        if not repo.owner or repo.owner.casefold() == snapshot.org_name.casefold()
+        for key, (repo, _) in policy_repo_keys.items()
     }
     return (
         "<!DOCTYPE html>\n"
@@ -68,7 +103,7 @@ def render_index_page(
         f"  <title>Cross-Repo Metrics — {e(', '.join(snapshot.organization_names))}</title>\n"
         f"  <style>{CSS}</style>\n"
         "</head>\n<body>\n"
-        + _render_header(snapshot, repos)
+        + _render_header(snapshot, repos, repos_by_org)
         + _render_tab_bar(show_workflows=bool(snapshot.workflow_signals))
         + _render_filters_placeholder()
         + _render_version_view_toggle()
@@ -78,7 +113,10 @@ def render_index_page(
         + _render_workflow_sections(categories, snapshot)
         + _render_automation_sections(categories, snapshot)
         + _render_naming_sections(categories, snapshot)
-        + _render_traceability_section(repos, snapshot)
+        + "".join(
+            _render_traceability_section(entries, snapshot, org)
+            for org, entries in repos_by_org.items()
+        )
         + render_policy_sync_section(
             policy_report,
             repository_categories=repository_categories,
@@ -86,35 +124,72 @@ def render_index_page(
             raw_json_available=raw_json_available or policy_report is not None,
             raw_json_filename=raw_json_filename,
         )
+        + '<p id="no-matching-repos" class="hidden" role="status">No repositories match this view.</p>\n'
         + "</div>\n"
         + _render_footer(snapshot)
-        + _render_script(categories)
+        + _render_script()
         + "</body>\n</html>\n"
     )
 
 
-def _render_header(snapshot: RepoSnapshot, repos: list[RepoEntry]) -> str:
-    total = len(repos)
+def _render_header(
+    snapshot: RepoSnapshot,
+    repos: list[RepoEntry],
+    repos_by_org: dict[str, list[RepoEntry]],
+) -> str:
+    organization_filter = ""
+    organization_summaries = ""
+    if snapshot.additional_org_names:
+        options = "".join(
+            f'<option value="{e(org)}">{e(org)} ({len(entries)})</option>'
+            for org, entries in repos_by_org.items()
+        )
+        organization_filter = (
+            '<label class="filter-select" for="organization-filter">'
+            'Organization <select id="organization-filter" '
+            f'data-primary-org="{e(snapshot.org_name)}">'
+            f'<option value="">All organizations ({len(repos)})</option>{options}'
+            "</select></label>"
+        )
+        organization_summaries = "".join(
+            _render_header_summary(entries, org=org)
+            for org, entries in repos_by_org.items()
+        )
+    return (
+        "<header>\n"
+        '  <div class="dashboard-heading">\n'
+        "    <h1>Cross-Repo Metrics Report</h1>\n"
+        f"    {organization_filter}\n"
+        "  </div>\n"
+        f'  <p class="subtitle">Generated {e(snapshot.generated_at)}</p>\n'
+        + _render_header_summary(repos)
+        + organization_summaries
+        + "</header>\n\n"
+    )
+
+
+def _render_header_summary(repos: list[RepoEntry], *, org: str = "") -> str:
     with_ci = sum(r.content.has_ci for r in repos)
     with_releases = sum(has_latest_release(r) for r in repos)
     with_lint = sum(r.content.has_lint_config for r in repos)
     bazel_repos = sum(r.content.is_bazel_repo for r in repos)
-
     lang_chips = _render_language_distribution(repos)
-
+    hidden = " hidden" if org else ""
     return (
-        "<header>\n"
-        "  <h1>Cross-Repo Metrics Report</h1>\n"
-        f'  <p class="subtitle">Generated {e(snapshot.generated_at)}</p>\n'
-        '  <div id="summary">\n'
-        f'    <span class="summary-chip"><span class="dot" style="background:var(--accent)"></span>{total} repositories</span>\n'
+        f'  <div data-summary-org="{e(org)}"{hidden}>\n'
+        '  <div class="dashboard-summary">\n'
+        f'    <span class="summary-chip"><span class="dot" style="background:var(--accent)"></span>{len(repos)} repositories</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--green)"></span>{with_ci} with CI</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--yellow)"></span>{with_releases} with releases</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--orange)"></span>{bazel_repos} Bazel repos</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--muted)"></span>{with_lint} with lint config</span>\n'
         "  </div>\n"
-        + (f'  <div id="lang-summary">{lang_chips}</div>\n' if lang_chips else "")
-        + "</header>\n\n"
+        + (
+            f'  <div class="language-summary">{lang_chips}</div>\n'
+            if lang_chips
+            else ""
+        )
+        + "  </div>\n"
     )
 
 
@@ -1229,8 +1304,14 @@ def _format_type_name(key: str) -> str:
 def _render_traceability_section(
     repos: list[RepoEntry],
     snapshot: RepoSnapshot,
+    owner: str,
 ) -> str:
     org_name = snapshot.org_name
+    title = (
+        f"{owner} / Requirement Traceability"
+        if snapshot.additional_org_names
+        else "Requirement Traceability"
+    )
     dep_repos = [r for r in repos if is_tracked_dep_repo(r, snapshot.tracked_deps)]
     if not dep_repos:
         return ""
@@ -1246,7 +1327,7 @@ def _render_traceability_section(
         name_cell = repo_name_cell(r, org_name, bazel_icon=False)
         if not r.traceability:
             row_parts.append(
-                f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.full_name)}">'
                 f"<td>{name_cell}</td>"
                 f'<td class="text-right" colspan="6">'
                 f'<span class="text-muted">— not available</span></td>'
@@ -1284,12 +1365,12 @@ def _render_traceability_section(
             if ti == 0:
                 rowspan = f' rowspan="{len(types)}"' if len(types) > 1 else ""
                 row_parts.append(
-                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.full_name)}">'
                     f"<td{rowspan}>{name_cell}</td>{cells}</tr>"
                 )
             else:
                 row_parts.append(
-                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.full_name)}">'
                     f"{cells}</tr>"
                 )
 
@@ -1304,10 +1385,10 @@ def _render_traceability_section(
     return (
         f'<div class="section hidden" data-tab="traceability">\n'
         f'  <div class="section-header">\n'
-        f'    <span class="section-title">Requirement Traceability</span>\n'
+        f'    <span class="section-title">{e(title)}</span>\n'
         f'    <span class="section-count">{len(dep_repos)}</span>\n'
         f"  </div>\n"
-        f'  <div id="trace-summary">\n'
+        f'  <div class="trace-summary">\n'
         f'    <div class="stat-grid">\n'
         f'      <div class="stat-card"><div class="stat-value">{loaded_count} / {len(dep_repos)}</div><div class="stat-label">Repos Reporting</div></div>\n'
         f'      <div class="stat-card"><div class="stat-value">{total_reqs}</div><div class="stat-label">Total Requirements</div></div>\n'
@@ -1345,12 +1426,5 @@ def _render_footer(snapshot: RepoSnapshot) -> str:
     )
 
 
-def _render_script(
-    categories: list[tuple[str, list[RepoEntry]]],
-) -> str:
-    cat_names = json.dumps(["all"] + [c for c, _ in categories])
-    return (
-        f"<script>\nconst categories = {cat_names};\n"
-        f"</script>\n"
-        f"<script>\n{_INDEX_JS}</script>\n"
-    )
+def _render_script() -> str:
+    return f"<script>\n{_INDEX_JS}</script>\n"

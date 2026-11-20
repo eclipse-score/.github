@@ -23,6 +23,7 @@ class PolicyReportConfig:
     artifact: str = ""
     filename: str = DEFAULT_POLICY_REPORT_FILENAME
     cache_path: Path = DEFAULT_POLICY_REPORT_CACHE
+    repository_owner: str = ""
 
     @property
     def enabled(self) -> bool:
@@ -368,6 +369,7 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
     allowed = {
         "source_repo",
         "source_repository",
+        "repository_owner",
         "workflow",
         "workflow_file",
         "artifact",
@@ -419,6 +421,15 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
         default=str(DEFAULT_POLICY_REPORT_CACHE),
         label="cache path",
     )
+    repository_owner = _policy_report_alias_string(
+        value, ("repository_owner",), default="", label="repository owner"
+    )
+    if repository_owner and not re.fullmatch(
+        r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*", repository_owner
+    ):
+        raise ValueError(
+            "policy_report.repository_owner must be a GitHub organization name."
+        )
     configured_core = any((source_repo, workflow, artifact))
     if configured_core and not all((source_repo, workflow, artifact)):
         raise ValueError(
@@ -458,6 +469,7 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
         artifact=artifact,
         filename=filename,
         cache_path=cache_path,
+        repository_owner=repository_owner,
     )
 
 

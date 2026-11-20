@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -113,6 +114,11 @@ reference_integration_repo = ""
     assert config.collection_configs()[1].repo_matches_filter("secondary-tool")
 
     pages = render_all_pages(snapshot)
+    assert '<option value="">All organizations (2)</option>' in pages["index.html"]
+    assert '<option value="first-org">first-org (1)</option>' in pages["index.html"]
+    assert '<option value="second-org">second-org (1)</option>' in pages["index.html"]
+    assert 'data-category="first-org / Infrastructure"' in pages["index.html"]
+    assert 'data-category="second-org / Infrastructure"' in pages["index.html"]
     assert 'href="shared/index.html"' in pages["index.html"]
     assert 'href="@orgs/second-org/shared/index.html"' in pages["index.html"]
     assert 'data-repo-filter="first-org/shared"' in pages["index.html"]
@@ -190,7 +196,43 @@ def test_render_details_reserves_secondary_org_namespace(
         ),
     )
     collector.write_snapshot(snapshot, Path("snapshot.json"))
-    Path("org.toml").write_text('org_name = "first-org"\n', encoding="utf-8")
+    Path("org.toml").write_text(
+        """
+org_name = "first-org"
+[organizations.second-org]
+
+[policy_report]
+source_repo = "first-org/report-generator"
+workflow = "policy.yml"
+artifact = "report"
+cache_path = "policy.json"
+repository_owner = "second-org"
+""",
+        encoding="utf-8",
+    )
+    Path("policy.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "summary": {},
+                "outcomes": [
+                    {
+                        "policy_id": "lint",
+                        "repository": "second-org",
+                        "applicable": "yes",
+                        "status": "compliant",
+                    },
+                    {
+                        "policy_id": "format",
+                        "repository": "Second-Org/Second-Org",
+                        "applicable": "yes",
+                        "status": "changes-required",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     assert (
         cli.main(
@@ -210,6 +252,23 @@ def test_render_details_reserves_secondary_org_namespace(
     assert (site / "second-org/index.html").is_file()
     assert (site / "@orgs/second-org/index.html/index.html").is_file()
     assert (site / "@orgs/second-org/second-org/index.html").is_file()
+    html = (site / "index.html").read_text()
+    policy_markup = html.split('<div class="section hidden" data-tab="policy-sync"', 1)[
+        1
+    ]
+    assert (
+        'data-repo-filter="second-org/second-org" data-repository-category="second-org / Secondary"'
+        in policy_markup
+    )
+    assert 'data-repo-filter="first-org/second-org"' not in policy_markup
+    policy_rows = [
+        row
+        for row in policy_markup.split("</tr>")
+        if 'data-repo-filter="second-org/second-org"' in row.lower()
+    ]
+    assert len(policy_rows) == 1
+    assert "policy-status compliant" in policy_rows[0]
+    assert "policy-status changes-required" in policy_rows[0]
 
 
 def test_schema_30_single_org_snapshot_can_be_read_and_written_as_schema_31() -> None:

@@ -27,7 +27,7 @@ def render_policy_sync_section(
     if report is None:
         raw_link = _raw_json_link(raw_json_filename) if raw_json_available else ""
         return (
-            '<div class="section hidden" data-tab="policy-sync">\n'
+            '<div class="section hidden" data-tab="policy-sync" data-policy-summary>\n'
             '  <div class="section-header"><span class="section-title">Policy Sync</span></div>\n'
             '  <div class="policy-sync-unavailable">\n'
             "    <strong>Policy Sync report unavailable.</strong>\n"
@@ -38,18 +38,19 @@ def render_policy_sync_section(
         )
 
     policies = list(dict.fromkeys(outcome.policy_id for outcome in report.outcomes))
-    repositories = list(
-        dict.fromkeys(outcome.repository for outcome in report.outcomes)
-    )
-    by_pair = {
-        (outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes
-    }
+    repository_labels: dict[str, str] = {}
+    by_pair: dict[tuple[str, str], PolicySyncOutcome] = {}
+    for outcome in report.outcomes:
+        identity = outcome.repository.casefold()
+        repository_labels.setdefault(identity, outcome.repository)
+        by_pair[(identity, outcome.policy_id)] = outcome
+    repositories = list(repository_labels.values())
     policy_definitions = {policy.id: policy for policy in report.policies}
     raw_link = _raw_json_link(raw_json_filename)
     summary = report.summary
     pull_request_states = _pull_request_state_counts(report.outcomes)
     summary_section = (
-        '<div class="section hidden" data-tab="policy-sync">\n'
+        '<div class="section hidden" data-tab="policy-sync" data-policy-summary>\n'
         '  <div class="section-header">\n'
         '    <span class="section-title">Policy Sync</span>\n'
         "  </div>\n"
@@ -120,7 +121,7 @@ def _group_policy_repositories(
     grouped: dict[str, list[str]] = {}
     ungrouped: list[str] = []
     for repository in repositories:
-        category = repository_categories.get(repository)
+        category = repository_categories.get(repository.casefold())
         if category is None:
             ungrouped.append(repository)
         else:
@@ -237,10 +238,11 @@ def _matrix_row(
     repository_filters: Mapping[str, tuple[bool, bool]] | None,
     category: str | None,
 ) -> str:
+    identity = repository.casefold()
     cells = "".join(
-        _matrix_cell_html(by_pair.get((repository, policy))) for policy in policies
+        _matrix_cell_html(by_pair.get((identity, policy))) for policy in policies
     )
-    included, docs_as_code = (repository_filters or {}).get(repository, (False, False))
+    included, docs_as_code = (repository_filters or {}).get(identity, (False, False))
     integration_value = "included" if included else "excluded"
     docs_value = "yes" if docs_as_code else "no"
     return (

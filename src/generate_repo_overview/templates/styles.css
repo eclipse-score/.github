@@ -27,10 +27,11 @@ header {
   max-width: 1400px;
   margin: 0 auto 2rem;
 }
+.dashboard-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.6rem 1rem; }
 h1 { font-size: 1.6rem; font-weight: 600; color: #e6edf3; }
 .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.3rem; }
 
-#summary {
+.dashboard-summary {
   display: flex;
   gap: 1.2rem;
   flex-wrap: wrap;
@@ -49,7 +50,7 @@ h1 { font-size: 1.6rem; font-weight: 600; color: #e6edf3; }
   flex-shrink: 0;
 }
 
-#lang-summary {
+.language-summary {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -187,7 +188,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   border-radius: var(--radius);
   overflow: hidden;
 }
-.section.hidden { display: none; }
+.section.hidden, #no-matching-repos.hidden { display: none; }
 .overview-table { overflow-x: auto; }
 #version-view-toggle {
   max-width: 1400px;
@@ -655,7 +656,7 @@ th[data-tooltip]:focus::after, td[data-tooltip]:focus::after { opacity: 1; }
   border-radius: 2px;
   transition: width 0.4s ease;
 }
-#trace-summary .stat-grid {
+.trace-summary .stat-grid {
   margin: 0 0 1rem;
 }
 
