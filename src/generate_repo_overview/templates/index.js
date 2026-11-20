@@ -199,11 +199,39 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
 // A fixed tooltip stays outside the table's scroll area.
 const tableTooltip = document.createElement('div');
 tableTooltip.id = 'table-tooltip';
-tableTooltip.setAttribute('role', 'tooltip');
+tableTooltip.setAttribute('aria-hidden', 'true');
 tableTooltip.hidden = true;
 document.body.append(tableTooltip);
 
 const sectionsEl = document.getElementById('sections');
+const tooltipCellSelector = 'th[data-tooltip], td[data-tooltip]';
+const tooltipDescriptions = new Map();
+
+// Keep descriptions available before focus lands. Referenced hidden text is
+// available to assistive technology without adding content to the table layout.
+for (const cell of sectionsEl.querySelectorAll(tooltipCellSelector)) {
+  const text = cell.dataset.tooltip;
+  if (!text) continue;
+
+  if (!tooltipDescriptions.has(text)) {
+    const description = document.createElement('span');
+    description.id = `table-tooltip-description-${tooltipDescriptions.size + 1}`;
+    description.textContent = text;
+    description.hidden = true;
+    document.body.append(description);
+    tooltipDescriptions.set(text, description.id);
+  }
+
+  const controls = cell.querySelectorAll('a[href], button:not([disabled])');
+  const focusTargets = controls.length && !cell.hasAttribute('tabindex') ? controls : [cell];
+  if (focusTargets[0] === cell && !cell.hasAttribute('tabindex')) cell.tabIndex = 0;
+  for (const target of focusTargets) {
+    const descriptions = target.getAttribute('aria-describedby');
+    const tooltipId = tooltipDescriptions.get(text);
+    target.setAttribute('aria-describedby', descriptions ? `${descriptions} ${tooltipId}` : tooltipId);
+  }
+}
+
 let tooltipCell = null;
 function hideTableTooltip() {
   tableTooltip.hidden = true;
@@ -211,8 +239,8 @@ function hideTableTooltip() {
 }
 
 function showTableTooltip(event) {
-  const cell = event.target.closest('th[data-tooltip], td[data-tooltip]');
-  if (!cell || cell === tooltipCell) return;
+  const cell = event.target.closest(tooltipCellSelector);
+  if (!cell?.dataset.tooltip || cell === tooltipCell) return;
 
   tooltipCell = cell;
   tableTooltip.textContent = cell.dataset.tooltip;
@@ -242,6 +270,9 @@ sectionsEl.addEventListener('pointerover', showTableTooltip);
 sectionsEl.addEventListener('pointerout', leaveTooltipCell);
 sectionsEl.addEventListener('focusin', showTableTooltip);
 sectionsEl.addEventListener('focusout', leaveTooltipCell);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') hideTableTooltip();
+});
 window.addEventListener('scroll', hideTableTooltip, {capture: true, passive: true});
 window.addEventListener('resize', hideTableTooltip);
 window.addEventListener('hashchange', hideTableTooltip);
