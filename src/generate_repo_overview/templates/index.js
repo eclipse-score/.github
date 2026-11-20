@@ -223,8 +223,8 @@ for (const cell of sectionsEl.querySelectorAll(tooltipCellSelector)) {
   }
 
   const controls = cell.querySelectorAll('a[href], button:not([disabled])');
-  const focusTargets = controls.length && !cell.hasAttribute('tabindex') ? controls : [cell];
-  if (focusTargets[0] === cell && !cell.hasAttribute('tabindex')) cell.tabIndex = 0;
+  if (!controls.length && !cell.hasAttribute('tabindex')) cell.tabIndex = 0;
+  const focusTargets = cell.hasAttribute('tabindex') ? [cell, ...controls] : controls;
   for (const target of focusTargets) {
     const descriptions = target.getAttribute('aria-describedby');
     const tooltipId = tooltipDescriptions.get(text);
