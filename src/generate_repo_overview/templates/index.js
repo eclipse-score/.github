@@ -194,3 +194,12 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
     rows.forEach(r => tbody.appendChild(r));
   });
 });
+
+
+// Keep the native title in browsers that cannot position the styled tooltip.
+if (CSS.supports('(position-anchor: --table-tooltip) and (left: anchor(center)) and (position-try-fallbacks: flip-block)')) {
+  document.querySelectorAll('#sections :is(th, td)[title]').forEach(cell => {
+    cell.dataset.tooltip = cell.title;
+    cell.removeAttribute('title');
+  });
+}
