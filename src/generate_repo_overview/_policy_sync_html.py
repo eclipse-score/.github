@@ -197,9 +197,7 @@ def _policy_header(
     description = definition.description if definition else ""
     if not description:
         return f"<th>{e(policy)}</th>"
-    return (
-        f'<th data-tooltip="{e(description)}" title="{e(description)}">{e(policy)}</th>'
-    )
+    return f'<th title="{e(description)}">{e(policy)}</th>'
 
 
 def _policy_stat(value: int, label: str, status_class: str, marker: str) -> str:
@@ -256,7 +254,7 @@ def _matrix_cell_html(outcome: PolicySyncOutcome | None) -> str:
         return '<td><span class="policy-status not-applicable" aria-label="Not applicable">N/A</span></td>'
     tooltip = _outcome_tooltip(outcome)
     return (
-        f'<td class="policy-matrix-cell" data-tooltip="{e(tooltip)}" '
+        f'<td class="policy-matrix-cell" '
         f'title="{e(tooltip)}" tabindex="0">{_matrix_cell(outcome)}</td>'
     )
 

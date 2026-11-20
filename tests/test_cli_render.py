@@ -358,7 +358,7 @@ def test_render_details_naming_tab_includes_all_bazel_repositories(
     ) in content
     assert '<code class="mono">docs/features</code>' not in content
     assert 'class="name-match exact"' in content
-    assert 'data-tooltip="Bazel repository name.' in content
+    assert 'title="Bazel repository name.' in content
     naming_content = content.split(
         '<div class="section naming-section hidden" data-tab="naming"',
         maxsplit=1,
@@ -373,7 +373,13 @@ def test_render_details_naming_tab_includes_all_bazel_repositories(
     assert naming_content.count('data-tab="naming"') == 2
     assert naming_content.count('<table class="naming-table">') == 3
     assert naming_content.count("<th ") == 24
-    assert naming_content.count("data-tooltip=") == 24
+    assert (
+        sum(
+            "<th " in line and ' title="' in line
+            for line in naming_content.splitlines()
+        )
+        == 24
+    )
     assert 'data-category="Infrastructure"' in naming_content
     assert "tools" in naming_content
     assert "Platform-only Feature" not in naming_content

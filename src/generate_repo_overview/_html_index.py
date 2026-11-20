@@ -186,8 +186,8 @@ def _render_overview_sections(
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="merged" class="text-right" title="Number of pull requests merged into the main branch in the last 30 days. A higher number means more active development.">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="issues" class="text-right" data-tooltip="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="issues" class="text-right" title="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="prs" class="text-right" title="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="renovate-prs" class="text-right" title="Open pull requests from Renovate, including drafts.">Renovate PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="dependabot-prs" class="text-right" title="Open pull requests from Dependabot, including drafts. A green 0 means there are no open PRs and a Dependabot configuration file was found on the default branch. Not configured means there are no open PRs and no configuration file was found.">Dependabot PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
@@ -255,13 +255,13 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
         f'    <tr{filter_attrs} data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
-        f'      <td class="text-right" data-sort-value="{entry.volatile.open_issues}" data-tooltip="{e(issues_tip)}">{issues_cell}</td>\n'
-        f'      <td class="text-right" data-sort-value="{total_prs}" data-tooltip="{e(prs_tip)}">{prs_cell}</td>\n'
+        f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" title="{e(merged_tip)}">{merged}</td>\n'
+        f'      <td class="text-right" data-sort-value="{entry.volatile.open_issues}" title="{e(issues_tip)}">{issues_cell}</td>\n'
+        f'      <td class="text-right" data-sort-value="{total_prs}" title="{e(prs_tip)}">{prs_cell}</td>\n'
         f"{_render_dependency_pr_count(entry.volatile.open_renovate_prs)}"
         f"{_render_dependency_pr_count(entry.volatile.open_dependabot_prs, configured=entry.content.has_dependabot_config)}"
-        f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
-        f'      <td class="text-right" data-tooltip="{e(stars_tip)}">{stars_forks}</td>\n'
+        f'      <td title="{e(release_tip)}">{release}</td>\n'
+        f'      <td class="text-right" title="{e(stars_tip)}">{stars_forks}</td>\n'
         f"    </tr>"
     )
 
@@ -733,7 +733,7 @@ def _versions_row(
             component_name=dep_label,
             last_release_tag=entry.volatile.latest_release_version,
         )
-        dep_cells.append(f'      <td data-tooltip="{e(tip)}">{cell}</td>\n')
+        dep_cells.append(f'      <td title="{e(tip)}">{cell}</td>\n')
 
     git_refs = _render_git_refs(entry, org_name)
 
@@ -751,10 +751,10 @@ def _versions_row(
     return (
         f"    <tr{filter_attrs}>\n"
         f"      <td>{name_cell}</td>\n"
-        f'      <td data-tooltip="{e(bazel_tip)}">{bazel_cell}</td>\n'
+        f'      <td title="{e(bazel_tip)}">{bazel_cell}</td>\n'
         + "".join(dep_cells)
         + f'      <td data-sort-value="{e(entry.volatile.latest_release_version or "")}">{git_refs}</td>\n'
-        f'      <td data-tooltip="{e(dep_changes_tip)}">{dep_changes_cell}</td>\n'
+        f'      <td title="{e(dep_changes_tip)}">{dep_changes_cell}</td>\n'
         f"    </tr>"
     )
 
@@ -909,14 +909,14 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
     return (
         f"    <tr{filter_attrs}>\n"
         f"      <td>{name_cell}</td>\n"
-        f'      <td data-tooltip="{e(lang_tip)}">{lang_cell}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(lockfile_tip)}">{lockfile_cell}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["ci"])}">{_presence(c.has_ci, "⚙️")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
+        f'      <td title="{e(lang_tip)}">{lang_cell}</td>\n'
+        f'      <td class="text-center" title="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
+        f'      <td class="text-center" title="{e(lockfile_tip)}">{lockfile_cell}</td>\n'
+        f'      <td class="text-center" title="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["ci"])}">{_presence(c.has_ci, "⚙️")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
         f"    </tr>"
     )
 
@@ -1073,7 +1073,7 @@ def _module_header(
     class_attr = ' class="text-center"' if center else ""
     return (
         f'      <th data-sort="{e(sort_key)}"{class_attr} '
-        f'data-tooltip="{e(tooltip)}">{e(label)} '
+        f'title="{e(tooltip)}">{e(label)} '
         f'<span class="sort-arrow"></span></th>\n'
     )
 
