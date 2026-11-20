@@ -361,7 +361,7 @@ class RepoEntry:
             raise ValueError(f"Invalid repository name in snapshot: {self.full_name!r}")
 
     def detail_path(self, primary_org: str) -> str:
-        self.validate_path_segments()
+        self.validate_path_segments(primary_org)
         if self.owner and self.owner.casefold() != primary_org.casefold():
             # The @ prefix reserves a namespace outside the GitHub repository name alphabet.
             return f"@orgs/{self.full_name}/index.html"

@@ -19,16 +19,21 @@ from generate_repo_overview.profile_readme import render_repo_row
 
 
 @pytest.mark.parametrize(
-    ("owner", "name"), [("invalid owner", "tools"), ("first-org", "invalid name")]
+    ("primary_org", "owner", "name"),
+    [
+        ("primary-org", "invalid owner", "tools"),
+        ("primary-org", "first-org", "invalid name"),
+        ("invalid primary", "", "tools"),
+    ],
 )
 def test_render_details_rejects_invalid_snapshot_path_segments(
-    tmp_path: Path, owner: str, name: str
+    tmp_path: Path, primary_org: str, owner: str, name: str
 ) -> None:
     path = tmp_path / "snapshot.json"
     collector.write_snapshot(
         RepoSnapshot(
             schema_version=SNAPSHOT_SCHEMA_VERSION,
-            org_name="primary-org",
+            org_name=primary_org,
             generated_at="2026-01-01T00:00:00+00:00",
             repos=(
                 RepoEntry(
