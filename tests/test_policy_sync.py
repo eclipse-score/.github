@@ -431,14 +431,11 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert 'class="policy-pr-badge policy-pr-open"' in page
     assert ">Open</a>" in page
     assert (
-        '<span class="policy-status changes-required" title="Changes required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"'
+        '<span class="policy-status changes-required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"'
         not in page
     )
     assert ".policy-pr-open { color: var(--orange);" in page
-    assert (
-        'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>'
-        in page
-    )
+    assert 'aria-label="Compliant (automated PR)">✓✓</span>' in page
     assert "Status: Compliant\nApplicable:" not in page
     assert "Automated policy PR (merged):" in page
     assert "Automated policy PR (closed):" in page
@@ -468,10 +465,7 @@ def test_policy_sync_error_outcomes_render_red_x() -> None:
         '<span class="policy-status error" aria-label="Evaluation Errors">X</span>'
         in page
     )
-    assert (
-        '<span class="policy-status error" title="Error" aria-label="Error">X</span>'
-        in page
-    )
+    assert '<span class="policy-status error" aria-label="Error">X</span>' in page
     assert ".policy-status.error { color: var(--red);" in page
 
 

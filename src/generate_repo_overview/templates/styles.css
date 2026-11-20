@@ -614,8 +614,10 @@ footer {
 th[title], td[title], th[data-tooltip], td[data-tooltip] { cursor: help; }
 
 /* Fixed positioning keeps the tooltip outside the table's scroll area. */
-#sections [data-tooltip]:hover { anchor-name: --table-tooltip; }
-#sections [data-tooltip]:hover::after {
+#sections [data-tooltip]:hover,
+#sections:not(:has([data-tooltip]:hover)) .policy-matrix-cell[data-tooltip]:is(:focus-visible, :has(:focus-visible)) { anchor-name: --table-tooltip; }
+#sections [data-tooltip]:hover::after,
+#sections:not(:has([data-tooltip]:hover)) .policy-matrix-cell[data-tooltip]:is(:focus-visible, :has(:focus-visible))::after {
   --tooltip-width: min(28rem, calc(100vw - 1rem));
   content: attr(data-tooltip);
   position: fixed;

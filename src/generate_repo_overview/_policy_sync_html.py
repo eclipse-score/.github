@@ -272,7 +272,7 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
         if link:
             return _policy_pr_badge(outcome.policy_pr_status, href=link)
     content = (
-        f'<span class="policy-status {status_class}" title="{e(label)}" '
+        f'<span class="policy-status {status_class}" '
         f'aria-label="{e(label)}">{marker}</span>'
     )
     if outcome.pull_request_url and not automated:
@@ -307,7 +307,6 @@ def _policy_pr_badge(state: str | None, *, href: str | None = None) -> str:
     return (
         f'<a href="{href}" class="policy-pr-badge policy-pr-{state_class}" '
         f'aria-label="{e(label)} policy pull request" '
-        f'title="View {e(label)} policy pull request" '
         f'target="_blank" rel="noopener">{badge_content}</a>'
     )
 
