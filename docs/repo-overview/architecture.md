@@ -41,6 +41,7 @@ The shared model lives in `models.py`.
   - normalized repositories
   - tracked Bazel dependency definitions
   - workflow signal definitions
+  - Bazel module-to-repository mapping and resolved dependency pins
 
 The snapshot is renderer-agnostic. It stores neutral booleans and strings
 rather than Markdown- or HTML-specific values.
@@ -51,6 +52,10 @@ rather than Markdown- or HTML-specific values.
 - `collector/repo_entry.py` selects the cached, metrics-only, or deep
   per-repository collection path.
 - `collector/signal_detection.py` derives repository-local content signals.
+- `collector/bazel_modules.py` parses `bazel_dep` declarations, their
+  overrides, and included module files.
+- `collector/dependency_resolution.py` maps modules to collected repositories
+  and compares dependency pins on local history clones.
 - `collector/platform_docs.py` discovers and associates platform Sphinx
   declarations after repository collection.
 - `collector/git_checkout.py` delegates checkout synchronization to the shared
@@ -70,7 +75,7 @@ The collector deliberately uses both transports:
   release metadata, and language statistics
 - Git: default-branch identity, repository trees, configuration contents,
   release `MODULE.bazel`/`.bazelversion`, platform documentation, registry
-  metadata, and reference-integration metadata
+  metadata, reference-integration metadata, and dependency pin comparisons
 
 Content inspection no longer uses GitHub tree or contents endpoints. This
 avoids secondary API throttling as the number of inspected files grows.

@@ -21,9 +21,9 @@ from generate_repo_overview._html_index import render_index_page
 from generate_repo_overview.collector.signal_detection import default_content_signals
 from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
-    DependencyDeclaration,
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    DependencyDeclaration,
     GroupingLevel,
     RegistrySignals,
     RepoEntry,

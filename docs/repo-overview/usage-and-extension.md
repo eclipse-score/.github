@@ -170,3 +170,21 @@ Prefer:
 
 Avoid output-specific markers in the collector. Presentation belongs in the
 renderer.
+
+### Dependency Freshness
+
+Repository detail pages list every Bazel dependency of the default branch and
+the latest release. Each pin shows the version or commit Bazel builds, after
+applying overrides, with two independent badges:
+
+- **Release:** whether the pin contains the dependency's latest release.
+- **Default branch:** how many commits the pin is behind the dependency's
+  default branch, linked to the comparison. A pin with commits that are not on
+  the default branch is marked as diverged.
+
+A **Used by** section lists the collected repositories whose default branch or
+latest release depends on the repository, with the version each one uses.
+Freshness and consumers are only known for repositories in the overview;
+external modules such as `rules_python` show their version only, and pins
+without a matching commit, tag, or branch are marked as unresolved.
+
