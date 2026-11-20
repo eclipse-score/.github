@@ -350,14 +350,18 @@ class RepoEntry:
     def full_name(self) -> str:
         return f"{self.owner}/{self.name}" if self.owner else self.name
 
-    def detail_path(self, primary_org: str) -> str:
+    def validate_path_segments(self, default_owner: str = "") -> None:
         # Snapshots can be loaded from disk. Each name must be a single GitHub path segment.
-        parts = (self.owner, self.name) if self.owner else (self.name,)
+        owner = self.owner or default_owner
+        parts = (owner, self.name) if owner else (self.name,)
         if any(
             part in {".", ".."} or not re.fullmatch(r"[a-zA-Z0-9_.-]+", part)
             for part in parts
         ):
             raise ValueError(f"Invalid repository name in snapshot: {self.full_name!r}")
+
+    def detail_path(self, primary_org: str) -> str:
+        self.validate_path_segments()
         if self.owner and self.owner.casefold() != primary_org.casefold():
             # The @ prefix reserves a namespace outside the GitHub repository name alphabet.
             return f"@orgs/{self.full_name}/index.html"
