@@ -198,18 +198,14 @@ def workflow_ref_badges(
 
 
 def _show_workflow_release_difference(resolution: WorkflowRefResolution) -> bool:
-    if not resolution.latest_release:
+    release = resolution.latest_release
+    if not release or (resolution.ahead_by == 0 and resolution.behind_by == 0):
         return False
     tag = resolution.version_tag
-    if not tag:
-        return True
-    # Workflow-specific and global tags describe separate version series.
-    # A matching tag already identifies the release without a redundant diff.
-    if tag.rpartition("/")[0] != resolution.latest_release.rpartition("/")[0]:
+    # Older snapshots can pair a component tag with the repository's release.
+    if tag and "/" in tag and tag.rpartition("/")[0] != release.rpartition("/")[0]:
         return False
-    return tag != resolution.latest_release and not (
-        resolution.ahead_by == 0 and resolution.behind_by == 0
-    )
+    return tag != release
 
 
 def render_ref_difference(
