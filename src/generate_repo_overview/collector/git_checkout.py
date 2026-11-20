@@ -106,6 +106,13 @@ def list_repository_paths(checkout_path: Path) -> set[str]:
     return {path for path in output.split("\0") if path}
 
 
+def list_repository_paths_at_ref(checkout_path: Path, ref: str) -> set[str]:
+    output = _run_git_for_text(
+        ["git", "-C", str(checkout_path), "ls-tree", "-r", "--name-only", "-z", ref]
+    )
+    return {path for path in (output or "").split("\0") if path}
+
+
 def read_repository_text(checkout_path: Path, path: str) -> str | None:
     try:
         return (checkout_path / path).read_text(encoding="utf-8", errors="replace")

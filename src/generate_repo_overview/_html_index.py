@@ -24,7 +24,12 @@ from .metrics_report import (
     parse_version_key,
     tracked_dep_label,
 )
-from .models import LockfileStatus, is_tracked_dep_repo
+from .models import (
+    LockfileStatus,
+    dependency_versions,
+    is_tracked_dep_repo,
+    lookup_bazel_dep_version,
+)
 from .module_name_matching import NameMatch, classify_repository_name_match
 from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_section
 
@@ -530,8 +535,8 @@ def _render_dep_changes(
             "No release has been published — nothing to compare against.",
         )
 
-    head_deps = dict(entry.content.bazel_deps)
-    release_deps = dict(entry.volatile.release_bazel_deps)
+    head_deps = dependency_versions(entry.content.bazel_deps)
+    release_deps = dependency_versions(entry.volatile.release_bazel_deps)
 
     changes: list[str] = []
     all_names = sorted(set(head_deps) | set(release_deps))
@@ -615,7 +620,6 @@ def _versions_card(
     tracked_deps: tuple[TrackedDep, ...],
     latest_dep_versions: dict[str, str | None],
 ) -> str:
-    from .models import lookup_bazel_dep_version
 
     bazel_cell = version_badge(
         entry.content.bazel_version,
@@ -632,7 +636,7 @@ def _versions_card(
             f"{e(entry.volatile.release_bazel_version)}</span> → {bazel_cell}"
         )
 
-    release_deps = dict(entry.volatile.release_bazel_deps)
+    release_deps = dependency_versions(entry.volatile.release_bazel_deps)
     dependency_cards: list[str] = []
     for dep in tracked_deps:
         dep_label = tracked_dep_label(dep)
@@ -775,7 +779,6 @@ def _versions_row(
     tracked_deps: tuple[TrackedDep, ...],
     latest_dep_versions: dict[str, str | None],
 ) -> str:
-    from .models import lookup_bazel_dep_version
 
     name_cell = repo_name_cell(entry, org_name)
     filter_attrs = _repo_filter_attributes(entry)
@@ -789,7 +792,7 @@ def _versions_row(
             f'<span class="mono text-muted">{e(release_bazel)}</span> → {bazel_cell}'
         )
 
-    release_deps = dict(entry.volatile.release_bazel_deps)
+    release_deps = dependency_versions(entry.volatile.release_bazel_deps)
     dedicated_dep_names = frozenset(dep.module_name for dep in tracked_deps)
 
     dep_cells: list[str] = []

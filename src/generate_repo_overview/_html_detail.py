@@ -14,7 +14,12 @@ from ._html_common import (
     workflow_ref_badges,
 )
 from .metrics_report import tracked_dep_label
-from .models import DEFAULT_CATEGORY, DEFAULT_SUBCATEGORY, LockfileStatus
+from .models import (
+    DEFAULT_CATEGORY,
+    DEFAULT_SUBCATEGORY,
+    LockfileStatus,
+    dependency_versions,
+)
 
 if TYPE_CHECKING:
     from .models import RepoEntry, RepoSnapshot
@@ -166,8 +171,8 @@ def _render_dep_diff_section(entry: RepoEntry) -> str:
     if v.latest_release_version is None:
         return ""
 
-    head_deps = dict(entry.content.bazel_deps)
-    release_deps = dict(v.release_bazel_deps)
+    head_deps = dependency_versions(entry.content.bazel_deps)
+    release_deps = dependency_versions(v.release_bazel_deps)
 
     all_names = sorted(set(head_deps) | set(release_deps))
 

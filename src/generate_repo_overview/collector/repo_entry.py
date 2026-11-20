@@ -25,19 +25,20 @@ from .git_checkout import (
     get_checkout_head_date,
     get_checkout_head_sha,
     list_repository_paths,
+    list_repository_paths_at_ref,
     read_repository_text_at_ref,
     remote_repository_has_refs,
     sync_repository_checkout,
 )
 from .signal_detection import (
     DeepContentPayload,
-    detect_all_bazel_deps,
+    detect_bazel_dependencies,
     detect_bazel_lockfile_ok,
     detect_bazel_version,
     detect_top_languages,
     fetch_repository_tree_paths,
+    fetch_text_file,
     first_non_comment_line,
-    get_all_bazel_dep_versions,
     has_dependabot_config,
     inspect_repository_checkout,
     inspect_repository_content_slow,
@@ -45,6 +46,8 @@ from .signal_detection import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from generate_repo_overview.models import DependencyDeclaration
 
     from .registry_metadata import RegistrySignalsPayload
 
@@ -64,7 +67,7 @@ class LatestReleaseDetails(TypedDict):
     latest_release_ahead_of_default_branch_by: int | None
     default_branch_ahead_of_latest_release_by: int | None
     release_bazel_version: str | None
-    release_bazel_deps: tuple[tuple[str, str], ...]
+    release_bazel_deps: tuple[DependencyDeclaration, ...]
 
 
 class VolatileMetricsPayload(TypedDict):
@@ -82,7 +85,7 @@ class VolatileMetricsPayload(TypedDict):
     latest_release_ahead_of_default_branch_by: int | None
     default_branch_ahead_of_latest_release_by: int | None
     release_bazel_version: str | None
-    release_bazel_deps: tuple[tuple[str, str], ...]
+    release_bazel_deps: tuple[DependencyDeclaration, ...]
 
 
 MERGED_PULL_REQUEST_WINDOW_DAYS = 30
@@ -896,12 +899,9 @@ def get_latest_release_details(
                 ".bazelversion",
             )
         )
-        bazel_deps = get_all_bazel_dep_versions(
-            read_repository_text_at_ref(
-                checkout_path,
-                release_ref,
-                "MODULE.bazel",
-            )
+        bazel_deps = detect_bazel_dependencies(
+            list_repository_paths_at_ref(checkout_path, release_ref),
+            lambda path: read_repository_text_at_ref(checkout_path, release_ref, path),
         )
         return {
             "version": release_tag,
@@ -925,10 +925,9 @@ def get_latest_release_details(
             tree_paths=release_tree,
             ref=release_tag,
         ),
-        "release_bazel_deps": detect_all_bazel_deps(
-            repository,
-            tree_paths=release_tree,
-            ref=release_tag,
+        "release_bazel_deps": detect_bazel_dependencies(
+            release_tree,
+            lambda path: fetch_text_file(repository, path, ref=release_tag),
         ),
     }
 

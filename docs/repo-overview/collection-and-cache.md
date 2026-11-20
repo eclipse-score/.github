@@ -63,6 +63,12 @@ Git supplies repository content and identity:
 - Bazel and Sphinx declarations
 - release `MODULE.bazel` and `.bazelversion`
 
+Bazel dependencies are read from `MODULE.bazel` and every module file it
+includes. Each `bazel_dep` is stored together with the override Bazel applies
+to it, so a `git_override` commit, tag, or branch replaces the declared
+version, and `single_version_override` replaces it with the overriding
+version.
+
 Checkouts are disposable, shallow, single-branch clones. The cache is shared
 with other repository tools such as `score-repo-policy-sync` and
 `score-repo-cache`. Checkout authentication is handled by `gh`; use
@@ -78,7 +84,7 @@ errors.
 
 ## Schema Changes
 
-The loader accepts schema 31 and can read schema 30 snapshots. A schema 30
-repository without an owner belongs to the snapshot's primary organization.
-New snapshots use schema 31 so earlier generators cannot silently flatten a
-multi-organization snapshot. Other versions require a fresh collection.
+The loader accepts only schema 32. Snapshots from other versions are not
+reused, so the next collection inspects every repository again. Schema 32
+stores dependencies with their overrides; reusing older content caches would
+hide those overrides until each repository's default branch changed.

@@ -1,35 +1,19 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
-from urllib.parse import urlsplit
+from typing import Protocol, cast
 
 from repo_cache import default_cache_directory
 
 from generate_repo_overview.console import print_status
+from generate_repo_overview.models import DependencyOverride, parse_github_repository
 from generate_repo_overview.org_config import is_safe_repository_path
 
+from .bazel_modules import parse_dependencies, read_module_files
 from .git_checkout import sync_repository_checkout
 from .registry_metadata import parse_bazel_registry_metadata
-from .signal_detection import dedupe_preserving_order
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable
-
-ROOT_MODULE_PATH = Path("MODULE.bazel")
-INCLUDE_PATTERN = re.compile(r'\binclude\s*\(\s*"(?P<label>[^"]+)"\s*\)')
-BAZEL_DEP_PATTERN = re.compile(r"\bbazel_dep\s*\((?P<body>.*?)\)", re.DOTALL)
-GIT_OVERRIDE_PATTERN = re.compile(r"\bgit_override\s*\((?P<body>.*?)\)", re.DOTALL)
-NAME_PATTERN = re.compile(r'\bname\s*=\s*"(?P<value>[^"]+)"')
-MODULE_NAME_PATTERN = re.compile(r'\bmodule_name\s*=\s*"(?P<value>[^"]+)"')
-COMMENT_OR_STRING_PATTERN = re.compile(
-    r"""(?P<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|#[^\n]*""",
-    re.DOTALL,
-)
-REMOTE_PATTERN = re.compile(r'\bremote\s*=\s*"(?P<value>[^"]+)"')
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,13 +67,11 @@ def fetch_reference_integration_repository_names(
     if checkout_path is None:
         return set()
 
-    module_file_contents = read_included_module_files(checkout_path)
-    module_names = get_bazel_dep_names_from_contents(module_file_contents.values())
-    git_override_remotes = {
-        module_name: remote
-        for content in module_file_contents.values()
-        for module_name, remote in _get_git_override_remotes(content).items()
-    }
+    declarations = parse_dependencies(
+        read_module_files(
+            lambda path: read_checkout_file(checkout_path, Path(path))
+        ).values()
+    )
     registry_repositories = get_bazel_registry_repositories_by_module(
         active_repository_names=active_repository_names,
         registry_repository=registry_repository,
@@ -99,13 +81,13 @@ def fetch_reference_integration_repository_names(
     # GitHub names compare case-insensitively, but the collector keys use API spelling.
     names_by_casefold = {name.casefold(): name for name in active_repository_names}
     repositories: set[str] = set()
-    for module_name in module_names:
-        if module_name in git_override_remotes:
+    for declaration in declarations:
+        if declaration.override is DependencyOverride.GIT and declaration.remote:
             repository_name = parse_github_remote_repository_name(
-                git_override_remotes[module_name], org_name=org_name
+                declaration.remote, org_name=org_name
             )
         else:
-            repository_name = registry_repositories.get(module_name)
+            repository_name = registry_repositories.get(declaration.module)
         if repository_name is not None:
             active_name = names_by_casefold.get(repository_name.casefold())
             if active_name is not None:
@@ -301,34 +283,6 @@ def _repository_label(repository: object) -> str:
     return "<unknown>"
 
 
-def read_included_module_files(checkout_path: Path) -> dict[Path, str]:
-    pending = [ROOT_MODULE_PATH]
-    seen: set[Path] = set()
-    contents: dict[Path, str] = {}
-
-    while pending:
-        relative_path = pending.pop()
-        if relative_path in seen:
-            continue
-        seen.add(relative_path)
-
-        content = read_checkout_file(checkout_path, relative_path)
-        if content is None:
-            continue
-        contents[relative_path] = content
-
-        for include_label in get_include_labels(content):
-            included_path = resolve_include_label(
-                include_label,
-                current_file=relative_path,
-                checkout_path=checkout_path,
-            )
-            if included_path is not None and included_path not in seen:
-                pending.append(included_path)
-
-    return contents
-
-
 def read_checkout_file(checkout_path: Path, relative_path: Path) -> str | None:
     try:
         path = safe_checkout_path(checkout_path, relative_path)
@@ -347,88 +301,16 @@ def safe_checkout_path(checkout_path: Path, relative_path: Path) -> Path:
     return candidate
 
 
-def get_include_labels(text: str) -> tuple[str, ...]:
-    return tuple(match.group("label") for match in INCLUDE_PATTERN.finditer(text))
-
-
-def resolve_include_label(
-    label: str,
-    *,
-    current_file: Path,
-    checkout_path: Path,
-) -> Path | None:
-    if label.startswith("//"):
-        label_path = label.removeprefix("//")
-        package, separator, target = label_path.partition(":")
-        if not separator or not target:
-            return None
-        relative_path = Path(package) / target
-    elif label.startswith(":"):
-        relative_path = current_file.parent / label.removeprefix(":")
-    else:
-        relative_path = current_file.parent / label
-
-    try:
-        safe_checkout_path(checkout_path, relative_path)
-    except ValueError:
-        return None
-    return relative_path
-
-
-def get_bazel_dep_names_from_contents(contents: Iterable[str]) -> tuple[str, ...]:
-    names: list[str] = []
-    for content in contents:
-        names.extend(get_bazel_dep_names(content))
-    return dedupe_preserving_order(names)
-
-
-def get_bazel_dep_names(text: str | None) -> tuple[str, ...]:
-    if not text:
-        return ()
-
-    names: list[str] = []
-    for match in BAZEL_DEP_PATTERN.finditer(text):
-        name_match = NAME_PATTERN.search(match.group("body"))
-        if name_match is not None:
-            names.append(name_match.group("value").strip())
-    return dedupe_preserving_order(names)
-
-
-def _get_git_override_remotes(text: str) -> dict[str, str]:
-    remotes: dict[str, str] = {}
-    # Strip comments while retaining quoted values such as remote URLs.
-    code = COMMENT_OR_STRING_PATTERN.sub(
-        lambda match: match.group("string") or "", text
-    )
-    for match in GIT_OVERRIDE_PATTERN.finditer(code):
-        body = match.group("body")
-        module = MODULE_NAME_PATTERN.search(body)
-        remote = REMOTE_PATTERN.search(body)
-        if module and remote and (module_name := module.group("value").strip()):
-            remotes[module_name] = remote.group("value")
-    return remotes
-
-
 def parse_github_remote_repository_name(
     remote: str,
     *,
     org_name: str,
 ) -> str | None:
-    if remote.startswith("git@github.com:"):
-        remote = f"ssh://git@github.com/{remote.removeprefix('git@github.com:')}"
-    parsed = urlsplit(remote)
-    if parsed.hostname != "github.com":
+    repository = parse_github_repository(remote)
+    if repository is None:
         return None
-
-    path_parts = [part for part in parsed.path.strip("/").split("/") if part]
-    if len(path_parts) != 2:
-        return None
-
-    owner, repository_name = path_parts
-    if owner.casefold() != org_name.casefold():
-        return None
-
-    return repository_name.removesuffix(".git") or None
+    owner, name = repository.split("/")
+    return name if owner.casefold() == org_name.casefold() else None
 
 
 def get_bazel_registry_repositories_by_module(

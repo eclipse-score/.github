@@ -5,6 +5,7 @@ from generate_repo_overview.collector import write_snapshot
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    DependencyDeclaration,
     RepoEntry,
     RepoSnapshot,
     SphinxItem,
@@ -256,7 +257,7 @@ def _make_snapshot_with_dac() -> RepoSnapshot:
                 category="Components",
                 subcategory="General",
                 content=DeepContentSignals(
-                    bazel_deps=(("score_docs_as_code", "4.0.1"),),
+                    bazel_deps=(DependencyDeclaration("score_docs_as_code", "4.0.1"),),
                 ),
                 traceability=(
                     TraceabilityTypeMetrics(

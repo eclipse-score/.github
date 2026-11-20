@@ -272,33 +272,18 @@ repository_owner = "second-org"
     assert "policy-status changes-required" in policy_rows[0]
 
 
-def test_schema_30_single_org_snapshot_can_be_read_and_written_as_schema_31() -> None:
-    snapshot = RepoSnapshot.from_dict(
-        {
-            "schema_version": 30,
-            "org_name": "first-org",
-            "generated_at": "2026-01-01T00:00:00+00:00",
-            "repos": [
-                {"name": "tools", "volatile": {"latest_release_version": "v1.2.3"}}
-            ],
-        }
-    )
-    assert snapshot.organization_names == ("first-org",)
-    assert snapshot.to_dict()["schema_version"] == 31
-    assert snapshot.repos[0].full_name == "first-org/tools"
-    repos = list(snapshot.repos)
-    assert (
-        get_latest_tracked_dep_version(repos, TrackedDep("first-org/tools", "tools"))
-        == "1.2.3"
-    )
-    assert (
-        get_latest_tracked_dep_version(repos, TrackedDep("second-org/tools", "tools"))
-        is None
-    )
-    assert (
-        'href="https://github.com/first-org/tools"'
-        in render_all_pages(snapshot)["tools/index.html"]
-    )
+def test_snapshot_from_a_previous_schema_is_not_reused() -> None:
+    # Older snapshots lack dependency overrides; reusing their content cache
+    # would hide them until each repository's default branch changes.
+    with pytest.raises(ValueError, match="Unsupported snapshot schema version 31"):
+        RepoSnapshot.from_dict(
+            {
+                "schema_version": 31,
+                "org_name": "first-org",
+                "generated_at": "2026-01-01T00:00:00+00:00",
+                "repos": [],
+            }
+        )
 
 
 def test_markdown_qualifies_secondary_repository_names_in_each_table() -> None:

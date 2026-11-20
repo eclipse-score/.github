@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, cast
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
+from functools import cache
+from typing import Any, cast
+from urllib.parse import urlsplit
 
 
 class LockfileStatus(StrEnum):
@@ -19,8 +19,7 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 31
-_LEGACY_SNAPSHOT_SCHEMA_VERSION = 30
+SNAPSHOT_SCHEMA_VERSION = 32
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +89,88 @@ class WorkflowRefResolution:
         )
 
 
+class DependencyOverride(StrEnum):
+    GIT = "git"
+    ARCHIVE = "archive"
+    LOCAL_PATH = "local_path"
+    SINGLE_VERSION = "single_version"
+
+
+@dataclass(frozen=True, slots=True)
+class DependencyDeclaration:
+    """One ``bazel_dep`` of a module, combined with the override Bazel applies to it."""
+
+    module: str
+    version: str | None = None
+    override: DependencyOverride | None = None
+    remote: str | None = None
+    revision: str | None = None  # git_override commit, tag, or branch
+
+    @property
+    def pinned_revision(self) -> str | None:
+        """The revision Bazel builds, as a commit, tag, branch, or release version.
+
+        A ``git_override`` replaces the declared version; archive and local-path
+        overrides have no revision in the dependency's Git history.
+        """
+        if self.override is DependencyOverride.GIT:
+            return self.revision
+        if self.override in (DependencyOverride.ARCHIVE, DependencyOverride.LOCAL_PATH):
+            return None
+        return self.version
+
+    @property
+    def display_version(self) -> str:
+        """The version or Git revision Bazel builds, shortened for display."""
+        if self.override is DependencyOverride.GIT and self.revision:
+            return short_revision(self.revision)
+        return self.version or "unversioned"
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> DependencyDeclaration:
+        override = data.get("override")
+        return cls(
+            module=cast("str", data.get("module", "")),
+            version=cast("str | None", data.get("version")),
+            override=DependencyOverride(override)
+            if override in DependencyOverride
+            else None,
+            remote=cast("str | None", data.get("remote")),
+            revision=cast("str | None", data.get("revision")),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class DependencyResolution:
+    """A pinned dependency revision compared with its repository's history."""
+
+    repository: str
+    revision: str
+    resolved_sha: str | None = None
+    latest_release: str | None = None
+    behind_latest_release_by: int | None = None
+    ahead_of_default_branch_by: int | None = None
+    behind_default_branch_by: int | None = None
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> DependencyResolution:
+        return cls(
+            repository=cast("str", data.get("repository", "")),
+            revision=cast("str", data.get("revision", "")),
+            resolved_sha=cast("str | None", data.get("resolved_sha")),
+            latest_release=cast("str | None", data.get("latest_release")),
+            behind_latest_release_by=cast(
+                "int | None", data.get("behind_latest_release_by")
+            ),
+            ahead_of_default_branch_by=cast(
+                "int | None", data.get("ahead_of_default_branch_by")
+            ),
+            behind_default_branch_by=cast(
+                "int | None", data.get("behind_default_branch_by")
+            ),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class SphinxItem:
     """A feature or module declared in the platform Sphinx documentation."""
@@ -138,7 +219,7 @@ class DeepContentSignals:
     workflow_refs: tuple[tuple[str, str], ...] = ()
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
-    bazel_deps: tuple[tuple[str, str], ...] = ()
+    bazel_deps: tuple[DependencyDeclaration, ...] = ()
     bazel_lockfile_status: LockfileStatus = LockfileStatus.UNKNOWN
     bazel_lockfile_error_output: str | None = None
     sphinx_features: tuple[SphinxItem, ...] = ()
@@ -205,7 +286,7 @@ class DeepContentSignals:
             workflow_refs=normalize_string_pairs(data.get("workflow_refs")),
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
-            bazel_deps=normalize_string_pairs(data.get("bazel_deps")),
+            bazel_deps=_parse_dependencies(data.get("bazel_deps")),
             bazel_lockfile_status=_parse_lockfile_status(
                 data.get("bazel_lockfile_status")
             ),
@@ -258,7 +339,7 @@ class VolatileMetricsSnapshot:
     latest_release_ahead_of_default_branch_by: int | None = None
     default_branch_ahead_of_latest_release_by: int | None = None
     release_bazel_version: str | None = None
-    release_bazel_deps: tuple[tuple[str, str], ...] = ()
+    release_bazel_deps: tuple[DependencyDeclaration, ...] = ()
     volatile_metrics_fetched_at: str | None = None
     open_renovate_prs: int | None = None
     open_dependabot_prs: int | None = None
@@ -297,7 +378,7 @@ class VolatileMetricsSnapshot:
                 "str | None",
                 data.get("release_bazel_version"),
             ),
-            release_bazel_deps=normalize_string_pairs(data.get("release_bazel_deps")),
+            release_bazel_deps=_parse_dependencies(data.get("release_bazel_deps")),
             volatile_metrics_fetched_at=fetched_at,
         )
 
@@ -372,9 +453,7 @@ class RepoEntry:
         return self.full_name.casefold() == identity.casefold()
 
     @classmethod
-    def from_dict(
-        cls, data: Mapping[str, Any], *, default_owner: str = ""
-    ) -> RepoEntry:
+    def from_dict(cls, data: Mapping[str, Any]) -> RepoEntry:
         content_payload = cast("Mapping[str, Any]", data.get("content", {}))
         registry_payload = cast("Mapping[str, Any]", data.get("registry", {}))
         volatile_payload = cast("Mapping[str, Any]", data.get("volatile", {}))
@@ -382,7 +461,7 @@ class RepoEntry:
 
         return cls(
             name=cast("str", data.get("name", "")),
-            owner=cast("str", data.get("owner") or default_owner),
+            owner=cast("str", data.get("owner", "")),
             description=cast("str", data.get("description", "(no description)")),
             category=cast("str", data.get("category", DEFAULT_CATEGORY)),
             subcategory=cast("str", data.get("subcategory", DEFAULT_SUBCATEGORY)),
@@ -441,10 +520,29 @@ class RepoSnapshot:
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     workflow_ref_resolutions: tuple[WorkflowRefResolution, ...] = ()
     additional_org_names: tuple[str, ...] = ()
+    module_repositories: Mapping[str, str] = field(default_factory=dict)
+    dependency_resolutions: tuple[DependencyResolution, ...] = ()
 
     @property
     def organization_names(self) -> tuple[str, ...]:
         return (self.org_name, *self.additional_org_names)
+
+    def dependency_repository(self, declaration: DependencyDeclaration) -> str | None:
+        """Return ``owner/name`` of the repository Bazel fetches a dependency from."""
+        if declaration.override is DependencyOverride.GIT and declaration.remote:
+            return parse_github_repository(declaration.remote)
+        return self.module_repositories.get(declaration.module)
+
+    def dependency_resolution(
+        self, declaration: DependencyDeclaration
+    ) -> DependencyResolution | None:
+        repository = self.dependency_repository(declaration)
+        revision = declaration.pinned_revision
+        if repository is None or revision is None:
+            return None
+        return _resolutions_by_key(self.dependency_resolutions).get(
+            (repository.casefold(), revision)
+        )
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoSnapshot:
@@ -453,10 +551,7 @@ class RepoSnapshot:
             raise ValueError("Snapshot payload must contain a 'repos' list.")
 
         schema_version = data.get("schema_version", SNAPSHOT_SCHEMA_VERSION)
-        if schema_version not in (
-            SNAPSHOT_SCHEMA_VERSION,
-            _LEGACY_SNAPSHOT_SCHEMA_VERSION,
-        ):
+        if schema_version != SNAPSHOT_SCHEMA_VERSION:
             raise ValueError(
                 "Unsupported snapshot schema version "
                 f"{schema_version}; expected {SNAPSHOT_SCHEMA_VERSION}."
@@ -472,10 +567,7 @@ class RepoSnapshot:
             )
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
-        # Schema 30 stored the organization once, at the snapshot level.
-        default_owner = (
-            org_name if schema_version == _LEGACY_SNAPSHOT_SCHEMA_VERSION else ""
-        )
+        module_repositories = data.get("module_repositories")
 
         tracked_deps = tuple(
             TrackedDep.from_dict(cast("Mapping[str, Any]", item))
@@ -500,10 +592,7 @@ class RepoSnapshot:
             schema_version=SNAPSHOT_SCHEMA_VERSION,
             org_name=org_name,
             generated_at=generated_at,
-            repos=tuple(
-                RepoEntry.from_dict(repo, default_owner=default_owner)
-                for repo in typed_repos_data
-            ),
+            repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
             additional_org_names=normalize_string_tuple(
                 data.get("additional_org_names")
             ),
@@ -513,6 +602,23 @@ class RepoSnapshot:
                 WorkflowRefResolution.from_dict(cast("Mapping[str, Any]", item))
                 for item in (data.get("workflow_ref_resolutions") or ())
                 if isinstance(item, dict) and isinstance(item.get("reference"), str)
+            ),
+            module_repositories={
+                module: repository
+                for module, repository in cast(
+                    "Mapping[object, object]",
+                    module_repositories
+                    if isinstance(module_repositories, Mapping)
+                    else {},
+                ).items()
+                if isinstance(module, str) and isinstance(repository, str)
+            },
+            dependency_resolutions=tuple(
+                DependencyResolution.from_dict(cast("Mapping[str, Any]", item))
+                for item in (data.get("dependency_resolutions") or ())
+                if isinstance(item, dict)
+                and isinstance(item.get("repository"), str)
+                and isinstance(item.get("revision"), str)
             ),
         )
 
@@ -528,6 +634,8 @@ class RepoSnapshot:
             "workflow_ref_resolutions": [
                 asdict(r) for r in self.workflow_ref_resolutions
             ],
+            "module_repositories": dict(sorted(self.module_repositories.items())),
+            "dependency_resolutions": [asdict(r) for r in self.dependency_resolutions],
         }
 
 
@@ -579,14 +687,53 @@ def _parse_sphinx_items(value: object) -> tuple[SphinxItem, ...]:
     )
 
 
+def _parse_dependencies(value: object) -> tuple[DependencyDeclaration, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(
+        DependencyDeclaration.from_dict(cast("Mapping[str, Any]", item))
+        for item in cast("list[object]", list(value))
+        if isinstance(item, dict) and isinstance(item.get("module"), str)
+    )
+
+
+@cache
+def _resolutions_by_key(
+    resolutions: tuple[DependencyResolution, ...],
+) -> dict[tuple[str, str], DependencyResolution]:
+    return {(r.repository.casefold(), r.revision): r for r in resolutions}
+
+
+def parse_github_repository(remote: str) -> str | None:
+    """Return ``owner/name`` for a GitHub HTTPS or SSH remote."""
+    if remote.startswith("git@github.com:"):
+        remote = f"ssh://git@github.com/{remote.removeprefix('git@github.com:')}"
+    parsed = urlsplit(remote)
+    if parsed.hostname != "github.com":
+        return None
+    parts = [part for part in parsed.path.strip("/").split("/") if part]
+    if len(parts) != 2:
+        return None
+    owner, name = parts[0], parts[1].removesuffix(".git")
+    return f"{owner}/{name}" if owner and name else None
+
+
+def short_revision(revision: str) -> str:
+    """Abbreviate full commit hashes; keep tags and branch names readable."""
+    return revision[:7] if re.fullmatch(r"[0-9a-f]{40}", revision) else revision
+
+
+def dependency_versions(
+    declarations: tuple[DependencyDeclaration, ...],
+) -> dict[str, str]:
+    return {d.module: d.display_version for d in declarations}
+
+
 def lookup_bazel_dep_version(
-    bazel_deps: tuple[tuple[str, str], ...],
+    bazel_deps: tuple[DependencyDeclaration, ...],
     dep_name: str,
 ) -> str | None:
-    for name, version in bazel_deps:
-        if name == dep_name:
-            return version
-    return None
+    return dependency_versions(bazel_deps).get(dep_name)
 
 
 def is_tracked_dep_repo(

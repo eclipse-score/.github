@@ -43,8 +43,8 @@ def docs_url(org_name: str, repo_name: str) -> str:
 
 def uses_docs_as_code(entry: RepoEntry) -> bool:
     return any(
-        module_name == DOCS_AS_CODE_MODULE
-        for module_name, _ in entry.content.bazel_deps
+        declaration.module == DOCS_AS_CODE_MODULE
+        for declaration in entry.content.bazel_deps
     )
 
 
