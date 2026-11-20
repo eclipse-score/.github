@@ -10,10 +10,6 @@ function repositoryOwner(repository) {
   return (repoName ? owner : primaryOrg).toLowerCase();
 }
 
-const policyOwners = new Set(Array.from(
-  document.querySelectorAll('.section[data-tab="policy-sync"] [data-repo-filter]'),
-  row => repositoryOwner(row.dataset.repoFilter),
-));
 const categorySections = Array.from(document.querySelectorAll('.section[data-tab="overview"][data-category]'));
 const categoryCounts = new Map(categorySections.map(section => [
   section.dataset.category,
@@ -66,10 +62,7 @@ function applyVisibility() {
   document.querySelectorAll('.section').forEach(s => {
     const matchTab = s.dataset.tab === activeTab;
     const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
-    // Policy statistics describe the entire report.
-    const matchScope = !owner || !s.hasAttribute('data-policy-summary')
-      || (policyOwners.size === 1 && policyOwners.has(owner));
-    s.classList.toggle('hidden', !(matchTab && matchCat && matchScope));
+    s.classList.toggle('hidden', !(matchTab && matchCat));
   });
   document.querySelectorAll('[data-repo-filter]').forEach(item => {
     const matchCategory = activeCategory === 'all' || item.dataset.repositoryCategory === activeCategory;
@@ -85,7 +78,7 @@ function applyVisibility() {
     }
   });
   document.getElementById('no-matching-repos').classList.toggle(
-    'hidden', Boolean(document.querySelector('.section:not(.hidden)')),
+    'hidden', Boolean(document.querySelector('.section:not(.hidden):not([data-policy-summary])')),
   );
   document.querySelectorAll('.versions-table-view').forEach(view => {
     view.classList.toggle('hidden', activeVersionView !== 'table');

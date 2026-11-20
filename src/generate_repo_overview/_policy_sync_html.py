@@ -27,7 +27,7 @@ def render_policy_sync_section(
     if report is None:
         raw_link = _raw_json_link(raw_json_filename) if raw_json_available else ""
         return (
-            '<div class="section hidden" data-tab="policy-sync" data-policy-summary>\n'
+            '<div class="section hidden" data-tab="policy-sync">\n'
             '  <div class="section-header"><span class="section-title">Policy Sync</span></div>\n'
             '  <div class="policy-sync-unavailable">\n'
             "    <strong>Policy Sync report unavailable.</strong>\n"
@@ -55,7 +55,7 @@ def render_policy_sync_section(
         '    <span class="section-title">Policy Sync</span>\n'
         "  </div>\n"
         '  <div class="policy-sync-meta">\n'
-        '    <span class="section-subtitle">Repository policy compliance</span>\n'
+        '    <span class="section-subtitle">Repository policy compliance (report totals)</span>\n'
         f"    {raw_link}\n"
         "  </div>\n"
         '  <div class="policy-sync-statistics">\n'

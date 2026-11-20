@@ -253,6 +253,7 @@ repository_owner = "second-org"
     assert (site / "@orgs/second-org/index.html/index.html").is_file()
     assert (site / "@orgs/second-org/second-org/index.html").is_file()
     html = (site / "index.html").read_text()
+    assert "Repository policy compliance (report totals)" in html
     policy_markup = html.split('<div class="section hidden" data-tab="policy-sync"', 1)[
         1
     ]
