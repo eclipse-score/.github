@@ -27,6 +27,7 @@ from generate_repo_overview.models import (
 from generate_repo_overview.org_config import OrgConfig
 
 from . import (
+    dependency_resolution,
     platform_docs,
     reference_integration,
     registry_metadata,
@@ -201,6 +202,9 @@ def collect_snapshot(
             status_prefix=status_prefix,
         )
 
+        module_repositories = dependency_resolution.map_module_repositories(
+            repos, configs
+        )
         snapshot = RepoSnapshot(
             schema_version=SNAPSHOT_SCHEMA_VERSION,
             org_name=org_name,
@@ -211,6 +215,13 @@ def collect_snapshot(
             workflow_signals=config.workflow_signals,
             workflow_ref_resolutions=workflow_versions.fetch_workflow_ref_resolutions(
                 repos, github=github, status_prefix=status_prefix
+            ),
+            module_repositories=module_repositories,
+            dependency_resolutions=dependency_resolution.resolve_dependencies(
+                repos,
+                module_repositories,
+                max_workers=resolve_max_collection_workers(),
+                status_prefix=status_prefix,
             ),
         )
         if cache_path is not None:

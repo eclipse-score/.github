@@ -128,6 +128,11 @@ def read_repository_text_at_ref(
     return _run_git_for_text(["git", "-C", str(checkout_path), "show", f"{ref}:{path}"])
 
 
+def git_output(repository_path: Path, *args: str) -> str | None:
+    """Return a local Git command's stripped output, or ``None`` if it fails."""
+    return _run_git_for_text(["git", "-C", str(repository_path), *args])
+
+
 def run_git_command(
     command: list[str],
     *,

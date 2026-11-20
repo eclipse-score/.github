@@ -74,6 +74,25 @@ with other repository tools such as `score-repo-policy-sync` and
 `score-repo-cache`. Checkout authentication is handled by `gh`; use
 `GITHUB_TOKEN` or `gh auth login` before collecting.
 
+## Dependency Resolution
+
+After all organizations are collected, the snapshot maps Bazel module names
+to collected repositories (`module_repositories`). Registry metadata names a
+module's source repository; a repository's own root module name fills the
+remaining gaps. A `git_override` remote takes precedence over both.
+
+Each pinned revision of a collected dependency is then resolved once per
+collection into `dependency_resolutions`: the commit it names, how many
+commits of the dependency's latest release it lacks, and how far it is ahead
+of and behind the dependency's default branch. Pins without a common
+ancestor, unknown versions, and dependencies outside the collected
+repositories stay unresolved rather than appearing up to date.
+
+These comparisons run locally on `repo_cache` history clones at
+`<owner>/<repository>.git` next to the shallow checkouts. The bare, treeless
+clones contain every branch and tag commit but fetch trees and blobs lazily,
+so the number of GitHub API calls does not grow with the number of pins.
+
 For a repository without any commits, GitHub may report a default-branch name
 even though that branch cannot be resolved. After a failed checkout, the
 collector checks the default branch through the GitHub API before falling back

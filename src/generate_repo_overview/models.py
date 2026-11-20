@@ -528,10 +528,7 @@ class RepoSnapshot:
         return (self.org_name, *self.additional_org_names)
 
     def dependency_repository(self, declaration: DependencyDeclaration) -> str | None:
-        """Return ``owner/name`` of the repository Bazel fetches a dependency from."""
-        if declaration.override is DependencyOverride.GIT and declaration.remote:
-            return parse_github_repository(declaration.remote)
-        return self.module_repositories.get(declaration.module)
+        return dependency_repository(declaration, self.module_repositories)
 
     def dependency_resolution(
         self, declaration: DependencyDeclaration
@@ -702,6 +699,16 @@ def _resolutions_by_key(
     resolutions: tuple[DependencyResolution, ...],
 ) -> dict[tuple[str, str], DependencyResolution]:
     return {(r.repository.casefold(), r.revision): r for r in resolutions}
+
+
+def dependency_repository(
+    declaration: DependencyDeclaration,
+    module_repositories: Mapping[str, str],
+) -> str | None:
+    """Return ``owner/name`` of the repository Bazel fetches a dependency from."""
+    if declaration.override is DependencyOverride.GIT and declaration.remote:
+        return parse_github_repository(declaration.remote)
+    return module_repositories.get(declaration.module)
 
 
 def parse_github_repository(remote: str) -> str | None:

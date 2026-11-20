@@ -9,11 +9,10 @@ from repo_cache import default_cache_directory
 
 from generate_repo_overview.console import print_status
 from generate_repo_overview.models import DependencyOverride, parse_github_repository
-from generate_repo_overview.org_config import is_safe_repository_path
 
 from .bazel_modules import parse_dependencies, read_module_files
 from .git_checkout import sync_repository_checkout
-from .registry_metadata import parse_bazel_registry_metadata
+from .registry_metadata import get_bazel_registry_repositories_by_module
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,34 +310,3 @@ def parse_github_remote_repository_name(
         return None
     owner, name = repository.split("/")
     return name if owner.casefold() == org_name.casefold() else None
-
-
-def get_bazel_registry_repositories_by_module(
-    *,
-    active_repository_names: set[str],
-    registry_repository: str,
-    org_name: str = "",
-) -> dict[str, str]:
-    if not is_safe_repository_path(registry_repository):
-        return {}
-
-    repositories_by_module: dict[str, str] = {}
-    for metadata_path in sorted(
-        (default_cache_directory() / registry_repository).glob(
-            "modules/*/metadata.json"
-        )
-    ):
-        try:
-            content = metadata_path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-
-        module_name = metadata_path.parent.name
-        metadata_by_repo = parse_bazel_registry_metadata(
-            content,
-            active_repository_names=active_repository_names,
-            org_name=org_name,
-        )
-        for repository_name in metadata_by_repo:
-            repositories_by_module.setdefault(module_name, repository_name)
-    return repositories_by_module

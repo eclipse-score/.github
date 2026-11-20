@@ -1456,12 +1456,12 @@ def test_reference_integration_maps_bazel_registry_modules_to_repositories(
         encoding="utf-8",
     )
     monkeypatch.setattr(
-        reference_integration,
+        registry_metadata,
         "default_cache_directory",
         lambda: tmp_path,
     )
 
-    assert reference_integration.get_bazel_registry_repositories_by_module(
+    assert registry_metadata.get_bazel_registry_repositories_by_module(
         active_repository_names={"process_description"},
         registry_repository=registry_repository,
     ) == {"score_process": "process_description"}
@@ -1484,13 +1484,13 @@ def test_reference_integration_ignores_unsafe_registry_repository_path(
     expected_repositories: dict[str, str],
 ) -> None:
     monkeypatch.setattr(
-        reference_integration,
+        registry_metadata,
         "default_cache_directory",
         lambda: tmp_path / "cache",
     )
 
     assert (
-        reference_integration.get_bazel_registry_repositories_by_module(
+        registry_metadata.get_bazel_registry_repositories_by_module(
             active_repository_names={"process_description"},
             registry_repository=registry_repository,
         )
