@@ -76,9 +76,9 @@ grouping_levels = [{ property = "team", default = "Tooling" }]
 registry_repo = "example-tools/bazel-registry"
 ```
 
-Tracked dependencies, workflow signals, platform documentation sources, and the
-policy report apply to the combined dashboard. Additional organizations inherit
-the primary grouping levels, registry, and Reference Integration unless they
+Tracked dependencies, workflow signals, and platform documentation sources
+apply to the combined dashboard. Additional organizations inherit the primary
+grouping levels, registry, and Reference Integration unless they
 override `grouping_levels`, `registry_repo`, or `reference_integration_repo`.
 Use an empty grouping list or an empty repository string to disable the
 corresponding setting for that organization.

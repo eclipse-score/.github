@@ -404,11 +404,12 @@ def test_fetch_repositories_skips_missing_external_reference_integration(
         def default_branch(self) -> str:
             raise GithubException(404, {"message": "Not Found"}, {})
 
-    def get_repo(name: str) -> MissingRepository:
-        assert name == "other-org/integration"
-        if not lazy:
-            raise GithubException(404, {"message": "Not Found"}, {})
-        return MissingRepository()
+    class RepositoryResolver:
+        def get_repo(self, full_name_or_id: str) -> MissingRepository:
+            assert full_name_or_id == "other-org/integration"
+            if not lazy:
+                raise GithubException(404, {"message": "Not Found"}, {})
+            return MissingRepository()
 
     monkeypatch.setattr(
         collector, "fetch_active_repositories", lambda *_args, **_kwargs: {}
@@ -419,7 +420,7 @@ def test_fetch_repositories_skips_missing_external_reference_integration(
             config=OrgConfig(
                 org_name="first-org", reference_integration_repo="other-org/integration"
             ),
-            github=SimpleNamespace(get_repo=get_repo),
+            github=RepositoryResolver(),
         )
         == []
     )
@@ -1582,13 +1583,14 @@ def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version
     }
   ],
   "repository": [
-    "github:eclipse-score/baselibs",
+    "github:Eclipse-Score/BaseLibs",
     "github:someone-else/ignored"
   ],
   "versions": ["0.2.5", "0.2.4"]
 }
 """.strip(),
-        active_repository_names={"baselibs"},
+        active_repository_names={"baselibs", "ignored"},
+        org_name="eclipse-score",
     )
 
     assert metadata == {

@@ -84,14 +84,20 @@ def parse_bazel_registry_metadata(
     if not isinstance(raw_repositories, list):
         return metadata_by_repo_name
 
+    active_names_by_identity = {
+        name.casefold(): name for name in active_repository_names
+    }
     repository_entries = cast("list[object]", raw_repositories)
     for raw_repository in repository_entries:
         repository_name = parse_github_repository_name(
             raw_repository, org_name=org_name
         )
-        if repository_name is None or repository_name not in active_repository_names:
+        if repository_name is None:
             continue
-        metadata_by_repo_name[repository_name] = {
+        active_name = active_names_by_identity.get(repository_name.casefold())
+        if active_name is None:
+            continue
+        metadata_by_repo_name[active_name] = {
             "maintainers_in_bazel_registry": maintainers,
             "latest_bazel_registry_version": latest_version,
         }
