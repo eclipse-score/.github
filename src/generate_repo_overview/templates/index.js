@@ -194,3 +194,54 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
     rows.forEach(r => tbody.appendChild(r));
   });
 });
+
+
+// A fixed tooltip stays outside the table's scroll area.
+const tableTooltip = document.createElement('div');
+tableTooltip.id = 'table-tooltip';
+tableTooltip.setAttribute('role', 'tooltip');
+tableTooltip.hidden = true;
+document.body.append(tableTooltip);
+
+const sectionsEl = document.getElementById('sections');
+let tooltipCell = null;
+function hideTableTooltip() {
+  tableTooltip.hidden = true;
+  tooltipCell = null;
+}
+
+function showTableTooltip(event) {
+  const cell = event.target.closest('th[data-tooltip], td[data-tooltip]');
+  if (!cell || cell === tooltipCell) return;
+
+  tooltipCell = cell;
+  tableTooltip.textContent = cell.dataset.tooltip;
+  tableTooltip.hidden = false;
+
+  const gap = 8;
+  const rect = cell.getBoundingClientRect();
+  const {offsetWidth: width, offsetHeight: height} = tableTooltip;
+  const viewportWidth = document.documentElement.clientWidth;
+  const viewportHeight = document.documentElement.clientHeight;
+  const left = rect.left + (rect.width - width) / 2;
+  const above = rect.top - height - gap;
+  const below = rect.bottom + gap;
+  const preferAbove = cell.tagName === 'TD' && above >= gap;
+  const top = preferAbove || below + height > viewportHeight - gap ? above : below;
+  tableTooltip.style.left = `${Math.max(gap, Math.min(left, viewportWidth - width - gap))}px`;
+  tableTooltip.style.top = `${Math.max(gap, top)}px`;
+}
+
+function leaveTooltipCell(event) {
+  if (tooltipCell?.contains(event.target) && !tooltipCell.contains(event.relatedTarget)) {
+    hideTableTooltip();
+  }
+}
+
+sectionsEl.addEventListener('pointerover', showTableTooltip);
+sectionsEl.addEventListener('pointerout', leaveTooltipCell);
+sectionsEl.addEventListener('focusin', showTableTooltip);
+sectionsEl.addEventListener('focusout', leaveTooltipCell);
+window.addEventListener('scroll', hideTableTooltip, {capture: true, passive: true});
+window.addEventListener('resize', hideTableTooltip);
+window.addEventListener('hashchange', hideTableTooltip);
