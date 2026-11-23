@@ -99,6 +99,8 @@ def test_checkout_helpers_read_release_ref(tmp_path: Path) -> None:
         github_token=None,
     )
     assert release_ref
+    # Release inspection must preserve history for dependency comparisons.
+    assert not (checkout / ".git/shallow").exists()
     assert (
         read_repository_text_at_ref(
             checkout,

@@ -272,18 +272,43 @@ repository_owner = "second-org"
     assert "policy-status changes-required" in policy_rows[0]
 
 
-def test_snapshot_from_a_previous_schema_is_not_reused() -> None:
-    # Older snapshots lack dependency overrides; reusing their content cache
-    # would hide them until each repository's default branch changes.
-    with pytest.raises(ValueError, match="Unsupported snapshot schema version 31"):
-        RepoSnapshot.from_dict(
+@pytest.mark.parametrize("schema_version", [30, 31])
+def test_older_snapshot_renders_but_is_not_reused_for_collection(
+    schema_version: int, tmp_path: Path
+) -> None:
+    cache = tmp_path / "snapshot.json"
+    repo = {
+        "name": "tools",
+        "content": {"bazel_deps": [["rules_python", "1.2.3"]]},
+        "volatile": {"latest_release_version": "v1.2.3"},
+    }
+    cache.write_text(
+        json.dumps(
             {
-                "schema_version": 31,
+                "schema_version": schema_version,
                 "org_name": "first-org",
                 "generated_at": "2026-01-01T00:00:00+00:00",
-                "repos": [],
+                "repos": [
+                    repo if schema_version == 30 else dict(repo, owner="first-org")
+                ],
             }
         )
+    )
+    snapshot = collector.load_snapshot(cache)
+    assert snapshot.organization_names == ("first-org",)
+    assert snapshot.to_dict()["schema_version"] == SNAPSHOT_SCHEMA_VERSION
+    assert snapshot.repos[0].full_name == "first-org/tools"
+    assert (
+        get_latest_tracked_dep_version(
+            list(snapshot.repos), TrackedDep("first-org/tools", "tools")
+        )
+        == "1.2.3"
+    )
+    page = render_all_pages(snapshot)["tools/index.html"]
+    assert 'href="https://github.com/first-org/tools"' in page
+    assert "rules_python" in page
+    # Older caches lack overrides and must be recollected even if the HEAD is unchanged.
+    assert collector.load_snapshot_if_present(cache) is None
 
 
 def test_markdown_qualifies_secondary_repository_names_in_each_table() -> None:

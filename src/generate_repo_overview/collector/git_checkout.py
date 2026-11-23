@@ -75,14 +75,16 @@ def fetch_repository_ref(
     *,
     github_token: str | None,
 ) -> str | None:
+    # A depth-limited fetch can make a history checkout shallow again.
+    # Only limit depth for checkouts that are already shallow.
+    shallow = git_output(checkout_path, "rev-parse", "--is-shallow-repository")
     if not run_git_command(
         [
             "git",
             "-C",
             str(checkout_path),
             "fetch",
-            "--depth",
-            "1",
+            *(["--depth", "1"] if shallow == "true" else []),
             "--no-tags",
             "origin",
             ref,

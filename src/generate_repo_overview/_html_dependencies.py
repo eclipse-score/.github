@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 from ._html_common import e
 
 if TYPE_CHECKING:
     from .models import DependencyDeclaration, RepoEntry, RepoSnapshot
+
+from .models import DependencyPinKind, short_revision
 
 _MUTED_DASH = '<span class="text-muted">—</span>'
 
@@ -19,31 +22,47 @@ def render_dependencies_section(
     head = {d.module: d for d in entry.content.bazel_deps}
     release_tag = entry.volatile.latest_release_version
     release = {d.module: d for d in entry.volatile.release_bazel_deps}
-    if not head and not release and not entry.content.bazel_version:
+    head_bazel = entry.content.bazel_version
+    release_bazel = entry.volatile.release_bazel_version if release_tag else None
+    if not (head or release or head_bazel or release_bazel):
         return ""
 
-    rows = [
-        _row(
-            "<span class='mono'>Bazel</span>",
-            _plain(entry.content.bazel_version),
-            _plain(entry.volatile.release_bazel_version) if release_tag else None,
-            _change(entry.content.bazel_version, entry.volatile.release_bazel_version)
-            if release_tag
-            else None,
-        )
-    ]
-    for module in sorted(head.keys() | release.keys()):
-        head_dep, release_dep = head.get(module), release.get(module)
-        declaration = head_dep or release_dep
-        assert declaration is not None
+    rows: list[str] = []
+    if head_bazel or release_bazel:
         rows.append(
             _row(
-                _dependency_name(declaration, snapshot, site_root),
-                _usage(head_dep, snapshot),
-                _usage(release_dep, snapshot) if release_tag else None,
+                "<span class='mono'>Bazel</span>",
+                _plain(head_bazel),
+                _plain(release_bazel) if release_tag else None,
+                _change(head_bazel, release_bazel) if release_tag else None,
+            )
+        )
+    for module in sorted(head.keys() | release.keys()):
+        head_dep, release_dep = head.get(module), release.get(module)
+        name = f"<span class='mono'>{e(module)}</span>"
+        head_source = snapshot.dependency_repository(head_dep) if head_dep else None
+        release_source = (
+            snapshot.dependency_repository(release_dep) if release_dep else None
+        )
+        head_usage = _usage(head_dep, snapshot)
+        release_usage = _usage(release_dep, snapshot) if release_tag else None
+        if head_dep and release_dep and head_source != release_source:
+            if head_source:
+                head_usage += f"<br>{_source_links(head_source, snapshot, site_root)}"
+            if release_source and release_usage is not None:
+                release_usage += (
+                    f"<br>{_source_links(release_source, snapshot, site_root)}"
+                )
+        elif source := head_source or release_source:
+            name += f" {_source_links(source, snapshot, site_root)}"
+        rows.append(
+            _row(
+                name,
+                head_usage,
+                release_usage,
                 _change(
-                    head_dep.display_version if head_dep else None,
-                    release_dep.display_version if release_dep else None,
+                    head_dep,
+                    release_dep,
                 )
                 if release_tag
                 else None,
@@ -60,7 +79,7 @@ def render_dependencies_section(
         '<p class="text-muted" style="margin:0 0 0.5rem">'
         "Freshness compares each pin with the dependency's latest release and "
         "default branch. It is only known for repositories in this overview.</p>"
-        "<table><thead><tr><th>Dependency</th><th>HEAD</th>"
+        "<table><thead><tr><th>Dependency</th><th>Default branch</th>"
         f"{release_columns}</tr></thead>\n"
         f"<tbody>\n{''.join(rows)}</tbody></table></div>\n"
         "</section>\n\n"
@@ -77,12 +96,12 @@ def render_used_by_section(
             continue
         head = _used(entry, consumer.content.bazel_deps, snapshot)
         release = _used(entry, consumer.volatile.release_bazel_deps, snapshot)
-        if head is None and release is None:
+        if not head and not release:
             continue
         release_tag = consumer.volatile.latest_release_version
         release_cell = (
-            _usage(release, snapshot)
-            if release is not None
+            _consumer_pins(release, snapshot)
+            if release
             else _MUTED_DASH
             if release_tag
             else '<span class="text-muted">no release</span>'
@@ -91,7 +110,7 @@ def render_used_by_section(
             release_cell += f' <span class="text-muted">in {e(release_tag)}</span>'
         rows.append(
             f"<tr><td>{_repository_link(consumer, snapshot, site_root)}</td>"
-            f"<td>{_usage(head, snapshot) if head else _MUTED_DASH}</td>"
+            f"<td>{_consumer_pins(head, snapshot) if head else _MUTED_DASH}</td>"
             f"<td>{release_cell}</td></tr>\n"
         )
 
@@ -116,12 +135,24 @@ def _used(
     entry: RepoEntry,
     declarations: tuple[DependencyDeclaration, ...],
     snapshot: RepoSnapshot,
-) -> DependencyDeclaration | None:
-    for declaration in declarations:
-        repository = snapshot.dependency_repository(declaration)
-        if repository is not None and entry.matches_repository(repository):
-            return declaration
-    return None
+) -> tuple[DependencyDeclaration, ...]:
+    return tuple(
+        declaration
+        for declaration in declarations
+        if (repository := snapshot.dependency_repository(declaration)) is not None
+        and entry.matches_repository(repository)
+    )
+
+
+def _consumer_pins(
+    declarations: tuple[DependencyDeclaration, ...], snapshot: RepoSnapshot
+) -> str:
+    if len(declarations) == 1:
+        return _usage(declarations[0], snapshot)
+    return "<br>".join(
+        f"{e(declaration.module)} {_usage(declaration, snapshot)}"
+        for declaration in declarations
+    )
 
 
 def _row(name: str, head: str, release: str | None, change: str | None) -> str:
@@ -135,7 +166,10 @@ def _plain(version: str | None) -> str:
     return f"<span class='mono'>{e(version)}</span>" if version else _MUTED_DASH
 
 
-def _change(head: str | None, release: str | None) -> str:
+def _change(
+    head: str | DependencyDeclaration | None,
+    release: str | DependencyDeclaration | None,
+) -> str:
     if head == release:
         return _MUTED_DASH
     if release is None:
@@ -145,20 +179,15 @@ def _change(head: str | None, release: str | None) -> str:
     return '<span class="badge yellow">changed</span>'
 
 
-def _dependency_name(
-    declaration: DependencyDeclaration, snapshot: RepoSnapshot, site_root: str
-) -> str:
-    name = f"<span class='mono'>{e(declaration.module)}</span>"
-    repository = snapshot.dependency_repository(declaration)
-    if repository is None:
-        return name
-    source = _collected(snapshot, repository)
-    if source is not None:
-        return f"{name} {_repository_link(source, snapshot, site_root)}"
-    return (
-        f'{name} <a class="text-muted" href="https://github.com/{e(repository)}" '
+def _source_links(repository: str, snapshot: RepoSnapshot, site_root: str) -> str:
+    github = (
+        f'<a class="text-muted" href="https://github.com/{e(repository)}" '
         f'target="_blank" rel="noopener">{e(repository)} ↗</a>'
     )
+    source = _collected(snapshot, repository)
+    if source is None:
+        return github
+    return f'{github} <a href="{e(site_root + source.detail_path(snapshot.org_name))}">details</a>'
 
 
 def _repository_link(repo: RepoEntry, snapshot: RepoSnapshot, site_root: str) -> str:
@@ -178,22 +207,34 @@ def _usage(declaration: DependencyDeclaration | None, snapshot: RepoSnapshot) ->
         return _MUTED_DASH
     version = e(declaration.display_version)
     if declaration.pinned_revision is None:
-        kind = declaration.override.value if declaration.override else "override"
+        kind = declaration.override.value if declaration.override else "unavailable"
         return (
             f"<span class='mono'>{version}</span> "
             f'<span class="badge muted">{e(kind.replace("_", " "))}</span>'
         )
     repository = snapshot.dependency_repository(declaration)
+    if repository is None:
+        return (
+            f"<span class='mono'>{version}</span> "
+            '<span class="badge muted">source unknown</span>'
+        )
     resolution = snapshot.dependency_resolution(declaration)
-    if repository is None or resolution is None:
-        return f"<span class='mono'>{version}</span>"
+    if resolution is None:
+        reason = (
+            "comparison unavailable"
+            if _collected(snapshot, repository)
+            else "outside overview"
+        )
+        return f"<span class='mono'>{version}</span> <span class=\"badge muted\">{reason}</span>"
     if resolution.resolved_sha is None:
         return (
             f"<span class='mono'>{version}</span> "
-            '<span class="badge red" title="No matching commit, tag, or branch">'
-            "unresolved</span>"
+            '<span class="badge muted">pin unresolved</span> '
+            + _release_badge(resolution.latest_release, None)
         )
 
+    if declaration.pin_kind is DependencyPinKind.BRANCH:
+        version += f" ({e(short_revision(resolution.resolved_sha))})"
     pin = (
         f'<a class="mono" href="https://github.com/{e(repository)}/commit/'
         f'{e(resolution.resolved_sha)}" target="_blank" rel="noopener" '
@@ -217,11 +258,11 @@ def _release_badge(latest_release: str | None, behind: int | None) -> str:
         return '<span class="badge muted">no release</span>'
     if behind is None:
         return (
-            f'<span class="badge muted" title="No common history with '
-            f'{e(latest_release)}">release not comparable</span>'
+            f'<span class="badge muted" title="Release comparison unavailable">'
+            f"{e(latest_release)} · comparison unavailable</span>"
         )
     if behind == 0:
-        return f'<span class="badge green" title="Contains {e(latest_release)}">latest release</span>'
+        return f'<span class="badge green">includes latest release {e(latest_release)}</span>'
     return (
         f'<span class="badge yellow" title="{behind} commits of {e(latest_release)} '
         f'are missing">{e(latest_release)} available</span>'
@@ -236,14 +277,27 @@ def _branch_badge(
     behind: int | None,
 ) -> str:
     source = _collected(snapshot, repository)
-    branch = source.default_branch if source and source.default_branch else None
-    if branch is None or ahead is None or behind is None:
+    if (
+        source is None
+        or source.default_branch is None
+        or ahead is None
+        or behind is None
+    ):
         return '<span class="badge muted">branch not comparable</span>'
-    compare_url = e(f"https://github.com/{repository}/compare/{sha}...{branch}")
-    if ahead:
+    branch = source.default_branch
+    target = source.default_branch_sha or branch
+    compare_url = e(
+        f"https://github.com/{repository}/compare/{sha}...{quote(target, safe='')}"
+    )
+    if ahead and behind:
         return (
             f'<a class="badge red" href="{compare_url}" target="_blank" rel="noopener" '
-            f'title="{ahead} commits are not on {e(branch)}">diverged from {e(branch)}</a>'
+            f'title="{ahead} ahead, {behind} behind">diverged from {e(branch)}</a>'
+        )
+    if ahead:
+        return (
+            f'<a class="badge yellow" href="{compare_url}" target="_blank" rel="noopener">'
+            f"{ahead} ahead of {e(branch)}</a>"
         )
     if behind == 0:
         return f'<span class="badge green">at {e(branch)}</span>'

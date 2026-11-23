@@ -2,58 +2,56 @@
 
 from __future__ import annotations
 
+import ast
 import posixpath
-import re
 from typing import TYPE_CHECKING
 
-from generate_repo_overview.models import DependencyDeclaration, DependencyOverride
+from generate_repo_overview.models import (
+    DependencyDeclaration,
+    DependencyOverride,
+    DependencyPinKind,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
 ROOT_MODULE_PATH = "MODULE.bazel"
 
-_COMMENT_OR_STRING = re.compile(
-    r"""(?P<string>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|#[^\n]*""",
-    re.DOTALL,
-)
-_CALL = re.compile(
-    r"\b(?P<function>bazel_dep|git_override|archive_override|local_path_override"
-    r"|single_version_override|include)\s*\((?P<body>[^()]*)\)",
-    re.DOTALL,
-)
-_ARGUMENT = re.compile(r'\b(?P<key>\w+)\s*=\s*"(?P<value>[^"]*)"')
-_POSITIONAL_STRING = re.compile(r'^\s*"(?P<value>[^"]*)"')
 _OVERRIDE_KINDS = {
     "git_override": DependencyOverride.GIT,
     "archive_override": DependencyOverride.ARCHIVE,
     "local_path_override": DependencyOverride.LOCAL_PATH,
     "single_version_override": DependencyOverride.SINGLE_VERSION,
 }
+_GIT_PINS = (
+    ("commit", DependencyPinKind.COMMIT),
+    ("tag", DependencyPinKind.TAG),
+    ("branch", DependencyPinKind.BRANCH),
+)
 
 
 def read_module_files(read_text: Callable[[str], str | None]) -> dict[str, str]:
     """Read ``MODULE.bazel`` and every module file it includes, keyed by path."""
     pending = [ROOT_MODULE_PATH]
+    seen: set[str] = set()
     contents: dict[str, str] = {}
     while pending:
         path = pending.pop()
-        if path in contents:
+        if path in seen:
             continue
+        seen.add(path)
         content = read_text(path)
         if content is None:
             continue
         contents[path] = content
-        for match in _calls(content):
-            if match.group("function") != "include":
+        for function, call in _calls(content):
+            if function != "include" or not call.args:
                 continue
-            label = _POSITIONAL_STRING.match(match.group("body"))
+            label = _string_literal(call.args[0])
             included = (
-                _resolve_include_label(label.group("value"), current_file=path)
-                if label
-                else None
+                _resolve_include_label(label, current_file=path) if label else None
             )
-            if included is not None and included not in contents:
+            if included is not None:
                 pending.append(included)
     return contents
 
@@ -67,11 +65,14 @@ def parse_dependencies(contents: Iterable[str]) -> tuple[DependencyDeclaration, 
     versions: dict[str, str | None] = {}
     overrides: dict[str, dict[str, str]] = {}
     for content in contents:
-        for match in _calls(content):
-            function = match.group("function")
+        for function, call in _calls(content):
+            if function != "bazel_dep" and function not in _OVERRIDE_KINDS:
+                continue
             arguments = {
-                m.group("key"): m.group("value").strip()
-                for m in _ARGUMENT.finditer(match.group("body"))
+                keyword.arg: value.strip()
+                for keyword in call.keywords
+                if keyword.arg is not None
+                and (value := _string_literal(keyword.value)) is not None
             }
             if function == "bazel_dep" and arguments.get("name"):
                 versions[arguments["name"]] = arguments.get("version") or None
@@ -103,22 +104,33 @@ def _declaration(
         )
     if kind is not DependencyOverride.GIT:
         return DependencyDeclaration(module=module, version=version, override=kind)
+    revision, pin_kind = next(
+        ((value, pin) for key, pin in _GIT_PINS if (value := override.get(key))),
+        (None, DependencyPinKind.COMMIT),
+    )
     return DependencyDeclaration(
-        module=module,
-        version=version,
-        override=kind,
-        remote=override.get("remote") or None,
-        revision=(
-            override.get("commit") or override.get("tag") or override.get("branch")
-        )
-        or None,
+        module, version, kind, override.get("remote") or None, revision, pin_kind
     )
 
 
-def _calls(content: str) -> Iterable[re.Match[str]]:
-    # Strip comments while keeping strings, so commented-out calls are ignored.
-    code = _COMMENT_OR_STRING.sub(lambda m: m.group("string") or "", content)
-    return _CALL.finditer(code)
+def _calls(content: str) -> Iterable[tuple[str, ast.Call]]:
+    # MODULE.bazel uses Python-compatible syntax for top-level calls with literal
+    # arguments. Reading the syntax tree never evaluates the build file.
+    try:
+        body = ast.parse(content).body
+    except (SyntaxError, ValueError, RecursionError):
+        return
+    for statement in body:
+        if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
+            call = statement.value
+            if isinstance(call.func, ast.Name):
+                yield call.func.id, call
+
+
+def _string_literal(value: ast.expr) -> str | None:
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        return value.value
+    return None
 
 
 def _resolve_include_label(label: str, *, current_file: str) -> str | None:

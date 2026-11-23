@@ -5,6 +5,7 @@ from typing import TypedDict, cast
 
 from repo_cache import default_cache_directory
 
+from generate_repo_overview.models import parse_github_repository
 from generate_repo_overview.org_config import is_safe_repository_path
 
 from .git_checkout import sync_repository_checkout
@@ -183,26 +184,54 @@ def get_bazel_registry_repositories_by_module(
     registry_repository: str,
     org_name: str = "",
 ) -> dict[str, str]:
+    active_by_identity = {name.casefold(): name for name in active_repository_names}
+    repositories: dict[str, str] = {}
+    for module, sources in get_bazel_registry_module_sources(
+        registry_repository
+    ).items():
+        for source in sources:
+            owner, name = source.split("/")
+            if org_name and owner.casefold() != org_name.casefold():
+                continue
+            if active_name := active_by_identity.get(name.casefold()):
+                repositories.setdefault(module, active_name)
+    return repositories
+
+
+def get_bazel_registry_module_sources(
+    registry_repository: str,
+) -> dict[str, tuple[str, ...]]:
+    """Read the GitHub repository identities declared for each registry module."""
     if not is_safe_repository_path(registry_repository):
         return {}
 
-    repositories_by_module: dict[str, str] = {}
+    repositories_by_module: dict[str, tuple[str, ...]] = {}
     for metadata_path in sorted(
         (default_cache_directory() / registry_repository).glob(
             "modules/*/metadata.json"
         )
     ):
         try:
-            content = metadata_path.read_text(encoding="utf-8")
-        except OSError:
+            metadata: object = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
             continue
-
-        module_name = metadata_path.parent.name
-        metadata_by_repo = parse_bazel_registry_metadata(
-            content,
-            active_repository_names=active_repository_names,
-            org_name=org_name,
+        if not isinstance(metadata, dict):
+            continue
+        entries: object = metadata.get("repository")
+        if not isinstance(entries, list):
+            continue
+        sources = tuple(
+            repository
+            for entry in cast("list[object]", entries)
+            if isinstance(entry, str)
+            and entry.startswith("github:")
+            and (
+                repository := parse_github_repository(
+                    "https://github.com/" + entry.removeprefix("github:")
+                )
+            )
+            is not None
         )
-        for repository_name in metadata_by_repo:
-            repositories_by_module.setdefault(module_name, repository_name)
+        if sources:
+            repositories_by_module[metadata_path.parent.name] = sources
     return repositories_by_module

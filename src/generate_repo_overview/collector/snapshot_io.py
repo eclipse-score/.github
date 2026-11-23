@@ -4,16 +4,22 @@ import json
 from typing import TYPE_CHECKING
 
 from generate_repo_overview.console import print_status
-from generate_repo_overview.models import RepoSnapshot
+from generate_repo_overview.models import SNAPSHOT_SCHEMA_VERSION, RepoSnapshot
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-def load_snapshot(path: Path) -> RepoSnapshot:
+def load_snapshot(path: Path, *, require_current_schema: bool = False) -> RepoSnapshot:
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("Snapshot file must contain a JSON object.")
+    schema_version = raw.get("schema_version")
+    if require_current_schema and schema_version != SNAPSHOT_SCHEMA_VERSION:
+        raise ValueError(
+            f"Unsupported snapshot schema version {schema_version}; "
+            f"expected {SNAPSHOT_SCHEMA_VERSION} for the collection cache."
+        )
     return RepoSnapshot.from_dict(raw)
 
 
@@ -22,7 +28,7 @@ def load_snapshot_if_present(path: Path) -> RepoSnapshot | None:
         print_status(f"Snapshot cache {path} is absent; collecting without cached data")
         return None
     try:
-        snapshot = load_snapshot(path)
+        snapshot = load_snapshot(path, require_current_schema=True)
         print_status(
             f"Loaded snapshot cache {path} with {len(snapshot.repos)} repositories"
         )

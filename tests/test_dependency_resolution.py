@@ -8,10 +8,12 @@ from generate_repo_overview.models import (
     DeepContentSignals,
     DependencyDeclaration,
     DependencyOverride,
+    DependencyPinKind,
     DependencyResolution,
     RepoEntry,
     VolatileMetricsSnapshot,
 )
+from generate_repo_overview.org_config import OrgConfig
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -41,6 +43,8 @@ def baselibs(tmp_path: Path) -> dict[str, str]:
     git(work, "checkout", "-q", "-b", "experiment", commits["v1.0.0"])
     commits["experiment"] = commit(work, "experiment")
     git(work, "checkout", "-q", "main")
+    git(work, "tag", "experiment", commits["v1.1.0"])
+    git(work, "branch", "9.9.9")
     return commits
 
 
@@ -49,18 +53,24 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
 ) -> None:
     cloned: list[str] = []
 
-    def clone_history(*, repository: str, destination: Path) -> None:
+    def clone_history(
+        *, repository: str, branch: str, destination: Path, history: bool
+    ) -> None:
+        assert history
+        assert branch == "main"
         cloned.append(repository)
+        destination.parent.mkdir(parents=True)
         git(
             tmp_path,
             "clone",
             "-q",
-            "--bare",
+            "--branch",
+            branch,
             str(tmp_path / "baselibs"),
             str(destination),
         )
 
-    monkeypatch.setattr(dependency_resolution, "sync_history", clone_history)
+    monkeypatch.setattr(dependency_resolution, "sync_default_branch", clone_history)
     dependency = RepoEntry(
         "baselibs",
         "",
@@ -71,7 +81,7 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
         content=DeepContentSignals(bazel_module_name="score_baselibs"),
         volatile=VolatileMetricsSnapshot(latest_release_version="v1.1.0"),
     )
-    logging_remote = "https://github.com/eclipse-score/baselibs.git"
+    dependency_remote = "https://github.com/eclipse-score/baselibs.git"
     consumer = RepoEntry(
         "consumer",
         "",
@@ -100,8 +110,23 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
                     "score_baselibs_fork",
                     "0.0.0",
                     DependencyOverride.GIT,
-                    remote=logging_remote,
+                    remote=dependency_remote,
                     revision=baselibs["experiment"],
+                    pin_kind=DependencyPinKind.COMMIT,
+                ),
+                DependencyDeclaration(
+                    "experiment_branch",
+                    override=DependencyOverride.GIT,
+                    remote=dependency_remote,
+                    revision="experiment",
+                    pin_kind=DependencyPinKind.BRANCH,
+                ),
+                DependencyDeclaration(
+                    "experiment_tag",
+                    override=DependencyOverride.GIT,
+                    remote=dependency_remote,
+                    revision="experiment",
+                    pin_kind=DependencyPinKind.TAG,
                 ),
                 DependencyDeclaration("score_baselibs", "9.9.9"),
             )
@@ -115,7 +140,16 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
     )
 
     assert cloned == ["eclipse-score/baselibs"]
-    assert {r.revision: r for r in resolutions} == {
+    by_pin = {(r.pin_kind, r.revision): r for r in resolutions}
+    assert (
+        by_pin.pop((DependencyPinKind.BRANCH, "experiment")).resolved_sha
+        == baselibs["experiment"]
+    )
+    assert (
+        by_pin.pop((DependencyPinKind.TAG, "experiment")).resolved_sha
+        == baselibs["v1.1.0"]
+    )
+    assert {r.revision: r for r in by_pin.values()} == {
         # The latest release, but the default branch moved on.
         "1.1.0": DependencyResolution(
             "eclipse-score/baselibs",
@@ -142,10 +176,11 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
             baselibs["experiment"],
             resolved_sha=baselibs["experiment"],
             latest_release="v1.1.0",
-            behind_latest_release_by=2,
             ahead_of_default_branch_by=1,
             behind_default_branch_by=3,
+            pin_kind=DependencyPinKind.COMMIT,
         ),
+        # A branch of the same name does not resolve a Bazel module version.
         "9.9.9": DependencyResolution(
             "eclipse-score/baselibs", "9.9.9", latest_release="v1.1.0"
         ),
@@ -158,7 +193,7 @@ def test_resolve_dependencies_skips_repositories_outside_the_collection(
     def fail(**_kwargs: object) -> None:
         raise AssertionError("must not clone uncollected repositories")
 
-    monkeypatch.setattr(dependency_resolution, "sync_history", fail)
+    monkeypatch.setattr(dependency_resolution, "sync_default_branch", fail)
     consumer = RepoEntry(
         "consumer",
         "",
@@ -176,3 +211,34 @@ def test_resolve_dependencies_skips_repositories_outside_the_collection(
         )
         == ()
     )
+
+
+def test_module_sources_use_full_identities_and_leave_conflicts_unmapped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repos = tuple(
+        RepoEntry(
+            "shared",
+            "",
+            "Platform",
+            "General",
+            owner=owner,
+            content=DeepContentSignals(bazel_module_name="shared_module"),
+        )
+        for owner in ("first-org", "second-org")
+    )
+    monkeypatch.setattr(
+        dependency_resolution,
+        "get_bazel_registry_module_sources",
+        lambda _: {
+            "second_module": ("Second-Org/SHARED",),
+            "external_module": ("external-org/external",),
+        },
+    )
+    mapping = dependency_resolution.map_module_repositories(
+        repos, (OrgConfig(org_name="first-org", registry_repo="first-org/registry"),)
+    )
+    assert mapping == {
+        "second_module": "second-org/shared",
+        "external_module": "external-org/external",
+    }

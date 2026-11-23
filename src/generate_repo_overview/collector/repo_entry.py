@@ -887,7 +887,7 @@ def get_latest_release_details(
     if release_tag and checkout_path is not None:
         release_ref = fetch_repository_ref(
             checkout_path,
-            release_tag,
+            f"refs/tags/{release_tag}",
             github_token=github_token,
         )
         if release_ref is None:

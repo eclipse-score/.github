@@ -4,7 +4,6 @@ import re
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
-from functools import cache
 from typing import Any, cast
 from urllib.parse import urlsplit
 
@@ -20,6 +19,7 @@ class LockfileStatus(StrEnum):
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
 SNAPSHOT_SCHEMA_VERSION = 32
+_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31)
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,6 +96,13 @@ class DependencyOverride(StrEnum):
     SINGLE_VERSION = "single_version"
 
 
+class DependencyPinKind(StrEnum):
+    VERSION = "version"
+    COMMIT = "commit"
+    TAG = "tag"
+    BRANCH = "branch"
+
+
 @dataclass(frozen=True, slots=True)
 class DependencyDeclaration:
     """One ``bazel_dep`` of a module, combined with the override Bazel applies to it."""
@@ -104,13 +111,14 @@ class DependencyDeclaration:
     version: str | None = None
     override: DependencyOverride | None = None
     remote: str | None = None
-    revision: str | None = None  # git_override commit, tag, or branch
+    revision: str | None = None
+    pin_kind: DependencyPinKind = DependencyPinKind.VERSION
 
     @property
     def pinned_revision(self) -> str | None:
         """The revision Bazel builds, as a commit, tag, branch, or release version.
 
-        A ``git_override`` replaces the declared version; archive and local-path
+        A ``git_override`` replaces the declared version. Archive and local-path
         overrides have no revision in the dependency's Git history.
         """
         if self.override is DependencyOverride.GIT:
@@ -122,8 +130,12 @@ class DependencyDeclaration:
     @property
     def display_version(self) -> str:
         """The version or Git revision Bazel builds, shortened for display."""
-        if self.override is DependencyOverride.GIT and self.revision:
-            return short_revision(self.revision)
+        if self.override is DependencyOverride.GIT:
+            if self.revision and self.pin_kind is DependencyPinKind.COMMIT:
+                return short_revision(self.revision)
+            return self.revision or "unknown"
+        if self.override in (DependencyOverride.ARCHIVE, DependencyOverride.LOCAL_PATH):
+            return "unknown"
         return self.version or "unversioned"
 
     @classmethod
@@ -137,6 +149,7 @@ class DependencyDeclaration:
             else None,
             remote=cast("str | None", data.get("remote")),
             revision=cast("str | None", data.get("revision")),
+            pin_kind=DependencyPinKind(data.get("pin_kind", DependencyPinKind.VERSION)),
         )
 
 
@@ -151,6 +164,7 @@ class DependencyResolution:
     behind_latest_release_by: int | None = None
     ahead_of_default_branch_by: int | None = None
     behind_default_branch_by: int | None = None
+    pin_kind: DependencyPinKind = DependencyPinKind.VERSION
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DependencyResolution:
@@ -168,6 +182,7 @@ class DependencyResolution:
             behind_default_branch_by=cast(
                 "int | None", data.get("behind_default_branch_by")
             ),
+            pin_kind=DependencyPinKind(data.get("pin_kind", DependencyPinKind.VERSION)),
         )
 
 
@@ -453,7 +468,9 @@ class RepoEntry:
         return self.full_name.casefold() == identity.casefold()
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> RepoEntry:
+    def from_dict(
+        cls, data: Mapping[str, Any], *, default_owner: str = ""
+    ) -> RepoEntry:
         content_payload = cast("Mapping[str, Any]", data.get("content", {}))
         registry_payload = cast("Mapping[str, Any]", data.get("registry", {}))
         volatile_payload = cast("Mapping[str, Any]", data.get("volatile", {}))
@@ -461,7 +478,7 @@ class RepoEntry:
 
         return cls(
             name=cast("str", data.get("name", "")),
-            owner=cast("str", data.get("owner", "")),
+            owner=cast("str", data.get("owner") or default_owner),
             description=cast("str", data.get("description", "(no description)")),
             category=cast("str", data.get("category", DEFAULT_CATEGORY)),
             subcategory=cast("str", data.get("subcategory", DEFAULT_SUBCATEGORY)),
@@ -520,8 +537,25 @@ class RepoSnapshot:
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     workflow_ref_resolutions: tuple[WorkflowRefResolution, ...] = ()
     additional_org_names: tuple[str, ...] = ()
-    module_repositories: Mapping[str, str] = field(default_factory=dict)
+    module_repositories: Mapping[str, str] = field(default_factory=dict[str, str])
     dependency_resolutions: tuple[DependencyResolution, ...] = ()
+    _dependency_resolutions_by_pin: dict[
+        tuple[str, DependencyPinKind, str], DependencyResolution
+    ] = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "_dependency_resolutions_by_pin",
+            {
+                (
+                    resolution.repository.casefold(),
+                    resolution.pin_kind,
+                    resolution.revision,
+                ): resolution
+                for resolution in self.dependency_resolutions
+            },
+        )
 
     @property
     def organization_names(self) -> tuple[str, ...]:
@@ -537,8 +571,8 @@ class RepoSnapshot:
         revision = declaration.pinned_revision
         if repository is None or revision is None:
             return None
-        return _resolutions_by_key(self.dependency_resolutions).get(
-            (repository.casefold(), revision)
+        return self._dependency_resolutions_by_pin.get(
+            (repository.casefold(), declaration.pin_kind, revision)
         )
 
     @classmethod
@@ -548,7 +582,10 @@ class RepoSnapshot:
             raise ValueError("Snapshot payload must contain a 'repos' list.")
 
         schema_version = data.get("schema_version", SNAPSHOT_SCHEMA_VERSION)
-        if schema_version != SNAPSHOT_SCHEMA_VERSION:
+        if schema_version not in (
+            SNAPSHOT_SCHEMA_VERSION,
+            *_LEGACY_SNAPSHOT_SCHEMA_VERSIONS,
+        ):
             raise ValueError(
                 "Unsupported snapshot schema version "
                 f"{schema_version}; expected {SNAPSHOT_SCHEMA_VERSION}."
@@ -589,7 +626,12 @@ class RepoSnapshot:
             schema_version=SNAPSHOT_SCHEMA_VERSION,
             org_name=org_name,
             generated_at=generated_at,
-            repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
+            repos=tuple(
+                RepoEntry.from_dict(
+                    repo, default_owner=org_name if schema_version == 30 else ""
+                )
+                for repo in typed_repos_data
+            ),
             additional_org_names=normalize_string_tuple(
                 data.get("additional_org_names")
             ),
@@ -687,18 +729,17 @@ def _parse_sphinx_items(value: object) -> tuple[SphinxItem, ...]:
 def _parse_dependencies(value: object) -> tuple[DependencyDeclaration, ...]:
     if not isinstance(value, (list, tuple)):
         return ()
-    return tuple(
+    items = cast("tuple[object, ...]", tuple(value))
+    declarations = tuple(
         DependencyDeclaration.from_dict(cast("Mapping[str, Any]", item))
-        for item in cast("list[object]", list(value))
+        for item in items
         if isinstance(item, dict) and isinstance(item.get("module"), str)
     )
-
-
-@cache
-def _resolutions_by_key(
-    resolutions: tuple[DependencyResolution, ...],
-) -> dict[tuple[str, str], DependencyResolution]:
-    return {(r.repository.casefold(), r.revision): r for r in resolutions}
+    legacy = tuple(
+        DependencyDeclaration(module, version)
+        for module, version in normalize_string_pairs(items)
+    )
+    return declarations + legacy
 
 
 def dependency_repository(
@@ -706,8 +747,15 @@ def dependency_repository(
     module_repositories: Mapping[str, str],
 ) -> str | None:
     """Return ``owner/name`` of the repository Bazel fetches a dependency from."""
-    if declaration.override is DependencyOverride.GIT and declaration.remote:
-        return parse_github_repository(declaration.remote)
+    if declaration.override is DependencyOverride.GIT:
+        return (
+            parse_github_repository(declaration.remote) if declaration.remote else None
+        )
+    if declaration.override in (
+        DependencyOverride.ARCHIVE,
+        DependencyOverride.LOCAL_PATH,
+    ):
+        return None
     return module_repositories.get(declaration.module)
 
 
@@ -715,14 +763,23 @@ def parse_github_repository(remote: str) -> str | None:
     """Return ``owner/name`` for a GitHub HTTPS or SSH remote."""
     if remote.startswith("git@github.com:"):
         remote = f"ssh://git@github.com/{remote.removeprefix('git@github.com:')}"
-    parsed = urlsplit(remote)
+    try:
+        parsed = urlsplit(remote)
+    except ValueError:
+        return None
     if parsed.hostname != "github.com":
         return None
     parts = [part for part in parsed.path.strip("/").split("/") if part]
     if len(parts) != 2:
         return None
     owner, name = parts[0], parts[1].removesuffix(".git")
-    return f"{owner}/{name}" if owner and name else None
+    if (
+        re.fullmatch(r"[A-Za-z0-9-]+", owner)
+        and re.fullmatch(r"[A-Za-z0-9_.-]+", name)
+        and name not in {".", ".."}
+    ):
+        return f"{owner}/{name}"
+    return None
 
 
 def short_revision(revision: str) -> str:

@@ -17,7 +17,7 @@ Changing a renderer or template therefore requires no GitHub refresh.
 ## Incremental Collection
 
 Collection still fetches current high-level repository state, including the
-default branch. The shared `repo_cache` package synchronizes each shallow
+default branch. The shared `repo_cache` package synchronizes each
 checkout through the authenticated GitHub CLI and supplies the current commit
 SHA. The collector then chooses one of these paths:
 
@@ -69,7 +69,7 @@ to it, so a `git_override` commit, tag, or branch replaces the declared
 version, and `single_version_override` replaces it with the overriding
 version.
 
-Checkouts are disposable, shallow, single-branch clones. The cache is shared
+Checkouts are disposable and start as shallow, single-branch clones. The cache is shared
 with other repository tools such as `score-repo-policy-sync` and
 `score-repo-cache`. Checkout authentication is handled by `gh`; use
 `GITHUB_TOKEN` or `gh auth login` before collecting.
@@ -77,21 +77,24 @@ with other repository tools such as `score-repo-policy-sync` and
 ## Dependency Resolution
 
 After all organizations are collected, the snapshot maps Bazel module names
-to collected repositories (`module_repositories`). Registry metadata names a
-module's source repository; a repository's own root module name fills the
-remaining gaps. A `git_override` remote takes precedence over both.
+to GitHub repositories (`module_repositories`). Registry metadata names a
+module's source repository. A collected repository's root module name fills
+remaining gaps when the name identifies a single repository. A `git_override`
+uses its own remote.
 
 Each pinned revision of a collected dependency is then resolved once per
 collection into `dependency_resolutions`: the commit it names, how many
 commits of the dependency's latest release it lacks, and how far it is ahead
-of and behind the dependency's default branch. Pins without a common
-ancestor, unknown versions, and dependencies outside the collected
-repositories stay unresolved rather than appearing up to date.
+of and behind the dependency's default branch. A registry version is displayed
+as declared and resolved through an unambiguous matching tag, optionally with
+a `v` prefix. Git overrides resolve according to whether they declare a
+commit, tag, or branch. Unknown pins and unavailable comparisons are marked
+on the detail page.
 
-These comparisons run locally on `repo_cache` history clones at
-`<owner>/<repository>.git` next to the shallow checkouts. The bare, treeless
-clones contain every branch and tag commit but fetch trees and blobs lazily,
-so the number of GitHub API calls does not grow with the number of pins.
+The shared `repo_cache` upgrades a dependency's existing checkout to a blobless
+clone with full history when needed. Commit comparisons then run locally,
+with no per-pin GitHub API calls. Once upgraded, the checkout keeps its history
+for subsequent collections.
 
 For a repository without any commits, GitHub may report a default-branch name
 even though that branch cannot be resolved. After a failed checkout, the
@@ -103,7 +106,6 @@ errors.
 
 ## Schema Changes
 
-The loader accepts only schema 32. Snapshots from other versions are not
-reused, so the next collection inspects every repository again. Schema 32
-stores dependencies with their overrides; reusing older content caches would
-hide those overrides until each repository's default branch changed.
+Render commands can read snapshots using schemas 30 through 32.
+Collection rebuilds older snapshots because only schema 32 stores dependency
+overrides and comparisons.
