@@ -57,7 +57,7 @@ CI runners. Each checkout has its own Bazel server. The collector shuts it down
 after the check. A short idle limit stops servers whose shutdown did not
 succeed.
 
-A check times out after 60 seconds. Set
+A check times out after 120 seconds. Set
 `REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS` to change this, for example on
 runners that start with a cold Bazel cache.
 

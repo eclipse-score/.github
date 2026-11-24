@@ -311,7 +311,7 @@ def test_invalid_lockfile_timeout_uses_the_default(
 ) -> None:
     monkeypatch.setenv("REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS", value)
 
-    assert signal_detection.resolve_bazel_lockfile_timeout_seconds() == 60
+    assert signal_detection.resolve_bazel_lockfile_timeout_seconds() == 120
 
 
 def _collect_unchanged(cached_entry: RepoEntry) -> RepoEntry:
