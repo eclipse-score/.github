@@ -3,6 +3,7 @@ from __future__ import annotations
 import fnmatch
 import re
 import subprocess
+import threading
 from time import monotonic
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
@@ -78,10 +79,20 @@ VERSION_PATTERN = re.compile(r'\bversion\s*=\s*"(?P<version>[^"]+)"')
 
 
 BAZEL_LOCKFILE_TIMEOUT_SECONDS = 60
+BAZEL_SHUTDOWN_TIMEOUT_SECONDS = 30
+# Every checkout gets its own Bazel server, which outlives its command. The
+# idle limit stops a server whose explicit shutdown did not succeed. Shutdown
+# must use the same startup options, or Bazel would first restart the server.
+_BAZEL_COMMAND = ("bazel", "--max_idle_secs=30")
+# Repositories are collected in parallel, but Bazel already uses all cores.
+# Concurrent checks overload small CI runners and time each other out.
+_BAZEL_LOCKFILE_CHECK_LOCK = threading.Lock()
 
 
 def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str | None]:
     """Run `bazel mod deps --lockfile_mode=error` in the checkout.
+
+    Only one check runs at a time, and its Bazel server is stopped afterwards.
 
     Returns (status, error_output):
       (OK,      None)    — lockfile exists and is up to date
@@ -94,13 +105,23 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
         return LockfileStatus.UNKNOWN, None
     if not (checkout_path / "MODULE.bazel.lock").exists():
         return LockfileStatus.MISSING, None
+    with _BAZEL_LOCKFILE_CHECK_LOCK:
+        try:
+            return _run_bazel_lockfile_check(checkout_path)
+        finally:
+            _shutdown_bazel_server(checkout_path)
+
+
+def _run_bazel_lockfile_check(
+    checkout_path: Path,
+) -> tuple[LockfileStatus, str | None]:
     started = monotonic()
     print_status(
         f"{checkout_path}: starting Bazel lockfile check (timeout {BAZEL_LOCKFILE_TIMEOUT_SECONDS}s)"
     )
     try:
         result = subprocess.run(
-            ["bazel", "mod", "deps", "--lockfile_mode=error"],
+            [*_BAZEL_COMMAND, "mod", "deps", "--lockfile_mode=error"],
             cwd=checkout_path,
             check=False,
             stdout=subprocess.DEVNULL,
@@ -122,6 +143,20 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
     if result.returncode != 0:
         return LockfileStatus.ERROR, result.stderr.strip() or None
     return LockfileStatus.OK, None
+
+
+def _shutdown_bazel_server(checkout_path: Path) -> None:
+    try:
+        subprocess.run(
+            [*_BAZEL_COMMAND, "shutdown"],
+            cwd=checkout_path,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=BAZEL_SHUTDOWN_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print_status(f"{checkout_path}: Bazel server shutdown failed: {exc}")
 
 
 def inspect_repository_content_slow(
