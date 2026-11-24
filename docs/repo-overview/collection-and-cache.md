@@ -116,8 +116,19 @@ even though that branch cannot be resolved. After a failed checkout, the
 collector checks the default branch through the GitHub API before falling back
 to an authenticated `ls-remote` check. A missing default branch, or a reachable
 remote without references, is collected as an empty repository with neutral
-content signals; transport errors and non-empty checkout failures remain
-errors.
+content signals; transport errors and non-empty checkout failures fail the
+collection of that repository.
+
+## Failed Repositories
+
+A repository whose collection fails does not stop the collection. Its entry
+from the previous snapshot is kept unchanged; without one, the repository is
+left out until a later collection succeeds. Each failure and a summary are
+logged as warnings. The dashboard does not mark a kept entry as outdated.
+
+The command fails when more than half of an organization's repositories fail,
+and more than one. The cause is then a broken token, an exhausted rate limit,
+or an unreachable GitHub, not a single repository.
 
 ## Schema Changes
 

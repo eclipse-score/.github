@@ -2537,3 +2537,111 @@ def test_load_snapshot_if_present_ignores_mismatched_schema(
     assert "Cannot reuse snapshot cache" in diagnostics
     assert "Unsupported snapshot schema version 2" in diagnostics
     assert "collecting without cached data" in diagnostics
+
+
+def _fetch_with_failing_repositories(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    repository_names: tuple[str, ...],
+    failing: set[str],
+    cached: tuple[RepoEntry, ...] = (),
+    snapshot_workflow_signals: tuple[WorkflowSignal, ...] = (),
+) -> list[RepoEntry]:
+    def collect(**kwargs: Any) -> RepoEntry:
+        name = kwargs["repository_name"]
+        if name in failing:
+            raise RuntimeError(f"Could not synchronize repository {name}.")
+        return RepoEntry(
+            name=name, description="fresh", category="Tools", subcategory="General"
+        )
+
+    monkeypatch.setattr(
+        collector,
+        "fetch_active_repositories",
+        lambda organization, **_kwargs: {
+            name: collector.ActiveRepositoryData(
+                repository=SimpleNamespace(archived=False, name=name),
+                custom_properties={},
+            )
+            for name in repository_names
+        },
+    )
+    monkeypatch.setattr(repo_entry, "collect_repository_entry", collect)
+    return collector.fetch_repositories(
+        cast("Any", SimpleNamespace(login="eclipse-score")),
+        existing_snapshot=RepoSnapshot(
+            schema_version=SNAPSHOT_SCHEMA_VERSION,
+            org_name="eclipse-score",
+            generated_at="2026-04-13T12:00:00+00:00",
+            repos=cached,
+            workflow_signals=snapshot_workflow_signals,
+        ),
+    )
+
+
+def test_failed_repository_keeps_its_earlier_result_and_others_are_collected(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    repos = _fetch_with_failing_repositories(
+        monkeypatch,
+        repository_names=("alpha", "beta", "broken", "new-and-broken"),
+        failing={"broken", "new-and-broken"},
+        cached=(
+            RepoEntry(
+                name="broken",
+                description="earlier",
+                category="Tools",
+                subcategory="General",
+            ),
+        ),
+    )
+
+    assert [(repo.name, repo.description) for repo in repos] == [
+        ("alpha", "fresh"),
+        ("beta", "fresh"),
+        ("broken", "earlier"),
+    ]
+    assert (
+        "warning: collection failed for 2 of 4 repositories in eclipse-score: "
+        "broken, new-and-broken" in capsys.readouterr().err
+    )
+
+
+def test_collection_fails_when_most_repositories_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(RuntimeError, match="failed for 2 of 3 repositories"):
+        _fetch_with_failing_repositories(
+            monkeypatch,
+            repository_names=("alpha", "beta", "gamma"),
+            failing={"alpha", "beta"},
+            cached=(
+                RepoEntry(
+                    name="alpha",
+                    description="earlier",
+                    category="Tools",
+                    subcategory="General",
+                ),
+            ),
+        )
+
+
+def test_only_repository_of_an_organization_may_fail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    earlier = RepoEntry(
+        name="only", description="earlier", category="Tools", subcategory="General"
+    )
+
+    repos = _fetch_with_failing_repositories(
+        monkeypatch,
+        repository_names=("only",),
+        failing={"only"},
+        cached=(earlier,),
+        # Changed workflow signals invalidate the content cache, but the
+        # earlier entry still stands in for the failed repository.
+        snapshot_workflow_signals=(WorkflowSignal("Old", "org/repo/old.yml@"),),
+    )
+
+    assert [(repo.name, repo.description) for repo in repos] == [("only", "earlier")]

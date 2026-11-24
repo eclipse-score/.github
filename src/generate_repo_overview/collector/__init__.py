@@ -450,13 +450,16 @@ def fetch_repositories(
         )
     )
 
+    # Entries of the previous snapshot stand in for repositories that fail.
+    earlier_by_full_name: dict[str, RepoEntry] = {}
     cached_by_full_name: dict[str, RepoEntry] = {}
     if existing_snapshot is not None:
+        earlier_by_full_name = {
+            f"{repo.owner or existing_snapshot.org_name}/{repo.name}".casefold(): repo
+            for repo in existing_snapshot.repos
+        }
         if config.workflow_signals == existing_snapshot.workflow_signals:
-            cached_by_full_name = {
-                f"{repo.owner or existing_snapshot.org_name}/{repo.name}".casefold(): repo
-                for repo in existing_snapshot.repos
-            }
+            cached_by_full_name = earlier_by_full_name
         else:
             print_status(
                 "Workflow signal definitions changed — ignoring content cache",
@@ -478,6 +481,8 @@ def fetch_repositories(
     )
 
     repos_by_index: dict[int, RepoEntry] = {}
+    failed_repository_names: list[str] = []
+    finished_repositories = 0
     with (
         ThreadPoolExecutor(max_workers=max_workers) as executor,
         tqdm(
@@ -523,22 +528,84 @@ def fetch_repositories(
 
         for future in as_completed(futures):
             index, repository_name = futures[future]
-            try:
-                entry = future.result()
-            except Exception:
-                print_status(
-                    f"{repository_name}: collection failed", prefix=status_prefix
-                )
-                raise
-            repos_by_index[index] = replace(entry, owner=config.org_name)
             progress.update(1)
             progress.set_postfix_str(repository_name)
+            finished_repositories += 1
+            try:
+                entry = future.result()
+            except Exception as exc:
+                failed_repository_names.append(repository_name)
+                cached_entry = _earlier_result_for_failed_repository(
+                    repository_name,
+                    exc,
+                    earlier_by_full_name.get(
+                        f"{config.org_name}/{repository_name}".casefold()
+                    ),
+                    status_prefix,
+                )
+                if cached_entry is None:
+                    continue
+                entry = cached_entry
+            repos_by_index[index] = replace(entry, owner=config.org_name)
             print_status(
-                f"Finished {len(repos_by_index)}/{total_repositories} repositories ({repository_name})",
+                f"Finished {finished_repositories}/{total_repositories} repositories ({repository_name})",
                 prefix=status_prefix,
             )
 
-    return [repos_by_index[index] for index in range(1, total_repositories + 1)]
+    _report_failed_repositories(
+        failed_repository_names, total_repositories, config.org_name, status_prefix
+    )
+    return [
+        repos_by_index[index]
+        for index in range(1, total_repositories + 1)
+        if index in repos_by_index
+    ]
+
+
+def _earlier_result_for_failed_repository(
+    repository_name: str,
+    error: Exception,
+    cached_entry: RepoEntry | None,
+    status_prefix: str,
+) -> RepoEntry | None:
+    """Keep the dashboard refreshing when one repository cannot be collected."""
+    if cached_entry is None:
+        print_status(
+            f"warning: {repository_name}: collection failed and no earlier "
+            f"result exists; leaving it out ({error})",
+            prefix=status_prefix,
+        )
+        return None
+    print_status(
+        f"warning: {repository_name}: collection failed; keeping the result "
+        f"of an earlier collection ({error})",
+        prefix=status_prefix,
+    )
+    return cached_entry
+
+
+def _report_failed_repositories(
+    failed_repository_names: list[str],
+    total_repositories: int,
+    org_name: str,
+    status_prefix: str,
+) -> None:
+    failed = len(failed_repository_names)
+    if failed > 1 and failed > total_repositories / 2:
+        # So many failures are not caused by single repositories. Publishing
+        # earlier results would hide a broken token, an exhausted rate limit,
+        # or an unreachable GitHub.
+        raise RuntimeError(
+            f"Collection failed for {failed} of {total_repositories} "
+            f"repositories in {org_name}."
+        )
+    if failed_repository_names:
+        print_status(
+            f"warning: collection failed for {len(failed_repository_names)} of "
+            f"{total_repositories} repositories in {org_name}: "
+            + ", ".join(sorted(failed_repository_names, key=str.casefold)),
+            prefix=status_prefix,
+        )
 
 
 def _collect_reference_integration(
