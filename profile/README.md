@@ -52,7 +52,6 @@ Core S-CORE modules, libraries, and APIs.
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
 | [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |
 | [persistency](https://github.com/eclipse-score/persistency) | Repository for persistency framework |
-| [scrample](https://github.com/eclipse-score/scrample) | Repository for example component |
 | [time](https://github.com/eclipse-score/time) | Time synchronization module |
 
 #### Incubation
