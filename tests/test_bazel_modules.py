@@ -53,7 +53,7 @@ archive_override(module_name = "vendored", urls = ["https://example.com/v.tgz"])
     )
 
 
-def test_pinned_revision_is_what_bazel_builds() -> None:
+def test_pinned_revision_reflects_declared_versions_and_overrides() -> None:
     [baselibs, logging, vendored] = parse_dependencies(
         [
             'bazel_dep(name = "baselibs", version = "0.2.0")\n'
@@ -119,3 +119,26 @@ single_version_override(module_name = "unchanged", patch_strip = 1)
     assert unknown.pinned_revision is None
     assert unknown.display_version == "unknown"
     assert unchanged.pinned_revision == "1.0.0"
+
+
+def test_single_version_override_distinguishes_unknown_and_default_registries() -> None:
+    default, explicit, unknown = parse_dependencies(
+        [
+            """
+REGISTRY = "https://raw.githubusercontent.com/example/registry/main/"
+bazel_dep(name = "default", version = "1.0.0")
+bazel_dep(name = "explicit", version = "1.0.0")
+bazel_dep(name = "unknown", version = "1.0.0")
+single_version_override(module_name = "default", registry = "")
+single_version_override(module_name = "explicit", registry = REGISTRY)
+single_version_override(module_name = "unknown", registry = registries["current"])
+"""
+        ]
+    )
+
+    assert default.registry_override is None
+    assert (
+        explicit.registry_override
+        == "https://raw.githubusercontent.com/example/registry/main/"
+    )
+    assert unknown.registry_override == ""

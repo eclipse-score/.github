@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING
 from .metrics_report import parse_version_key
 
 if TYPE_CHECKING:
-    from .models import RepoEntry, WorkflowRefResolution
+    from .models import (
+        DependencyDeclaration,
+        RepoEntry,
+        RepoSnapshot,
+        WorkflowRefResolution,
+    )
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
@@ -105,45 +110,38 @@ def repo_name_cell(
     return cell
 
 
-def version_badge(
+def bazel_version_badge(
     version: str | None,
     max_bazel: tuple[int, ...] | None,
-    *,
-    latest_dep_version: str | None,
-    is_bazel: bool,
 ) -> str:
-    """Render a colored version badge span.
-
-    Bazel versions are green when equal to *max_bazel*, red otherwise.
-    Dep versions compare against *latest_dep_version*: green if equal,
-    yellow if same major.minor, red if older, muted if unknown.
-    """
+    """Show whether Bazel is at the highest known version."""
     if version is None or not version.strip():
         return '<span class="badge muted">—</span>'
 
     cleaned = version.strip()
     parsed = parse_version_key(cleaned)
 
-    if is_bazel:
-        if parsed is not None and max_bazel is not None and parsed == max_bazel:
-            return f'<span class="badge green">{e(cleaned)}</span>'
-        return f'<span class="badge red">{e(cleaned)}</span>'
+    color = "green" if parsed is not None and parsed == max_bazel else "red"
+    return f'<span class="badge {color}">{e(cleaned)}</span>'
 
-    if latest_dep_version is None:
-        return f'<span class="badge muted">{e(cleaned)}</span>'
-    latest_cleaned = latest_dep_version.strip()
-    if cleaned == latest_cleaned:
-        return f'<span class="badge green">{e(cleaned)}</span>'
-    if parsed is not None:
-        latest_parsed = parse_version_key(latest_cleaned)
-        if (
-            latest_parsed is not None
-            and len(parsed) >= 2
-            and len(latest_parsed) >= 2
-            and parsed[:2] == latest_parsed[:2]
-        ):
-            return f'<span class="badge yellow">{e(cleaned)}</span>'
-    return f'<span class="badge red">{e(cleaned)}</span>'
+
+def dependency_version_badge(
+    declaration: DependencyDeclaration | None, entry: RepoEntry, snapshot: RepoSnapshot
+) -> str:
+    if declaration is None:
+        return '<span class="badge muted">—</span>'
+
+    version = e(declaration.display_version)
+    resolution = snapshot.dependency_resolution(entry, declaration)
+    status = resolution.release_update_available if resolution else None
+    if status is None or resolution is None or resolution.latest_release is None:
+        return f'<span class="badge muted">{version}</span>'
+    latest = e(resolution.latest_release)
+    if status:
+        return f'<span class="badge yellow" title="{latest} available">{version}</span>'
+    return (
+        f'<span class="badge green" title="Up to date with {latest}">{version}</span>'
+    )
 
 
 def workflow_ref_badges(

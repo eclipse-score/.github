@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from ._html_detail import render_detail_page
 from ._html_index import render_index_page
-from .metrics_report import get_latest_tracked_dep_version, get_max_bazel_version
+from .metrics_report import get_max_bazel_version
 from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_report_json
 
 if TYPE_CHECKING:
@@ -26,10 +26,6 @@ def render_all_pages(
 ) -> dict[str, str]:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
     max_bazel = get_max_bazel_version(list(repos))
-    latest_dep_versions = {
-        dep.module_name: get_latest_tracked_dep_version(list(repos), dep)
-        for dep in snapshot.tracked_deps
-    }
 
     pages: dict[str, str] = {
         "index.html": render_index_page(
@@ -50,6 +46,6 @@ def render_all_pages(
         pages[policy_report_filename] = policy_report_json
     for entry in repos:
         pages[entry.detail_path(snapshot.org_name)] = render_detail_page(
-            entry, snapshot, max_bazel, latest_dep_versions
+            entry, snapshot, max_bazel
         )
     return pages

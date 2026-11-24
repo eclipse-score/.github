@@ -142,6 +142,7 @@ def _row(page: str, label: str) -> str:
 def test_detail_page_shows_release_and_default_branch_freshness_separately() -> None:
     pages = render_all_pages(_snapshot())
 
+    assert "Bazel may select a different version" in pages["current/index.html"]
     current = _row(pages["current/index.html"], "score_baselibs")
     head, release = re.findall(r"<td>(.*?)</td>", current, re.S)[1:3]
     assert "latest release" in head
@@ -179,7 +180,7 @@ def test_detail_page_lists_consumers_with_the_versions_they_use() -> None:
     assert "9.9.9" in pinned
     assert "0123456" in pinned
     assert "no release" in pinned
-    assert "Only repositories in this overview are searched." in used_by
+    assert "Declared direct dependencies only." in used_by
 
 
 def test_tracked_git_pin_label_stays_neutral_in_version_summaries() -> None:

@@ -24,6 +24,7 @@ from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
     DependencyDeclaration,
+    DependencyResolution,
     GroupingLevel,
     RegistrySignals,
     RepoEntry,
@@ -2165,6 +2166,17 @@ def test_versions_table_tracked_dep_color_rules() -> None:
                 repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
             ),
         ),
+        dependency_resolutions=tuple(
+            DependencyResolution(
+                "eclipse-score/docs-as-code",
+                version,
+                latest_release="4.1.3",
+                registry_update_available=update_available,
+                consumer_org="eclipse-score",
+                module="score_docs_as_code",
+            )
+            for version, update_available in (("4.1.3", False), ("4.1.1", True))
+        ),
         repos=(
             RepoEntry(
                 name="docs-as-code",
@@ -2231,7 +2243,7 @@ def test_versions_table_tracked_dep_color_rules() -> None:
         in markdown
     )
     assert (
-        "| [older](https://github.com/eclipse-score/older) | 🔴 8.3.0 | 🔴 3.9.9 | no |"
+        "| [older](https://github.com/eclipse-score/older) | 🔴 8.3.0 | ⚪ 3.9.9 | no |"
         in markdown
     )
     assert (
@@ -2250,6 +2262,24 @@ def test_versions_table_multiple_tracked_deps() -> None:
                 repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
             ),
             TrackedDep(repo="eclipse-score/toolchain", module_name="score_toolchain"),
+        ),
+        dependency_resolutions=(
+            DependencyResolution(
+                "eclipse-score/docs-as-code",
+                "4.1.3",
+                latest_release="4.1.3",
+                registry_update_available=False,
+                consumer_org="eclipse-score",
+                module="score_docs_as_code",
+            ),
+            DependencyResolution(
+                "eclipse-score/toolchain",
+                "1.9.0",
+                latest_release="2.0.0",
+                registry_update_available=True,
+                consumer_org="eclipse-score",
+                module="score_toolchain",
+            ),
         ),
         repos=(
             RepoEntry(
@@ -2288,7 +2318,7 @@ def test_versions_table_multiple_tracked_deps() -> None:
 
     assert "Docs As Code Version" in markdown
     assert "Toolchain Version" in markdown
-    assert "🟢 4.1.3 | 🔴 1.9.0" in markdown
+    assert "🟢 4.1.3 | 🟡 1.9.0" in markdown
 
 
 def test_metrics_report_renders_without_tracked_deps_or_signals() -> None:

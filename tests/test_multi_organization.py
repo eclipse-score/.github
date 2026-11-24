@@ -8,16 +8,12 @@ import pytest
 import generate_repo_overview.cli as cli
 import generate_repo_overview.collector as collector
 from generate_repo_overview.metrics_html import render_all_pages
-from generate_repo_overview.metrics_report import (
-    get_latest_tracked_dep_version,
-    render_metrics_report,
-)
+from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
     RepoEntry,
     RepoSnapshot,
-    TrackedDep,
     VolatileMetricsSnapshot,
 )
 from generate_repo_overview.org_config import load_org_config
@@ -130,9 +126,6 @@ reference_integration_repo = ""
     assert 'href="../../../index.html"' in secondary
     assert "&rsaquo; second-org/shared" in secondary
     assert 'src="../../../bazel_logo.svg"' in secondary
-
-    tracked_dep = TrackedDep(repo="second-org/shared", module_name="shared")
-    assert get_latest_tracked_dep_version(list(snapshot.repos), tracked_dep) == "2.0.0"
 
 
 @pytest.mark.parametrize(
@@ -272,7 +265,7 @@ repository_owner = "second-org"
     assert "policy-status changes-required" in policy_rows[0]
 
 
-@pytest.mark.parametrize("schema_version", [30, 31, 32])
+@pytest.mark.parametrize("schema_version", [30, 31, 32, 33])
 def test_older_snapshot_renders_but_is_not_reused_for_collection(
     schema_version: int, tmp_path: Path
 ) -> None:
@@ -303,20 +296,15 @@ def test_older_snapshot_renders_but_is_not_reused_for_collection(
     assert snapshot.organization_names == ("first-org",)
     assert snapshot.to_dict()["schema_version"] == SNAPSHOT_SCHEMA_VERSION
     assert snapshot.repos[0].full_name == "first-org/tools"
-    assert (
-        get_latest_tracked_dep_version(
-            list(snapshot.repos), TrackedDep("first-org/tools", "tools")
-        )
-        == "1.2.3"
-    )
+    assert snapshot.repos[0].volatile.latest_release_version == "v1.2.3"
     page = render_all_pages(snapshot)["tools/index.html"]
     assert 'href="https://github.com/first-org/tools"' in page
     assert "rules_python" in page
     source_page = render_all_pages(snapshot)["rules_python/index.html"]
     assert "Consumer data unavailable" in source_page
-    assert "No collected repository uses this one." not in source_page
+    assert "No direct dependency on this repository was found." not in source_page
     assert not RepoSnapshot.from_dict(snapshot.to_dict()).dependency_sources_available
-    # Older caches lack overrides and must be recollected even if the HEAD is unchanged.
+    # The cached module files need to be parsed again for registry overrides.
     assert collector.load_snapshot_if_present(cache) is None
 
 

@@ -18,8 +18,8 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 33
-_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31, 32)
+SNAPSHOT_SCHEMA_VERSION = 34
+_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31, 32, 33)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +105,7 @@ class DependencyPinKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class DependencyDeclaration:
-    """One ``bazel_dep`` of a module, combined with the override Bazel applies to it."""
+    """One direct ``bazel_dep`` declaration and its root module override."""
 
     module: str
     version: str | None = None
@@ -114,10 +114,13 @@ class DependencyDeclaration:
     revision: str | None = None
     pin_kind: DependencyPinKind = DependencyPinKind.VERSION
     override_source: tuple[tuple[str, str], ...] = ()
+    # None selects the configured registry. An empty string means the override
+    # specified a registry expression that could not be evaluated.
+    registry_override: str | None = None
 
     @property
     def pinned_revision(self) -> str | None:
-        """The revision Bazel builds, as a commit, tag, branch, or release version.
+        """The declared commit, tag, branch, or module version.
 
         A ``git_override`` replaces the declared version. Archive and local-path
         overrides have no revision in the dependency's Git history.
@@ -130,7 +133,7 @@ class DependencyDeclaration:
 
     @property
     def display_version(self) -> str:
-        """The version or Git revision Bazel builds, shortened for display."""
+        """The declared version or Git revision, shortened for display."""
         if self.override is DependencyOverride.GIT:
             if self.revision and self.pin_kind is DependencyPinKind.COMMIT:
                 return short_revision(self.revision)
@@ -141,13 +144,6 @@ class DependencyDeclaration:
             "unknown"
             if self.override is DependencyOverride.SINGLE_VERSION
             else "unversioned"
-        )
-
-    @property
-    def version_for_comparison(self) -> str | None:
-        """Only version pins can participate in version-string comparisons."""
-        return (
-            self.pinned_revision if self.pin_kind is DependencyPinKind.VERSION else None
         )
 
     @classmethod
@@ -163,12 +159,13 @@ class DependencyDeclaration:
             revision=cast("str | None", data.get("revision")),
             pin_kind=DependencyPinKind(data.get("pin_kind", DependencyPinKind.VERSION)),
             override_source=normalize_string_pairs(data.get("override_source")),
+            registry_override=cast("str | None", data.get("registry_override")),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class DependencyResolution:
-    """A pinned dependency revision compared with its repository's history."""
+    """Freshness of a declared pin relative to releases and the default branch."""
 
     repository: str
     revision: str
@@ -180,6 +177,19 @@ class DependencyResolution:
     pin_kind: DependencyPinKind = DependencyPinKind.VERSION
     consumer_org: str = field(kw_only=True)
     module: str = field(kw_only=True)
+    registry_override: str | None = field(default=None, kw_only=True)
+    registry_update_available: bool | None = field(default=None, kw_only=True)
+
+    @property
+    def release_update_available(self) -> bool | None:
+        """Whether there is a newer module package or a Git release to catch up to."""
+        if self.latest_release is None:
+            return None
+        if self.registry_update_available is not None:
+            return self.registry_update_available
+        if self.behind_latest_release_by is not None:
+            return self.behind_latest_release_by > 0
+        return None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DependencyResolution:
@@ -200,6 +210,10 @@ class DependencyResolution:
             pin_kind=DependencyPinKind(data.get("pin_kind", DependencyPinKind.VERSION)),
             consumer_org=cast("str", data.get("consumer_org", "")),
             module=cast("str", data.get("module", "")),
+            registry_override=cast("str | None", data.get("registry_override")),
+            registry_update_available=cast(
+                "bool | None", data.get("registry_update_available")
+            ),
         )
 
 
@@ -560,7 +574,7 @@ class RepoSnapshot:
     dependency_resolutions: tuple[DependencyResolution, ...] = ()
     dependency_sources_available: bool = True
     _dependency_resolutions_by_pin: dict[
-        tuple[str, str, DependencyPinKind, str, str], DependencyResolution
+        tuple[str, str, DependencyPinKind, str, str, str | None], DependencyResolution
     ] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -576,6 +590,7 @@ class RepoSnapshot:
                     resolution.repository.casefold()
                     if resolution.pin_kind is not DependencyPinKind.VERSION
                     else "",
+                    resolution.registry_override,
                 ): resolution
                 for resolution in self.dependency_resolutions
             },
@@ -614,6 +629,7 @@ class RepoSnapshot:
                 declaration.pin_kind,
                 revision,
                 (repository or "").casefold(),
+                declaration.registry_override,
             )
         )
 
@@ -808,12 +824,12 @@ def dependency_repository(
     declaration: DependencyDeclaration,
     module_repositories: Mapping[str, str],
 ) -> str | None:
-    """Return ``owner/name`` of the repository Bazel fetches a dependency from."""
+    """Return the declared source or the organization's usual source for a module."""
     if declaration.override is DependencyOverride.GIT:
         return (
             parse_github_repository(declaration.remote) if declaration.remote else None
         )
-    if declaration.override in (
+    if declaration.registry_override is not None or declaration.override in (
         DependencyOverride.ARCHIVE,
         DependencyOverride.LOCAL_PATH,
     ):

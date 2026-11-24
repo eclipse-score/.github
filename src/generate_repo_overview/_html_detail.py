@@ -6,11 +6,12 @@ from ._html_common import (
     CSS,
     DOCS_ICON,
     GITHUB_ICON,
+    bazel_version_badge,
+    dependency_version_badge,
     docs_url,
     e,
     language_badge,
     uses_docs_as_code,
-    version_badge,
     workflow_ref_badges,
 )
 from ._html_dependencies import render_dependencies_section, render_used_by_section
@@ -29,7 +30,6 @@ def render_detail_page(
     entry: RepoEntry,
     snapshot: RepoSnapshot,
     max_bazel: tuple[int, ...] | None,
-    latest_dep_versions: dict[str, str | None],
 ) -> str:
     org_name = entry.owner or snapshot.org_name
     site_root = "../" * entry.detail_path(snapshot.org_name).count("/")
@@ -50,7 +50,7 @@ def render_detail_page(
         + _render_workflows_section(entry, snapshot)
         + _render_lockfile_error_section(entry)
         + _render_ownership_section(entry)
-        + _render_versions_section(entry, snapshot, max_bazel, latest_dep_versions)
+        + _render_versions_section(entry, snapshot, max_bazel)
         + _render_footer(snapshot, site_root)
         + "</body>\n</html>\n"
     )
@@ -266,15 +266,12 @@ def _render_versions_section(
     entry: RepoEntry,
     snapshot: RepoSnapshot,
     max_bazel: tuple[int, ...] | None,
-    latest_dep_versions: dict[str, str | None],
 ) -> str:
     from .models import lookup_bazel_dependency
 
     items: list[str] = []
 
-    bazel_badge = version_badge(
-        entry.content.bazel_version, max_bazel, latest_dep_version=None, is_bazel=True
-    )
+    bazel_badge = bazel_version_badge(entry.content.bazel_version, max_bazel)
     items.append(
         f'<div class="info-item">'
         f'<div class="info-label">Bazel Version</div>{bazel_badge}</div>'
@@ -283,20 +280,10 @@ def _render_versions_section(
     for dep in snapshot.tracked_deps:
         dep_label = tracked_dep_label(dep)
         declaration = lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name)
-        latest_ver = (
-            latest_dep_versions.get(dep.module_name)
-            if declaration and declaration.version_for_comparison
-            else None
-        )
-        badge = version_badge(
-            declaration.display_version if declaration else None,
-            None,
-            latest_dep_version=latest_ver,
-            is_bazel=False,
-        )
+        badge = dependency_version_badge(declaration, entry, snapshot)
         items.append(
             f'<div class="info-item">'
-            f'<div class="info-label">{e(dep_label)} Version</div>{badge}</div>'
+            f'<div class="info-label" title="Declared Bazel dependency">{e(dep_label)} Version</div>{badge}</div>'
         )
 
     pin_version = entry.content.reference_integration_version

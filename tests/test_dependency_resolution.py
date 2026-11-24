@@ -1,13 +1,17 @@
 import json
 import subprocess
+from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
+import github
 import pytest
 
+import generate_repo_overview.collector as collector
 import generate_repo_overview.collector.dependency_resolution as dependency_resolution
 from generate_repo_overview.metrics_html import render_all_pages
+from generate_repo_overview.metrics_report import render_versions_section
 from generate_repo_overview.models import (
-    SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
     DependencyDeclaration,
     DependencyOverride,
@@ -15,9 +19,10 @@ from generate_repo_overview.models import (
     DependencyResolution,
     RepoEntry,
     RepoSnapshot,
+    TrackedDep,
     VolatileMetricsSnapshot,
 )
-from generate_repo_overview.org_config import OrgConfig
+from generate_repo_overview.org_config import OrganizationSettings, OrgConfig
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -139,7 +144,7 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
 
     _, resolutions = dependency_resolution.collect_dependencies(
         (dependency, consumer, git_pinned),
-        (OrgConfig(org_name="eclipse-score"),),
+        {"eclipse-score": None},
         cache_directory=tmp_path / "cache",
     )
 
@@ -219,12 +224,12 @@ def test_resolve_dependencies_skips_repositories_outside_the_collection(
     )
 
     assert dependency_resolution.collect_dependencies(
-        (consumer,), (OrgConfig(org_name="eclipse-score"),)
+        (consumer,), {"eclipse-score": None}
     ) == ({"eclipse-score": {}}, ())
 
 
 def _write_registry_module(
-    root: Path, repository: str, versions: dict[str, dict[str, str]]
+    root: Path, repository: str, versions: dict[str, dict[str, object]]
 ) -> None:
     module = root / "modules/score_python_basics"
     module.mkdir(parents=True)
@@ -265,7 +270,8 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
             "0.3.5": {
                 "type": "git_repository",
                 "remote": f"https://github.com/{first_source}",
-                "tag": "v1.1.0",
+                "tag": "v1.0.0",
+                "patches": {"module-fix.patch": "sha256-example"},
             },
         },
     )
@@ -331,51 +337,126 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
         )
         for owner in consumer_orgs[:2]
     )
-    configs = tuple(
-        OrgConfig(
-            org_name=owner,
-            registry_repo=f"{owner}/registry" if owner != "disabled-org" else "",
-        )
-        for owner in consumer_orgs
+    override = replace(
+        dependency,
+        override=DependencyOverride.SINGLE_VERSION,
+        registry_override=(
+            "https://raw.githubusercontent.com/SECOND-ORG/registry/refs/heads/main/"
+        ),
     )
-    repos = (*sources, *consumers)
-    mapping, resolutions = dependency_resolution.collect_dependencies(
-        repos, configs, cache_directory=cache
+    other_ref = replace(
+        override,
+        registry_override="https://raw.githubusercontent.com/second-org/registry/v1",
     )
-    snapshot = RepoSnapshot.from_dict(
-        RepoSnapshot(
-            SNAPSHOT_SCHEMA_VERSION,
-            "first-org",
-            "2026-11-20T00:00:00+00:00",
-            repos,
-            additional_org_names=consumer_orgs[1:],
-            module_repositories=mapping,
-            dependency_resolutions=resolutions,
-        ).to_dict()
+    override_consumer = replace(
+        consumers[0],
+        name="override-consumer",
+        content=DeepContentSignals(bazel_deps=(override,)),
+        volatile=VolatileMetricsSnapshot(
+            latest_release_version="v1.0.0", release_bazel_deps=(other_ref,)
+        ),
     )
+    selected_registries: list[str] = []
+
+    class LazyRegistryRepository:
+        def __init__(self, path: str) -> None:
+            self.full_name = path
+
+        @property
+        def default_branch(self) -> str:
+            self.full_name = self.full_name.lower()
+            return "main"
+
+    def get_repo(path: str) -> LazyRegistryRepository:
+        selected_registries.append(path)
+        return LazyRegistryRepository(path)
+
+    monkeypatch.setattr(
+        github,
+        "Github",
+        lambda **_: SimpleNamespace(
+            get_organization=lambda owner: owner, get_repo=get_repo
+        ),
+    )
+    monkeypatch.setattr(collector, "resolve_github_token", lambda _: "token")
+    monkeypatch.setattr(collector, "print_rest_api_rate_limit", lambda *_, **__: None)
+    monkeypatch.setattr(
+        collector.traceability, "fetch_all_traceability_metrics", lambda *_, **__: {}
+    )
+    monkeypatch.setattr(dependency_resolution, "default_cache_directory", lambda: cache)
+    monkeypatch.setattr(
+        collector,
+        "fetch_repositories",
+        lambda owner, **_: [
+            repo
+            for repo in (*sources, *consumers, override_consumer)
+            if repo.owner == owner
+        ],
+    )
+    config = OrgConfig(
+        org_name="first-org",
+        registry_repo="FIRST-ORG/REGISTRY",
+        additional_organizations=(
+            OrganizationSettings("second-org", registry_repo="second-org/registry"),
+            OrganizationSettings("disabled-org", registry_repo=""),
+        ),
+        tracked_deps=(TrackedDep(first_source, "score_python_basics"),),
+    )
+    snapshot = collector.collect_snapshot(config=config, cache_path=None)
+    snapshot = RepoSnapshot.from_dict(snapshot.to_dict())
+    assert selected_registries == ["FIRST-ORG/REGISTRY", "second-org/registry"]
 
     first = snapshot.dependency_resolution(consumers[0], dependency)
     assert first is not None
     assert first.repository == first_source
     assert first.resolved_sha == baselibs["v1.0.0"]
     assert first.latest_release == "0.3.5"
-    assert first.behind_latest_release_by == 2
+    # The latest registry version applies different patches to this same commit.
+    assert first.release_update_available is True
+    assert first.behind_latest_release_by is None
     assert first.behind_default_branch_by == 3
     opaque = snapshot.dependency_resolution(consumers[0], opaque_archive)
     assert opaque is not None
     assert opaque.resolved_sha is None
+    assert opaque.release_update_available is True
     assert opaque.behind_default_branch_by is None
     second = snapshot.dependency_resolution(consumers[1], dependency)
     assert second is not None
     assert second.repository == second_source
     assert second.resolved_sha == baselibs["v1.1.0"]
     assert second.latest_release == "0.3.4"
-    assert second.behind_latest_release_by == 0
+    assert second.release_update_available is False
     assert snapshot.dependency_repository(consumers[2], dependency) is None
+    assert snapshot.dependency_repository(override_consumer, override) == second_source
+    assert snapshot.dependency_repository(override_consumer, other_ref) is None
     pages = render_all_pages(snapshot)
     first_page = pages["tooling/index.html"]
     assert "first-org/first-org-consumer</a>" in first_page
     assert "second-org/second-org-consumer</a>" not in first_page
+    assert "first-org/override-consumer</a>" not in first_page
     second_page = pages["@orgs/second-org/tooling/index.html"]
     assert "second-org/second-org-consumer</a>" in second_page
     assert "first-org/first-org-consumer</a>" not in second_page
+    assert "first-org/override-consumer</a>" in second_page
+
+    first_consumer_page = pages["first-org-consumer/index.html"]
+    assert "0.3.5 available" in first_consumer_page
+    assert "3 behind main" in first_consumer_page
+    override_page = pages["override-consumer/index.html"]
+    assert "latest module release 0.3.4" in override_page
+    assert "source unknown" in override_page
+    assert (
+        '<span class="badge green" title="Up to date with 0.3.4">0.3.4</span>'
+        in override_page
+    )
+    assert (
+        pages["index.html"].count(
+            '<span class="badge green" title="Up to date with 0.3.4">0.3.4</span>'
+        )
+        == 4
+    )  # Two consumers, each in the table and card views.
+    markdown = render_versions_section(list(snapshot.repos), snapshot=snapshot)
+    assert any(
+        "first-org-consumer)" in line and "🟡 0.3.4" in line for line in markdown
+    )
+    assert any("override-consumer)" in line and "🟢 0.3.4" in line for line in markdown)

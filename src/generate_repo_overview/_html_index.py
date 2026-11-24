@@ -8,16 +8,16 @@ from typing import TYPE_CHECKING
 from ._html_common import (
     BAZEL_ICON,
     CSS,
+    bazel_version_badge,
+    dependency_version_badge,
     e,
     language_badge,
     render_ref_difference,
     repo_name_cell,
     uses_docs_as_code,
-    version_badge,
     workflow_ref_badges,
 )
 from .metrics_report import (
-    get_latest_tracked_dep_version,
     get_max_bazel_version,
     group_repos_by_category,
     has_latest_release,
@@ -33,7 +33,7 @@ from .module_name_matching import NameMatch, classify_repository_name_match
 from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_section
 
 if TYPE_CHECKING:
-    from .models import RepoEntry, RepoSnapshot, SphinxItem, TrackedDep
+    from .models import RepoEntry, RepoSnapshot, SphinxItem
     from .policy_sync import PolicySyncReport
 
 _INDEX_JS = (Path(__file__).parent / "templates" / "index.js").read_text(
@@ -572,23 +572,12 @@ def _render_versions_sections(
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
     max_bazel = get_max_bazel_version(repos)
     tracked_deps = snapshot.tracked_deps
-    latest_dep_versions = {
-        dep.module_name: get_latest_tracked_dep_version(repos, dep)
-        for dep in tracked_deps
-    }
-    org_name = snapshot.org_name
     parts: list[str] = []
     for category, cat_repos in categories:
-        rows = "\n".join(
-            _versions_row(r, org_name, max_bazel, tracked_deps, latest_dep_versions)
-            for r in cat_repos
-        )
-        cards = "\n".join(
-            _versions_card(r, org_name, max_bazel, tracked_deps, latest_dep_versions)
-            for r in cat_repos
-        )
+        rows = "\n".join(_versions_row(r, snapshot, max_bazel) for r in cat_repos)
+        cards = "\n".join(_versions_card(r, snapshot, max_bazel) for r in cat_repos)
         dep_headers = "".join(
-            f'      <th data-sort="dep-{i}" title="Version of the {e(tracked_dep_label(dep))} dependency.">'
+            f'      <th data-sort="dep-{i}" title="Declared pin for {e(tracked_dep_label(dep))}.">'
             f'{e(tracked_dep_label(dep))} Version <span class="sort-arrow"></span></th>\n'
             for i, dep in enumerate(tracked_deps)
         )
@@ -618,18 +607,12 @@ def _render_versions_sections(
 
 def _versions_card(
     entry: RepoEntry,
-    org_name: str,
+    snapshot: RepoSnapshot,
     max_bazel: tuple[int, ...] | None,
-    tracked_deps: tuple[TrackedDep, ...],
-    latest_dep_versions: dict[str, str | None],
 ) -> str:
-
-    bazel_cell = version_badge(
-        entry.content.bazel_version,
-        max_bazel,
-        latest_dep_version=None,
-        is_bazel=True,
-    )
+    org_name = snapshot.org_name
+    tracked_deps = snapshot.tracked_deps
+    bazel_cell = bazel_version_badge(entry.content.bazel_version, max_bazel)
     if (
         entry.volatile.release_bazel_version
         and entry.volatile.release_bazel_version != entry.content.bazel_version
@@ -647,16 +630,7 @@ def _versions_card(
         release = release_deps.get(dep.module_name)
         head_version = head.display_version if head else None
         release_version = release.display_version if release else None
-        dependency_badge = version_badge(
-            head_version,
-            None,
-            latest_dep_version=(
-                latest_dep_versions.get(dep.module_name)
-                if head and head.version_for_comparison
-                else None
-            ),
-            is_bazel=False,
-        )
+        dependency_badge = dependency_version_badge(head, entry, snapshot)
         if release_version and release_version != head_version:
             dependency_badge = (
                 f'<span class="mono text-muted">{e(release_version)}</span> '
@@ -780,18 +754,15 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
 
 def _versions_row(
     entry: RepoEntry,
-    org_name: str,
+    snapshot: RepoSnapshot,
     max_bazel: tuple[int, ...] | None,
-    tracked_deps: tuple[TrackedDep, ...],
-    latest_dep_versions: dict[str, str | None],
 ) -> str:
-
+    org_name = snapshot.org_name
+    tracked_deps = snapshot.tracked_deps
     name_cell = repo_name_cell(entry, org_name)
     filter_attrs = _repo_filter_attributes(entry)
 
-    bazel_cell = version_badge(
-        entry.content.bazel_version, max_bazel, latest_dep_version=None, is_bazel=True
-    )
+    bazel_cell = bazel_version_badge(entry.content.bazel_version, max_bazel)
     release_bazel = entry.volatile.release_bazel_version
     if release_bazel and release_bazel != entry.content.bazel_version:
         bazel_cell = (
@@ -803,29 +774,14 @@ def _versions_row(
 
     dep_cells: list[str] = []
     for dep in tracked_deps:
-        dep_label = tracked_dep_label(dep)
         head = lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name)
         release = release_deps.get(dep.module_name)
         head_ver = head.display_version if head else None
         release_ver = release.display_version if release else None
-        latest_ver = (
-            latest_dep_versions.get(dep.module_name)
-            if head and head.version_for_comparison
-            else None
-        )
-        cell = version_badge(
-            head_ver, None, latest_dep_version=latest_ver, is_bazel=False
-        )
+        cell = dependency_version_badge(head, entry, snapshot)
         if release_ver and release_ver != head_ver:
             cell = f'<span class="mono text-muted">{e(release_ver)}</span> → {cell}'
-        tip = _build_version_tooltip(
-            dependency_version_as_used_on_main_branch=head_ver,
-            latest_available_dependency_version=latest_ver,
-            dependency_version_as_used_in_last_release=release_ver,
-            component_name=dep_label,
-            last_release_tag=entry.volatile.latest_release_version,
-        )
-        dep_cells.append(f'      <td title="{e(tip)}">{cell}</td>\n')
+        dep_cells.append(f"      <td>{cell}</td>\n")
 
     git_refs = _render_git_refs(entry, org_name)
 

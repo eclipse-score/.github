@@ -34,7 +34,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from generate_repo_overview.models import DependencyDeclaration, RepoEntry
-    from generate_repo_overview.org_config import OrgConfig
+
+    from .registry_metadata import RegistryCheckout
 
 _COMMIT_HASH = re.compile(r"[0-9a-fA-F]{7,40}")
 
@@ -48,7 +49,7 @@ class _Pin:
 
 def collect_dependencies(
     repos: Iterable[RepoEntry],
-    configs: Iterable[OrgConfig],
+    registry_checkouts: Mapping[str, RegistryCheckout | None],
     *,
     cache_directory: Path | None = None,
     max_workers: int = 8,
@@ -56,24 +57,27 @@ def collect_dependencies(
 ) -> tuple[dict[str, Mapping[str, str]], tuple[DependencyResolution, ...]]:
     """Resolve each organization's module sources, then compare pins locally."""
     repos = tuple(repos)
-    configs = tuple(configs)
     root = cache_directory or default_cache_directory()
-    registry_paths = {
-        config.org_name.casefold(): config.registry_repo for config in configs
-    }
     registries = {
-        path: get_bazel_registry_modules(path, cache_directory=root)
-        for path in set(registry_paths.values())
+        checkout: get_bazel_registry_modules(checkout.repository, cache_directory=root)
+        for checkout in set(registry_checkouts.values())
+        if checkout is not None
     }
     registry_by_owner = {
-        owner: registries[path] for owner, path in registry_paths.items()
+        owner: registries[checkout] if checkout is not None else {}
+        for owner, checkout in registry_checkouts.items()
     }
     entries = {entry.full_name.casefold(): entry for entry in repos if entry.owner}
     module_repositories, modules_by_repository = _module_sources(
         entries, registry_by_owner
     )
     pinned = _plan_pins(
-        repos, module_repositories, registry_by_owner, entries, modules_by_repository
+        repos,
+        module_repositories,
+        registry_by_owner,
+        registries,
+        entries,
+        modules_by_repository,
     )
     local = {
         repository: pins for repository, pins in pinned.items() if repository in entries
@@ -139,7 +143,8 @@ def _module_sources(
 def _plan_pins(
     repos: Iterable[RepoEntry],
     module_repositories: Mapping[str, Mapping[str, str]],
-    registries: Mapping[str, Mapping[str, RegistryModule]],
+    registry_by_owner: Mapping[str, Mapping[str, RegistryModule]],
+    registries: Mapping[RegistryCheckout, Mapping[str, RegistryModule]],
     entries: Mapping[str, RepoEntry],
     modules_by_repository: Mapping[str, set[str]],
 ) -> dict[str, list[_Pin]]:
@@ -147,11 +152,24 @@ def _plan_pins(
     def read_source(module: RegistryModule, version: str) -> RegistryGitSource | None:
         return module.git_source(version)
 
+    @cache
+    def registry_for_url(url: str) -> Mapping[str, RegistryModule]:
+        # An explicit override selects its own registry. Only checkouts of
+        # configured registries provide metadata for offline resolution.
+        return next(
+            (
+                modules
+                for checkout, modules in registries.items()
+                if checkout.matches_url(url)
+            ),
+            dict[str, RegistryModule](),
+        )
+
     pins: dict[str, list[_Pin]] = defaultdict(list)
-    seen: set[tuple[str, str, DependencyPinKind, str, str]] = set()
+    seen: set[tuple[str, str, DependencyPinKind, str, str, str | None]] = set()
     for consumer in repos:
         owner = consumer.owner.casefold()
-        registry = registries.get(owner, {})
+        default_registry = registry_by_owner.get(owner, {})
         module_sources = module_repositories.get(owner, {})
         for declaration in (
             *consumer.content.bazel_deps,
@@ -160,22 +178,35 @@ def _plan_pins(
             revision = declaration.pinned_revision
             if revision is None:
                 continue
+            override = declaration.registry_override
+            registry = (
+                default_registry if override is None else registry_for_url(override)
+            )
             registry_module = registry.get(declaration.module)
-            source = (
-                read_source(registry_module, revision)
-                if registry_module is not None
-                and declaration.pin_kind is DependencyPinKind.VERSION
+            registry_pin = (
+                registry_module
+                if declaration.pin_kind is DependencyPinKind.VERSION
                 else None
             )
-            repository = (
-                source.repository
-                if source
-                else dependency_repository(declaration, module_sources)
+            source = (
+                read_source(registry_pin, revision)
+                if registry_pin is not None
+                else None
+            )
+            repository = _pin_repository(
+                declaration, source, registry_pin, module_sources
             )
             if repository is None:
                 continue
             identity = repository.casefold()
-            key = owner, declaration.module, declaration.pin_kind, revision, identity
+            key = (
+                owner,
+                declaration.module,
+                declaration.pin_kind,
+                revision,
+                identity,
+                override,
+            )
             if key in seen:
                 continue
             seen.add(key)
@@ -189,10 +220,7 @@ def _plan_pins(
                 read_source,
             )
             revision_to_resolve = (declaration.pin_kind, revision)
-            if (
-                registry_module is not None
-                and declaration.pin_kind is DependencyPinKind.VERSION
-            ):
+            if registry_pin is not None:
                 # Registry versions identify packages. Only source.json identifies
                 # the Git commits from which these packages were constructed.
                 revision_to_resolve = (source.kind, source.revision) if source else None
@@ -207,12 +235,32 @@ def _plan_pins(
                         pin_kind=declaration.pin_kind,
                         consumer_org=owner,
                         module=declaration.module,
+                        registry_override=override,
+                        registry_update_available=(
+                            registry_pin.update_available(revision)
+                            if registry_pin is not None and identity in entries
+                            else None
+                        ),
                     ),
                     revision_to_resolve,
                     latest_revision,
                 )
             )
     return pins
+
+
+def _pin_repository(
+    declaration: DependencyDeclaration,
+    source: RegistryGitSource | None,
+    registry_module: RegistryModule | None,
+    default_sources: Mapping[str, str],
+) -> str | None:
+    if source is not None:
+        return source.repository
+    if declaration.registry_override is not None and registry_module is not None:
+        repositories = {repo.casefold() for repo in registry_module.repositories}
+        return next(iter(repositories)) if len(repositories) == 1 else None
+    return dependency_repository(declaration, default_sources)
 
 
 def _latest_module_release(
@@ -225,6 +273,10 @@ def _latest_module_release(
 ) -> tuple[str | None, tuple[DependencyPinKind, str] | None]:
     if registry_module is not None:
         version = registry_module.latest_version
+        if declaration.pin_kind is DependencyPinKind.VERSION:
+            # Registry patches can change the package without changing its
+            # source commit. Package freshness is independent of Git ancestry.
+            return version, None
         source = read_source(registry_module, version) if version is not None else None
         if source is not None and source.repository.casefold() == identity:
             return version, (source.kind, source.revision)

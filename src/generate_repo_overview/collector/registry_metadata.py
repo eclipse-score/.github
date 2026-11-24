@@ -25,6 +25,32 @@ _VERSION = re.compile(
 
 
 @dataclass(frozen=True, slots=True)
+class RegistryCheckout:
+    repository: str
+    branch: str
+
+    def matches_url(self, url: str) -> bool:
+        """Match GitHub's raw URLs for the registry root on the cached branch."""
+        try:
+            parsed = urlsplit(url)
+        except ValueError:
+            return False
+        if parsed.scheme != "https" or parsed.query or parsed.fragment:
+            return False
+        parts = parsed.path.strip("/").split("/", 2)
+        if len(parts) != 3:
+            return False
+        owner, repo, ref = (unquote(part) for part in parts)
+        if f"{owner}/{repo}".casefold() != self.repository.casefold():
+            return False
+        if parsed.netloc.casefold() == "github.com" and ref.startswith("raw/"):
+            ref = ref.removeprefix("raw/")
+        elif parsed.netloc.casefold() != "raw.githubusercontent.com":
+            return False
+        return ref in (f"refs/heads/{self.branch}", self.branch)
+
+
+@dataclass(frozen=True, slots=True)
 class RegistryGitSource:
     repository: str
     kind: DependencyPinKind
@@ -36,6 +62,19 @@ class RegistryModule:
     directory: Path
     repositories: tuple[str, ...]
     latest_version: str | None
+    versions: frozenset[str]
+
+    def update_available(self, version: str) -> bool | None:
+        if (
+            self.latest_version is None
+            or not _VERSION.fullmatch(version)
+            or version.partition("+")[0] not in self.versions
+        ):
+            return None
+        pin = _bazel_version_key(version)
+        latest = _bazel_version_key(self.latest_version)
+        # A pin newer than the last non-yanked release may itself be yanked.
+        return pin < latest if pin <= latest else None
 
     def git_source(self, version: str) -> RegistryGitSource | None:
         if not _VERSION.fullmatch(version):
@@ -277,23 +316,31 @@ def get_bazel_registry_modules(
             )
             is not None
         )
-        versions = metadata.get("versions")
+        raw_versions = metadata.get("versions")
+        versions = [
+            version
+            for version in (
+                cast("list[object]", raw_versions)
+                if isinstance(raw_versions, list)
+                else ()
+            )
+            if isinstance(version, str) and _VERSION.fullmatch(version)
+        ]
         yanked = metadata.get("yanked_versions")
         latest = max(
             (
                 version
-                for version in (
-                    cast("list[object]", versions) if isinstance(versions, list) else ()
-                )
-                if isinstance(version, str)
-                and _VERSION.fullmatch(version)
-                and (not isinstance(yanked, dict) or version not in yanked)
+                for version in versions
+                if not isinstance(yanked, dict) or version not in yanked
             ),
             key=_bazel_version_key,
             default=None,
         )
         modules[metadata_path.parent.name] = RegistryModule(
-            metadata_path.parent, sources, latest
+            metadata_path.parent,
+            sources,
+            latest,
+            frozenset(version.partition("+")[0] for version in versions),
         )
     return modules
 

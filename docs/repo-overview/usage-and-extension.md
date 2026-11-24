@@ -173,18 +173,23 @@ renderer.
 
 ### Dependency Freshness
 
-Repository detail pages list every Bazel dependency of the default branch and
-the latest release. Each pin shows the version or commit Bazel builds, after
-applying overrides, with two independent badges:
+Repository detail pages list the direct Bazel dependencies declared on the default
+branch and in the latest release, with root module overrides applied. Bazel may
+select a different version when it resolves the full dependency graph.
 
-- **Release:** whether the pin contains the dependency's latest release.
-- **Default branch:** how many commits the pin is behind the dependency's
-  default branch, linked to the comparison. A pin with commits that are not on
-  the default branch is marked as diverged.
+- The **release** badge compares a registry pin with the latest non-yanked module
+  version. Git pins are compared with an identifiable release of that module.
+  Tracked dependency summaries use the same release status.
+- The **default branch** badge shows how many commits the pin is behind the
+  dependency's default branch and links to the comparison. A pin that has
+  diverged from the default branch is marked as such.
 
-A **Used by** section lists the collected repositories whose default branch or
-latest release depends on the repository, with the version each one uses.
+An explicit registry URL in a `single_version_override` can be resolved when
+it points to the root of a configured GitHub registry's cached default branch.
+Other registry URLs leave the source unknown.
+
+The **Used by** section lists collected repositories that declare a direct
+dependency, along with their declared pins.
 Freshness and consumers are only known for repositories in the overview;
 external modules such as `rules_python` show their version only, and pins
 without a matching commit, tag, or branch are marked as unresolved.
-

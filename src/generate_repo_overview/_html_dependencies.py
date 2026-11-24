@@ -8,7 +8,12 @@ from urllib.parse import quote
 from ._html_common import e
 
 if TYPE_CHECKING:
-    from .models import DependencyDeclaration, RepoEntry, RepoSnapshot
+    from .models import (
+        DependencyDeclaration,
+        DependencyResolution,
+        RepoEntry,
+        RepoSnapshot,
+    )
 
 from .models import DependencyPinKind, short_revision
 
@@ -79,8 +84,10 @@ def render_dependencies_section(
         '  <div class="section-header"><span class="section-title">Dependencies</span></div>\n'
         '  <div class="detail-body">'
         '<p class="text-muted" style="margin:0 0 0.5rem">'
-        "Freshness compares each pin with the dependency's latest release and "
-        "default branch. It is only known for repositories in this overview.</p>"
+        "Direct Bazel dependencies as declared in the module files, with root module overrides. "
+        "Bazel may select a different version when it resolves the full dependency graph. "
+        "Freshness compares the declared pin with the latest release and default branch "
+        "for repositories in this overview.</p>"
         "<table><thead><tr><th>Dependency</th><th>Default branch</th>"
         f"{release_columns}</tr></thead>\n"
         f"<tbody>\n{''.join(rows)}</tbody></table></div>\n"
@@ -91,7 +98,7 @@ def render_dependencies_section(
 def render_used_by_section(
     entry: RepoEntry, snapshot: RepoSnapshot, site_root: str
 ) -> str:
-    """List collected repositories whose default branch or release uses *entry*."""
+    """List collected repositories that declare a direct dependency on *entry*."""
     rows: list[str] = []
     consumers = (
         sorted(snapshot.repos, key=lambda r: r.full_name.casefold())
@@ -125,7 +132,7 @@ def render_used_by_section(
         "<table><thead><tr><th>Repository</th><th>Default branch</th>"
         f"<th>Latest release</th></tr></thead>\n<tbody>\n{''.join(rows)}</tbody></table>"
         if rows
-        else '<span class="text-muted">No collected repository uses this one.</span>'
+        else '<span class="text-muted">No direct dependency on this repository was found.</span>'
         if snapshot.dependency_sources_available
         else '<span class="text-muted">Consumer data unavailable. Recollect the snapshot to see dependencies.</span>'
     )
@@ -134,7 +141,7 @@ def render_used_by_section(
         '  <div class="section-header"><span class="section-title">Used by</span></div>\n'
         '  <div class="detail-body">'
         '<p class="text-muted" style="margin:0 0 0.5rem">'
-        "Only repositories in this overview are searched.</p>"
+        "Declared direct dependencies only. Repositories in this overview are searched.</p>"
         f"{body}</div>\n"
         "</section>\n\n"
     )
@@ -219,7 +226,7 @@ def _usage(
     consumer: RepoEntry,
     snapshot: RepoSnapshot,
 ) -> str:
-    """Render the pin Bazel builds and how fresh it is."""
+    """Render the declared pin and how fresh it is."""
     if declaration is None:
         return _MUTED_DASH
     version = e(declaration.display_version)
@@ -240,11 +247,11 @@ def _usage(
         return f"<span class='mono'>{version}</span> <span class=\"badge muted\">outside overview</span>"
     if resolution is None:
         return f"<span class='mono'>{version}</span> <span class=\"badge muted\">comparison unavailable</span>"
+    release = _release_badge(resolution)
     if resolution.resolved_sha is None:
         return (
             f"<span class='mono'>{version}</span> "
-            '<span class="badge muted">pin unresolved</span> '
-            + _release_badge(resolution.latest_release, None)
+            f'<span class="badge muted">Git revision unresolved</span> {release}'
         )
 
     if declaration.pin_kind is DependencyPinKind.BRANCH:
@@ -253,9 +260,6 @@ def _usage(
         f'<a class="mono" href="https://github.com/{e(repository)}/commit/'
         f'{e(resolution.resolved_sha)}" target="_blank" rel="noopener" '
         f'title="{e(resolution.resolved_sha)}">{version}</a>'
-    )
-    release = _release_badge(
-        resolution.latest_release, resolution.behind_latest_release_by
     )
     branch = _branch_badge(
         repository,
@@ -267,19 +271,29 @@ def _usage(
     return f"{pin} {release} {branch}"
 
 
-def _release_badge(latest_release: str | None, behind: int | None) -> str:
-    if latest_release is None:
+def _release_badge(resolution: DependencyResolution) -> str:
+    if resolution.latest_release is None:
         return '<span class="badge muted">release comparison unavailable</span>'
-    if behind is None:
+    latest_release = e(resolution.latest_release)
+    update_available = resolution.release_update_available
+    if update_available is None:
         return (
             f'<span class="badge muted" title="Release comparison unavailable">'
-            f"{e(latest_release)} · comparison unavailable</span>"
+            f"{latest_release} · comparison unavailable</span>"
         )
-    if behind == 0:
-        return f'<span class="badge green">includes latest release {e(latest_release)}</span>'
+    if not update_available:
+        label = (
+            "latest module release"
+            if resolution.registry_update_available is not None
+            else "includes latest release"
+        )
+        return f'<span class="badge green">{label} {latest_release}</span>'
+    if resolution.registry_update_available:
+        return f'<span class="badge yellow">{latest_release} available</span>'
+    behind = resolution.behind_latest_release_by
     return (
-        f'<span class="badge yellow" title="{behind} commits of {e(latest_release)} '
-        f'are missing">{e(latest_release)} available</span>'
+        f'<span class="badge yellow" title="{behind} commits of {latest_release} '
+        f'are missing">{latest_release} available</span>'
     )
 
 

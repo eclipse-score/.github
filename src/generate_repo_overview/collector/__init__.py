@@ -184,17 +184,18 @@ def collect_snapshot(
     os.environ["GH_TOKEN"] = token
     try:
         configs = config.collection_configs()
-        repos = [
-            entry
-            for org_config in configs
-            for entry in _collect_organization(
+        repos: list[RepoEntry] = []
+        registries: dict[str, registry_metadata.RegistryCheckout | None] = {}
+        for org_config in configs:
+            org_repos, registry = _collect_organization(
                 github,
                 config=org_config,
                 existing_snapshot=existing_snapshot,
                 token=token,
                 status_prefix=status_prefix,
             )
-        ]
+            repos.extend(org_repos)
+            registries[org_config.org_name.casefold()] = registry
         repos = enrich_repositories_with_platform_docs(
             repos,
             github=github,
@@ -205,7 +206,7 @@ def collect_snapshot(
         module_repositories, dependency_resolutions = (
             dependency_resolution.collect_dependencies(
                 repos,
-                configs,
+                registries,
                 max_workers=resolve_max_collection_workers(),
                 status_prefix=status_prefix,
             )
@@ -247,13 +248,21 @@ def _collect_organization(
     existing_snapshot: RepoSnapshot | None,
     token: str,
     status_prefix: str,
-) -> list[RepoEntry]:
+) -> tuple[list[RepoEntry], registry_metadata.RegistryCheckout | None]:
     print_status(f"Collecting repositories in {config.org_name}", prefix=status_prefix)
     organization = github.get_organization(config.org_name)
     registry_repository = None
+    registry = None
     if config.registry_repo:
         try:
-            registry_repository = github.get_repo(config.registry_repo)
+            candidate = github.get_repo(config.registry_repo)
+            # The lazy GitHub object starts with the requested name. Reading
+            # the branch loads the API response and its canonical full name.
+            default_branch = candidate.default_branch
+            registry = registry_metadata.RegistryCheckout(
+                candidate.full_name, default_branch
+            )
+            registry_repository = candidate
         except Exception as exc:
             print_status(
                 f"Could not resolve registry repo {config.registry_repo}: {exc}",
@@ -275,12 +284,15 @@ def _collect_organization(
         tracked_deps=config.tracked_deps,
         status_prefix=status_prefix,
     )
-    return [
-        replace(entry, traceability=trace_by_repo[entry.name])
-        if entry.name in trace_by_repo
-        else entry
-        for entry in repos
-    ]
+    return (
+        [
+            replace(entry, traceability=trace_by_repo[entry.name])
+            if entry.name in trace_by_repo
+            else entry
+            for entry in repos
+        ],
+        registry,
+    )
 
 
 def enrich_repositories_with_platform_docs(

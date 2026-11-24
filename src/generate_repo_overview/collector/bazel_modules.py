@@ -111,10 +111,14 @@ def _declaration(
         # An empty version leaves Bazel's selection in place. An expression
         # we cannot interpret could replace it with any version.
         selected_version = arguments.get("version", "")
+        # An omitted or empty registry uses the default. An expression we
+        # cannot interpret may select a different registry, so retain that fact.
+        registry = arguments.get("registry", "")
         return DependencyDeclaration(
             module=module,
             version=version if selected_version == "" else selected_version,
             override=kind,
+            registry_override=None if registry == "" else (registry or ""),
         )
     if kind is not DependencyOverride.GIT:
         return DependencyDeclaration(
