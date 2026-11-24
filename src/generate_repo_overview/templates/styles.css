@@ -365,7 +365,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
 .section-subtitle {
   font-size: 0.78rem;
 }
-tr.tier-header td {
+tr.group-header td {
   background: #161b22;
   color: var(--muted);
   font-size: 0.72rem;

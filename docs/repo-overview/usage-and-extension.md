@@ -207,7 +207,8 @@ it points to the root of a configured GitHub registry's cached default branch.
 Other registry URLs leave the source unknown.
 
 The **Used by** section lists collected repositories that declare a direct
-dependency, along with their declared pins.
+dependency, along with their declared pins, grouped by their top-level
+category.
 Freshness and consumers are only known for repositories in the overview;
 external modules such as `rules_python` show their version only, and pins
 without a matching commit, tag, or branch are marked as unresolved.

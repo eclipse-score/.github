@@ -98,8 +98,15 @@ def render_dependencies_section(
 def render_used_by_section(
     entry: RepoEntry, snapshot: RepoSnapshot, site_root: str
 ) -> str:
-    """List collected repositories that declare a direct dependency on *entry*."""
-    rows: list[str] = []
+    """List collected repositories that declare a direct dependency on *entry*.
+
+    Consumers are grouped by organization and category, like the index page,
+    so long lists stay readable.
+    """
+    groups: dict[tuple[int, str], list[str]] = {}
+    org_order = {
+        org.casefold(): index for index, org in enumerate(snapshot.organization_names)
+    }
     consumers = (
         sorted(snapshot.repos, key=lambda r: r.full_name.casefold())
         if snapshot.dependency_sources_available
@@ -122,11 +129,26 @@ def render_used_by_section(
         )
         if release_tag:
             release_cell += f' <span class="text-muted">in {e(release_tag)}</span>'
-        rows.append(
+        owner = consumer.owner or snapshot.org_name
+        category = (
+            f"{owner} / {consumer.category}"
+            if snapshot.additional_org_names
+            else consumer.category
+        )
+        groups.setdefault((org_order.get(owner.casefold(), 0), category), []).append(
             f"<tr><td>{_repository_link(consumer, snapshot, site_root)}</td>"
             f"<td>{_consumer_pins(head, consumer, snapshot) if head else _MUTED_DASH}</td>"
             f"<td>{release_cell}</td></tr>\n"
         )
+
+    rows = [
+        f'<tr class="group-header"><td colspan="3">{e(category)} '
+        f'<span class="text-muted">({len(group_rows)})</span></td></tr>\n'
+        + "".join(group_rows)
+        for (_, category), group_rows in sorted(
+            groups.items(), key=lambda item: (item[0][0], item[0][1].casefold())
+        )
+    ]
 
     body = (
         "<table><thead><tr><th>Repository</th><th>Default branch</th>"
