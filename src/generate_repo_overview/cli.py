@@ -217,6 +217,7 @@ def run_render_details(args: argparse.Namespace) -> int:
     policy_report = None
     policy_report_json = None
     policy_report_filename = DEFAULT_POLICY_REPORT_FILENAME
+    policy_report_owner = ""
     if args.org_config.exists():
         try:
             config = load_org_config(args.org_config)
@@ -224,6 +225,7 @@ def run_render_details(args: argparse.Namespace) -> int:
             raise SystemExit(str(exc)) from exc
         if config.policy_report.enabled:
             policy_report_filename = config.policy_report.filename
+            policy_report_owner = config.policy_report.repository_owner
             report_path = config.policy_report.cache_path
             policy_report = load_policy_sync_report(report_path)
             if report_path.is_file():
@@ -236,6 +238,7 @@ def run_render_details(args: argparse.Namespace) -> int:
         policy_report,
         policy_report_json=policy_report_json,
         policy_report_filename=policy_report_filename,
+        policy_report_owner=policy_report_owner,
     )
     output_dir: Path = args.output
     for relative_path, content in pages.items():

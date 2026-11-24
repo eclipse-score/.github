@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from ._text_utils import escape_markdown_table_cell
+from ._text_utils import escape_markdown_table_cell, render_repository_link
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -90,7 +90,6 @@ def render_versions_section(
     dep_labels = [tracked_dep_label(dep) for dep in tracked_deps]
 
     def render_row(entry: RepoEntry, *, org_name: str) -> str:
-        url = f"https://github.com/{org_name}/{entry.name}"
         bazel_cell = render_bazel_version_status(
             entry.content.bazel_version, max_bazel_version
         )
@@ -102,7 +101,7 @@ def render_versions_section(
             for dep in tracked_deps
         )
         refint = render_bool(entry.content.referenced_by_reference_integration)
-        parts = f"| [{entry.name}]({url}) | {bazel_cell} |"
+        parts = f"| {render_repository_link(entry, org_name)} | {bazel_cell} |"
         if dep_cells:
             parts += f" {dep_cells} |"
         return f"{parts} {refint} |"
@@ -148,13 +147,12 @@ def render_automation_section(
     signal_labels = tuple(s.label for s in snapshot.workflow_signals)
 
     def render_row(entry: RepoEntry, *, org_name: str) -> str:
-        url = f"https://github.com/{org_name}/{entry.name}"
         signal_cells = " | ".join(
             render_bool(label in entry.content.matched_workflow_signals)
             for label in signal_labels
         )
         parts = (
-            f"| [{entry.name}]({url}) | {render_presence(entry.content.has_gitlint_config, icon='🔍')} | "
+            f"| {render_repository_link(entry, org_name)} | {render_presence(entry.content.has_gitlint_config, icon='🔍')} | "
             f"{render_presence(entry.content.has_pyproject_toml, icon='🐍')} | "
             f"{render_presence(entry.content.has_pre_commit_config, icon='🪝')} | "
             f"{render_presence(entry.content.has_ci, icon='⚙')} |"
@@ -249,9 +247,8 @@ def group_repos_by_category(
 
 
 def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
     return (
-        f"| {render_repo_link_with_bazel_icon(entry, url)} | {render_ownership_cell(entry)} | "
+        f"| {render_repo_link_with_bazel_icon(entry, org_name)} | {render_ownership_cell(entry)} | "
         f"{render_merged_pr_count(entry.volatile.merged_prs_30_days)} | "
         f"{render_open_issues_and_prs(entry.volatile.open_issues, entry.volatile.open_ready_prs, entry.volatile.open_draft_prs)} | "
         f"{render_release_and_commits(entry.volatile.latest_release_version, entry.volatile.commits_since_latest_release)} | "
@@ -259,8 +256,8 @@ def render_overview_row(entry: RepoEntry, *, org_name: str) -> str:
     )
 
 
-def render_repo_link_with_bazel_icon(entry: RepoEntry, url: str) -> str:
-    repo_link = f"[{entry.name}]({url})"
+def render_repo_link_with_bazel_icon(entry: RepoEntry, org_name: str) -> str:
+    repo_link = render_repository_link(entry, org_name)
     if entry.content.is_bazel_repo:
         return f"{repo_link} {render_bazel_icon()}"
     return repo_link
@@ -388,9 +385,8 @@ def get_max_bazel_version(repos: list[RepoEntry]) -> tuple[int, ...] | None:
 def get_latest_tracked_dep_version(
     repos: list[RepoEntry], dep: TrackedDep
 ) -> str | None:
-    repo_short_name = dep.repo.rsplit("/", 1)[-1]
     for repo in repos:
-        if repo.name == repo_short_name:
+        if repo.matches_repository(dep.repo):
             v = repo.volatile.latest_release_version
             return v.removeprefix("v").strip() if v else None
     return None

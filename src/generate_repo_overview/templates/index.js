@@ -1,24 +1,47 @@
-// Tab and category state share the URL hash so dashboard views can be bookmarked.
+// Tabs and filters share the URL hash so dashboard views can be bookmarked.
 // Optional tabs cannot be activated through stale bookmarks when absent.
 const TAB_IDS = Array.from(document.querySelectorAll('.tab-btn'), button => button.dataset.tab);
+
+const organizationFilter = document.getElementById('organization-filter');
+const organizationNames = new Set(Array.from(organizationFilter?.options ?? [], option => option.value));
+const primaryOrg = organizationFilter?.dataset.primaryOrg ?? '';
+function repositoryOwner(repository) {
+  const [owner, repoName] = repository.split('/');
+  return (repoName ? owner : primaryOrg).toLowerCase();
+}
+
+const categorySections = Array.from(document.querySelectorAll('.section[data-tab="overview"][data-category]'));
+const categoryCounts = new Map(categorySections.map(section => [
+  section.dataset.category,
+  Number(section.querySelector('.section-count').textContent),
+]));
+const categoryOwners = new Map(categorySections.map(section => [
+  section.dataset.category,
+  repositoryOwner(section.querySelector('[data-repo-filter]').dataset.repoFilter),
+]));
 
 function getHashState() {
   const [hashTab, query = ''] = location.hash.slice(1).split('?');
   const tab = hashTab === 'modules' ? 'naming' : hashTab;
   const params = new URLSearchParams(query);
+  const requestedOrg = params.get('org');
+  const organization = organizationNames.has(requestedOrg) ? requestedOrg : '';
   const requestedCategory = params.get('category');
+  const categoryMatchesOrg = !organization || categoryOwners.get(requestedCategory) === organization.toLowerCase();
   const integration = params.get('integration');
   const docs = params.get('docs');
   return {
     tab: TAB_IDS.includes(tab) ? tab : 'overview',
-    category: categories.includes(requestedCategory) ? requestedCategory : 'all',
+    category: categoryCounts.has(requestedCategory) && categoryMatchesOrg ? requestedCategory : 'all',
+    organization,
     integration: ['included', 'excluded'].includes(integration) ? integration : 'all',
     docs: ['yes', 'no'].includes(docs) ? docs : 'all',
   };
 }
 
-function writeHashState(tab, category, integration, docs) {
+function writeHashState(tab, category, integration, docs, organization = activeOrg) {
   const params = new URLSearchParams();
+  if (organization) params.set('org', organization);
   if (category !== 'all') params.set('category', category);
   if (integration !== 'all') params.set('integration', integration);
   if (docs !== 'all') params.set('docs', docs);
@@ -32,6 +55,10 @@ let activeVersionView = 'table';
 const versionViewToggle = document.getElementById('version-view-toggle');
 
 function applyVisibility() {
+  const owner = activeOrg.toLowerCase();
+  document.querySelectorAll('[data-summary-org]').forEach(summary => {
+    summary.hidden = summary.dataset.summaryOrg !== activeOrg;
+  });
   document.querySelectorAll('.section').forEach(s => {
     const matchTab = s.dataset.tab === activeTab;
     const matchCat = !s.dataset.category || activeCategory === 'all' || s.dataset.category === activeCategory;
@@ -41,7 +68,8 @@ function applyVisibility() {
     const matchCategory = activeCategory === 'all' || item.dataset.repositoryCategory === activeCategory;
     const matchIntegration = activeIntegration === 'all' || item.dataset.integration === activeIntegration;
     const matchDocs = activeDocs === 'all' || item.dataset.docsAsCode === activeDocs;
-    item.classList.toggle('repo-filter-hidden', !(matchCategory && matchIntegration && matchDocs));
+    const matchOrg = !owner || owner === repositoryOwner(item.dataset.repoFilter);
+    item.classList.toggle('repo-filter-hidden', !(matchOrg && matchCategory && matchIntegration && matchDocs));
   });
   document.querySelectorAll('.section:not(.hidden)').forEach(section => {
     const items = section.querySelectorAll('[data-repo-filter]');
@@ -49,6 +77,9 @@ function applyVisibility() {
       section.classList.add('hidden');
     }
   });
+  document.getElementById('no-matching-repos').classList.toggle(
+    'hidden', Boolean(document.querySelector('.section:not(.hidden):not([data-policy-summary])')),
+  );
   document.querySelectorAll('.versions-table-view').forEach(view => {
     view.classList.toggle('hidden', activeVersionView !== 'table');
   });
@@ -62,11 +93,13 @@ function applyVisibility() {
   });
 }
 
-function activateState(tab, category, integration, docs) {
+function activateState({tab, category, integration, docs, organization}) {
   activeTab = tab;
   activeCategory = category;
   activeIntegration = integration;
   activeDocs = docs;
+  activeOrg = organization;
+  if (organizationFilter) organizationFilter.value = activeOrg;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('filters').style.display = '';
   renderFilters();
@@ -74,15 +107,13 @@ function activateState(tab, category, integration, docs) {
   applyVisibility();
 }
 
-// `categories` is injected by the preceding <script> block.
 const filtersEl = document.getElementById('filters');
-const categoryCounts = new Map(
-  Array.from(document.querySelectorAll('.section[data-tab="overview"][data-category]'))
-    .map(section => [section.dataset.category, Number(section.querySelector('.section-count')?.textContent || 0)])
-);
+let activeTab, activeCategory, activeIntegration, activeDocs, activeOrg;
+activateState(getHashState());
 
-let {tab: activeTab, category: activeCategory, integration: activeIntegration, docs: activeDocs} = getHashState();
-activateState(activeTab, activeCategory, activeIntegration, activeDocs);
+organizationFilter?.addEventListener('change', () => {
+  writeHashState(activeTab, 'all', activeIntegration, activeDocs, organizationFilter.value);
+});
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -91,8 +122,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 window.addEventListener('hashchange', () => {
-  const state = getHashState();
-  activateState(state.tab, state.category, state.integration, state.docs);
+  activateState(getHashState());
 });
 
 versionViewToggle.querySelectorAll('.view-toggle-btn').forEach(button => {
@@ -117,12 +147,15 @@ function renderFilters() {
   const current = document.createElement('span');
   current.className = 'filter-current';
   current.setAttribute('aria-live', 'polite');
-  const groupChoices = categories.map(category => {
-    const count = category === 'all'
-      ? Array.from(categoryCounts.values()).reduce((total, value) => total + value, 0)
-      : categoryCounts.get(category) || 0;
-    return [category, `${category === 'all' ? 'All groups' : category} (${count})`];
-  });
+  const visibleGroups = Array.from(categoryCounts).filter(([category]) =>
+    !activeOrg || categoryOwners.get(category) === activeOrg.toLowerCase(),
+  );
+  const groupChoices = [
+    ['all', `All groups (${visibleGroups.reduce((total, [, count]) => total + count, 0)})`],
+    ...visibleGroups.map(([category, count]) => [
+      category, `${activeOrg ? category.slice(activeOrg.length + 3) : category} (${count})`,
+    ]),
+  ];
   const groupSelect = createFilterSelect(
     'Group', 'group-filter', activeCategory, groupChoices,
   );
@@ -136,6 +169,7 @@ function renderFilters() {
   );
   const updateCurrent = () => {
     const active = [];
+    if (activeOrg) active.push(activeOrg);
     if (activeCategory !== 'all') active.push(`group: ${activeCategory}`);
     if (activeIntegration !== 'all') active.push(activeIntegration === 'included' ? 'in reference integration' : 'not in reference integration');
     if (activeDocs !== 'all') active.push(activeDocs === 'yes' ? 'uses Docs-as-Code' : 'does not use Docs-as-Code');
@@ -194,3 +228,12 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
     rows.forEach(r => tbody.appendChild(r));
   });
 });
+
+
+// Keep the native title in browsers that cannot position the styled tooltip.
+if (CSS.supports('(position-anchor: --table-tooltip) and (left: anchor(center)) and (position-try-fallbacks: flip-block)')) {
+  document.querySelectorAll('#sections :is(th, td)[title]').forEach(cell => {
+    cell.dataset.tooltip = cell.title;
+    cell.removeAttribute('title');
+  });
+}

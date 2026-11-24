@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ._html_common import (
-    BAZEL_DETAIL_ICON,
     CSS,
     DOCS_ICON,
     GITHUB_ICON,
@@ -27,7 +26,8 @@ def render_detail_page(
     max_bazel: tuple[int, ...] | None,
     latest_dep_versions: dict[str, str | None],
 ) -> str:
-    org_name = snapshot.org_name
+    org_name = entry.owner or snapshot.org_name
+    site_root = "../" * entry.detail_path(snapshot.org_name).count("/")
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n'
@@ -36,7 +36,7 @@ def render_detail_page(
         f"  <title>{e(entry.name)} — {e(org_name)}</title>\n"
         f"  <style>{CSS}</style>\n"
         "</head>\n<body>\n"
-        + _render_hero(entry, org_name)
+        + _render_hero(entry, org_name, site_root)
         + _render_stat_grid(entry)
         + _render_release_section(entry)
         + _render_dep_diff_section(entry)
@@ -45,16 +45,18 @@ def render_detail_page(
         + _render_lockfile_error_section(entry)
         + _render_ownership_section(entry)
         + _render_versions_section(entry, snapshot, max_bazel, latest_dep_versions)
-        + _render_footer(snapshot)
+        + _render_footer(snapshot, site_root)
         + "</body>\n</html>\n"
     )
 
 
-def _render_hero(entry: RepoEntry, org_name: str) -> str:
+def _render_hero(entry: RepoEntry, org_name: str, site_root: str) -> str:
     github_url = f"https://github.com/{org_name}/{entry.name}"
     name_html = e(entry.name)
     if entry.content.is_bazel_repo:
-        name_html += f" {BAZEL_DETAIL_ICON}"
+        name_html += (
+            f' <img src="{site_root}bazel_logo.svg" alt="Bazel" class="icon-bazel">'
+        )
 
     chips = ""
     if entry.category != DEFAULT_CATEGORY:
@@ -77,8 +79,8 @@ def _render_hero(entry: RepoEntry, org_name: str) -> str:
     return (
         "<header>\n"
         '  <nav class="breadcrumb">\n'
-        '    <a href="../">Cross-Repo Metrics</a> &rsaquo; '
-        f"{e(entry.name)}\n"
+        f'    <a href="{site_root}index.html">Cross-Repo Metrics</a> &rsaquo; '
+        f"{e(org_name)}/{e(entry.name)}\n"
         "  </nav>\n"
         f"  <h1>{name_html}"
         f' <a href="{e(github_url)}" class="gh-link" title="Open on GitHub ↗"'
@@ -382,7 +384,7 @@ def _render_versions_section(
         pin = e(pin_label)
         if resolved_pin_hash:
             pin = (
-                f'<a class="mono" href="https://github.com/{e(snapshot.org_name)}/'
+                f'<a class="mono" href="https://github.com/{e(entry.owner or snapshot.org_name)}/'
                 f'{e(entry.name)}/commit/{e(resolved_pin_hash)}" target="_blank" '
                 f'rel="noopener">{pin}</a>'
             )
@@ -412,10 +414,10 @@ def _render_versions_section(
     )
 
 
-def _render_footer(snapshot: RepoSnapshot) -> str:
+def _render_footer(snapshot: RepoSnapshot, site_root: str) -> str:
     return (
         "\n<footer>\n"
-        f'  <a href="../">&larr; Back to overview</a>'
+        f'  <a href="{site_root}index.html">&larr; Back to overview</a>'
         f" — generated {e(snapshot.generated_at)}\n"
         "</footer>\n\n"
     )

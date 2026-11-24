@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -43,30 +43,67 @@ def render_index_page(
     *,
     raw_json_available: bool = False,
     raw_json_filename: str = POLICY_REPORT_FILENAME,
+    policy_report_owner: str = "",
 ) -> str:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
-    categories = group_repos_by_category(repos)
-    repository_categories = {
-        repo.name: category
+    if snapshot.additional_org_names:
+        repos_by_org = {
+            org: [
+                replace(repo, category=f"{org} / {repo.category}")
+                for repo in repos
+                if (repo.owner or snapshot.org_name).casefold() == org.casefold()
+            ]
+            for org in snapshot.organization_names
+        }
+        categories = [
+            group
+            for entries in repos_by_org.values()
+            for group in group_repos_by_category(entries)
+        ]
+    else:
+        repos_by_org = {snapshot.org_name: repos}
+        categories = group_repos_by_category(repos)
+    qualify_policy_repos = bool(snapshot.additional_org_names or policy_report_owner)
+    if policy_report is not None and qualify_policy_repos:
+        report_owner = policy_report_owner or snapshot.org_name
+        policy_report = replace(
+            policy_report,
+            outcomes=tuple(
+                outcome
+                if "/" in outcome.repository
+                else replace(outcome, repository=f"{report_owner}/{outcome.repository}")
+                for outcome in policy_report.outcomes
+            ),
+        )
+    policy_repo_keys = {
+        key: (repo, category)
         for category, category_repos in categories
         for repo in category_repos
+        for key in (
+            f"{repo.owner or snapshot.org_name}/{repo.name}".casefold(),
+            repo.name.casefold(),
+        )
+        if "/" in key or not qualify_policy_repos
+    }
+    repository_categories = {
+        key: category for key, (_, category) in policy_repo_keys.items()
     }
     repository_filters = {
-        repo.name: (
+        key: (
             repo.content.referenced_by_reference_integration,
             uses_docs_as_code(repo),
         )
-        for repo in repos
+        for key, (repo, _) in policy_repo_keys.items()
     }
     return (
         "<!DOCTYPE html>\n"
         '<html lang="en">\n<head>\n'
         '  <meta charset="UTF-8">\n'
         '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
-        f"  <title>Cross-Repo Metrics — {e(snapshot.org_name)}</title>\n"
+        f"  <title>Cross-Repo Metrics — {e(', '.join(snapshot.organization_names))}</title>\n"
         f"  <style>{CSS}</style>\n"
         "</head>\n<body>\n"
-        + _render_header(snapshot, repos)
+        + _render_header(snapshot, repos, repos_by_org)
         + _render_tab_bar(show_workflows=bool(snapshot.workflow_signals))
         + _render_filters_placeholder()
         + _render_version_view_toggle()
@@ -76,7 +113,10 @@ def render_index_page(
         + _render_workflow_sections(categories, snapshot)
         + _render_automation_sections(categories, snapshot)
         + _render_naming_sections(categories, snapshot)
-        + _render_traceability_section(repos, snapshot)
+        + "".join(
+            _render_traceability_section(entries, snapshot, org)
+            for org, entries in repos_by_org.items()
+        )
         + render_policy_sync_section(
             policy_report,
             repository_categories=repository_categories,
@@ -84,35 +124,72 @@ def render_index_page(
             raw_json_available=raw_json_available or policy_report is not None,
             raw_json_filename=raw_json_filename,
         )
+        + '<p id="no-matching-repos" class="hidden" role="status">No repositories match this view.</p>\n'
         + "</div>\n"
         + _render_footer(snapshot)
-        + _render_script(categories)
+        + _render_script()
         + "</body>\n</html>\n"
     )
 
 
-def _render_header(snapshot: RepoSnapshot, repos: list[RepoEntry]) -> str:
-    total = len(repos)
+def _render_header(
+    snapshot: RepoSnapshot,
+    repos: list[RepoEntry],
+    repos_by_org: dict[str, list[RepoEntry]],
+) -> str:
+    organization_filter = ""
+    organization_summaries = ""
+    if snapshot.additional_org_names:
+        options = "".join(
+            f'<option value="{e(org)}">{e(org)} ({len(entries)})</option>'
+            for org, entries in repos_by_org.items()
+        )
+        organization_filter = (
+            '<label class="filter-select" for="organization-filter">'
+            'Organization <select id="organization-filter" '
+            f'data-primary-org="{e(snapshot.org_name)}">'
+            f'<option value="">All organizations ({len(repos)})</option>{options}'
+            "</select></label>"
+        )
+        organization_summaries = "".join(
+            _render_header_summary(entries, org=org)
+            for org, entries in repos_by_org.items()
+        )
+    return (
+        "<header>\n"
+        '  <div class="dashboard-heading">\n'
+        "    <h1>Cross-Repo Metrics Report</h1>\n"
+        f"    {organization_filter}\n"
+        "  </div>\n"
+        f'  <p class="subtitle">Generated {e(snapshot.generated_at)}</p>\n'
+        + _render_header_summary(repos)
+        + organization_summaries
+        + "</header>\n\n"
+    )
+
+
+def _render_header_summary(repos: list[RepoEntry], *, org: str = "") -> str:
     with_ci = sum(r.content.has_ci for r in repos)
     with_releases = sum(has_latest_release(r) for r in repos)
     with_lint = sum(r.content.has_lint_config for r in repos)
     bazel_repos = sum(r.content.is_bazel_repo for r in repos)
-
     lang_chips = _render_language_distribution(repos)
-
+    hidden = " hidden" if org else ""
     return (
-        "<header>\n"
-        "  <h1>Cross-Repo Metrics Report</h1>\n"
-        f'  <p class="subtitle">Generated {e(snapshot.generated_at)}</p>\n'
-        '  <div id="summary">\n'
-        f'    <span class="summary-chip"><span class="dot" style="background:var(--accent)"></span>{total} repositories</span>\n'
+        f'  <div data-summary-org="{e(org)}"{hidden}>\n'
+        '  <div class="dashboard-summary">\n'
+        f'    <span class="summary-chip"><span class="dot" style="background:var(--accent)"></span>{len(repos)} repositories</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--green)"></span>{with_ci} with CI</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--yellow)"></span>{with_releases} with releases</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--orange)"></span>{bazel_repos} Bazel repos</span>\n'
         f'    <span class="summary-chip"><span class="dot" style="background:var(--muted)"></span>{with_lint} with lint config</span>\n'
         "  </div>\n"
-        + (f'  <div id="lang-summary">{lang_chips}</div>\n' if lang_chips else "")
-        + "</header>\n\n"
+        + (
+            f'  <div class="language-summary">{lang_chips}</div>\n'
+            if lang_chips
+            else ""
+        )
+        + "  </div>\n"
     )
 
 
@@ -182,17 +259,19 @@ def _render_overview_sections(
             f'    <span class="section-title">{e(category)}</span>\n'
             f'    <span class="section-count">{len(cat_repos)}</span>\n'
             f"  </div>\n"
-            f"  <table>\n"
+            f'  <div class="overview-table"><table>\n'
             f"    <thead><tr>\n"
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="merged" class="text-right" title="Number of pull requests merged into the main branch in the last 30 days. A higher number means more active development.">Merged PRs (30d) <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="issues" class="text-right" data-tooltip="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="prs" class="text-right" data-tooltip="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="issues" class="text-right" title="Number of open issues in this repository, including bug reports and feature requests.">Open Issues <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="prs" class="text-right" title="Open pull requests: the first number is ready for review, the second is still in draft. A red badge means more than 5 are waiting for review.">Open PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="renovate-prs" class="text-right" title="Open pull requests from Renovate, including drafts.">Renovate PRs <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="dependabot-prs" class="text-right" title="Open pull requests from Dependabot, including drafts. A green 0 means there are no open PRs and a Dependabot configuration file was found on the default branch. Not configured means there are no open PRs and no configuration file was found.">Dependabot PRs <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="release" title="The most recent published release. Green = no unreleased commits, yellow = up to 20 commits not yet released, red = more than 20 commits not yet released.">Latest Release <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="stars" class="text-right">Stars / Forks <span class="sort-arrow"></span></th>\n'
             f"    </tr></thead>\n"
             f"    <tbody>\n{rows}\n    </tbody>\n"
-            f"  </table>\n"
+            f"  </table></div>\n"
             f"</div>\n"
         )
     return "".join(parts)
@@ -201,7 +280,7 @@ def _render_overview_sections(
 def _overview_row(entry: RepoEntry, org_name: str) -> str:
     name_cell = repo_name_cell(entry, org_name)
     filter_attrs = _repo_filter_attributes(entry)
-    repo_url = f"https://github.com/{org_name}/{entry.name}"
+    repo_url = f"https://github.com/{entry.owner or org_name}/{entry.name}"
 
     merged = _render_merged_badge(entry.volatile.merged_prs_30_days)
     issues_cell = _render_issues_cell(entry.volatile.open_issues, repo_url)
@@ -250,16 +329,45 @@ def _overview_row(entry: RepoEntry, org_name: str) -> str:
     stars_tip = f"{entry.stars} star{'s' if entry.stars != 1 else ''} · {entry.forks} fork{'s' if entry.forks != 1 else ''}"
 
     return (
-        f'    <tr{filter_attrs} data-name="{e(entry.name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
+        f'    <tr{filter_attrs} data-name="{e(entry.full_name)}" data-merged="{entry.volatile.merged_prs_30_days}"'
         f' data-issues="{entry.volatile.open_issues}" data-stars="{entry.stars}">\n'
         f"      <td>{name_cell}</td>\n"
-        f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" data-tooltip="{e(merged_tip)}">{merged}</td>\n'
-        f'      <td class="text-right" data-sort-value="{entry.volatile.open_issues}" data-tooltip="{e(issues_tip)}">{issues_cell}</td>\n'
-        f'      <td class="text-right" data-sort-value="{total_prs}" data-tooltip="{e(prs_tip)}">{prs_cell}</td>\n'
-        f'      <td data-tooltip="{e(release_tip)}">{release}</td>\n'
-        f'      <td class="text-right" data-tooltip="{e(stars_tip)}">{stars_forks}</td>\n'
+        f'      <td class="text-right" data-sort-value="{entry.volatile.merged_prs_30_days}" title="{e(merged_tip)}">{merged}</td>\n'
+        f'      <td class="text-right" data-sort-value="{entry.volatile.open_issues}" title="{e(issues_tip)}">{issues_cell}</td>\n'
+        f'      <td class="text-right" data-sort-value="{total_prs}" title="{e(prs_tip)}">{prs_cell}</td>\n'
+        f"{_render_dependency_pr_count(entry.volatile.open_renovate_prs)}"
+        f"{_render_dependency_pr_count(entry.volatile.open_dependabot_prs, configured=entry.content.has_dependabot_config)}"
+        f'      <td title="{e(release_tip)}">{release}</td>\n'
+        f'      <td class="text-right" title="{e(stars_tip)}">{stars_forks}</td>\n'
         f"    </tr>"
     )
+
+
+def _render_dependency_pr_count(
+    count: int | None, *, configured: bool | None = None
+) -> str:
+    if count is None:
+        return (
+            '      <td class="text-right text-muted" data-sort-value="-1" '
+            'title="Open pull request count unavailable">—</td>\n'
+        )
+    label = str(count)
+    cell_description = ""
+    if count > 0:
+        label = f'<span class="badge yellow">{count}</span>'
+    elif count == 0 and configured is not None:
+        color, status_label = (
+            ("green", "0") if configured else ("red", "not configured")
+        )
+        config_status = (
+            "Dependabot configuration file found"
+            if configured
+            else "No Dependabot configuration file found"
+        )
+        description = f"No open Dependabot PRs. {config_status} on the default branch."
+        cell_description = f' title="{description}" aria-label="{description}"'
+        label = f'<span class="badge {color}">{status_label}</span>'
+    return f'      <td class="text-right" data-sort-value="{count}"{cell_description}>{label}</td>\n'
 
 
 def _repo_filter_attributes(entry: RepoEntry) -> str:
@@ -268,7 +376,7 @@ def _repo_filter_attributes(entry: RepoEntry) -> str:
     )
     docs_value = "yes" if uses_docs_as_code(entry) else "no"
     return (
-        f' data-repo-filter="{e(entry.name)}"'
+        f' data-repo-filter="{e(entry.full_name)}"'
         f' data-repository-category="{e(entry.category)}"'
         f' data-integration="{integration_value}"'
         f' data-docs-as-code="{docs_value}"'
@@ -592,7 +700,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
     release = entry.volatile.latest_release_version
     if release:
         release_ref = (
-            f'<a href="https://github.com/{e(org_name)}/{e(entry.name)}/'
+            f'<a href="https://github.com/{e(entry.owner or org_name)}/{e(entry.name)}/'
             f'releases/tag/{e(release)}" target="_blank" rel="noopener">'
             f"{e(release)}</a>"
         )
@@ -612,7 +720,7 @@ def _render_git_refs(entry: RepoEntry, org_name: str) -> str:
         pin_ref = e(pin_label)
         if resolved_pin_hash:
             pin_ref = (
-                f'<a class="mono" href="https://github.com/{e(org_name)}/'
+                f'<a class="mono" href="https://github.com/{e(entry.owner or org_name)}/'
                 f'{e(entry.name)}/commit/{e(resolved_pin_hash)}" target="_blank" '
                 f'rel="noopener" title="{e(resolved_pin_hash)}">{pin_ref}</a>'
             )
@@ -702,7 +810,7 @@ def _versions_row(
             component_name=dep_label,
             last_release_tag=entry.volatile.latest_release_version,
         )
-        dep_cells.append(f'      <td data-tooltip="{e(tip)}">{cell}</td>\n')
+        dep_cells.append(f'      <td title="{e(tip)}">{cell}</td>\n')
 
     git_refs = _render_git_refs(entry, org_name)
 
@@ -720,10 +828,10 @@ def _versions_row(
     return (
         f"    <tr{filter_attrs}>\n"
         f"      <td>{name_cell}</td>\n"
-        f'      <td data-tooltip="{e(bazel_tip)}">{bazel_cell}</td>\n'
+        f'      <td title="{e(bazel_tip)}">{bazel_cell}</td>\n'
         + "".join(dep_cells)
         + f'      <td data-sort-value="{e(entry.volatile.latest_release_version or "")}">{git_refs}</td>\n'
-        f'      <td data-tooltip="{e(dep_changes_tip)}">{dep_changes_cell}</td>\n'
+        f'      <td title="{e(dep_changes_tip)}">{dep_changes_cell}</td>\n'
         f"    </tr>"
     )
 
@@ -795,10 +903,10 @@ def _render_automation_sections(
     return "".join(parts)
 
 
-def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
+def _lockfile_cell(entry: RepoEntry, org_name: str) -> tuple[str, str]:
     status = entry.content.bazel_lockfile_status
     has_error = bool(entry.content.bazel_lockfile_error_output)
-    url = f"{e(entry.name)}/index.html#lockfile-error"
+    url = f"{e(entry.detail_path(org_name))}#lockfile-error"
 
     if status == LockfileStatus.OK:
         return (
@@ -844,7 +952,7 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
             return '<span class="badge green">yes</span>'
         return '<span class="text-muted">no</span>'
 
-    lockfile_cell, lockfile_tip = _lockfile_cell(entry)
+    lockfile_cell, lockfile_tip = _lockfile_cell(entry, org_name)
 
     tips = {
         "bazel": "This repository uses Bazel as its build system."
@@ -878,14 +986,14 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
     return (
         f"    <tr{filter_attrs}>\n"
         f"      <td>{name_cell}</td>\n"
-        f'      <td data-tooltip="{e(lang_tip)}">{lang_cell}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(lockfile_tip)}">{lockfile_cell}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["ci"])}">{_presence(c.has_ci, "⚙️")}</td>\n'
-        f'      <td class="text-center" data-tooltip="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
+        f'      <td title="{e(lang_tip)}">{lang_cell}</td>\n'
+        f'      <td class="text-center" title="{e(tips["bazel"])}">{_presence(c.is_bazel_repo, BAZEL_ICON)}</td>\n'
+        f'      <td class="text-center" title="{e(lockfile_tip)}">{lockfile_cell}</td>\n'
+        f'      <td class="text-center" title="{e(tips["gitlint"])}">{_presence(c.has_gitlint_config, "\U0001f50d")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["pyproject"])}">{_presence(c.has_pyproject_toml, "\U0001f40d")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["precommit"])}">{_presence(c.has_pre_commit_config, "\U0001fa9d")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["ci"])}">{_presence(c.has_ci, "⚙️")}</td>\n'
+        f'      <td class="text-center" title="{e(tips["coverage"])}">{_yesno(c.has_coverage_config)}</td>\n'
         f"    </tr>"
     )
 
@@ -925,7 +1033,8 @@ def _render_naming_sections(
                 entry,
                 snapshot.org_name,
                 is_platform_source=(
-                    f"{snapshot.org_name}/{entry.name}" in platform_sources
+                    f"{entry.owner or snapshot.org_name}/{entry.name}"
+                    in platform_sources
                 ),
             )
             for entry in bazel_repos
@@ -1042,7 +1151,7 @@ def _module_header(
     class_attr = ' class="text-center"' if center else ""
     return (
         f'      <th data-sort="{e(sort_key)}"{class_attr} '
-        f'data-tooltip="{e(tooltip)}">{e(label)} '
+        f'title="{e(tooltip)}">{e(label)} '
         f'<span class="sort-arrow"></span></th>\n'
     )
 
@@ -1195,8 +1304,14 @@ def _format_type_name(key: str) -> str:
 def _render_traceability_section(
     repos: list[RepoEntry],
     snapshot: RepoSnapshot,
+    owner: str,
 ) -> str:
     org_name = snapshot.org_name
+    title = (
+        f"{owner} / Requirement Traceability"
+        if snapshot.additional_org_names
+        else "Requirement Traceability"
+    )
     dep_repos = [r for r in repos if is_tracked_dep_repo(r, snapshot.tracked_deps)]
     if not dep_repos:
         return ""
@@ -1212,7 +1327,7 @@ def _render_traceability_section(
         name_cell = repo_name_cell(r, org_name, bazel_icon=False)
         if not r.traceability:
             row_parts.append(
-                f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.full_name)}">'
                 f"<td>{name_cell}</td>"
                 f'<td class="text-right" colspan="6">'
                 f'<span class="text-muted">— not available</span></td>'
@@ -1250,12 +1365,12 @@ def _render_traceability_section(
             if ti == 0:
                 rowspan = f' rowspan="{len(types)}"' if len(types) > 1 else ""
                 row_parts.append(
-                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.full_name)}">'
                     f"<td{rowspan}>{name_cell}</td>{cells}</tr>"
                 )
             else:
                 row_parts.append(
-                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.name)}">'
+                    f'    <tr{_repo_filter_attributes(r)} data-repo="{e(r.full_name)}">'
                     f"{cells}</tr>"
                 )
 
@@ -1270,10 +1385,10 @@ def _render_traceability_section(
     return (
         f'<div class="section hidden" data-tab="traceability">\n'
         f'  <div class="section-header">\n'
-        f'    <span class="section-title">Requirement Traceability</span>\n'
+        f'    <span class="section-title">{e(title)}</span>\n'
         f'    <span class="section-count">{len(dep_repos)}</span>\n'
         f"  </div>\n"
-        f'  <div id="trace-summary">\n'
+        f'  <div class="trace-summary">\n'
         f'    <div class="stat-grid">\n'
         f'      <div class="stat-card"><div class="stat-value">{loaded_count} / {len(dep_repos)}</div><div class="stat-label">Repos Reporting</div></div>\n'
         f'      <div class="stat-card"><div class="stat-value">{total_reqs}</div><div class="stat-label">Total Requirements</div></div>\n'
@@ -1301,7 +1416,7 @@ def _render_traceability_section(
 def _render_footer(snapshot: RepoSnapshot) -> str:
     return (
         f"\n<footer>\n"
-        f"  Cross-repo metrics for <strong>{e(snapshot.org_name)}</strong> "
+        f"  Cross-repo metrics for <strong>{e(', '.join(snapshot.organization_names))}</strong> "
         f"— generated {e(snapshot.generated_at)}\n"
         f'  <div class="machine-readable">'
         f'<a href="data.json">Machine-readable JSON</a>'
@@ -1311,12 +1426,5 @@ def _render_footer(snapshot: RepoSnapshot) -> str:
     )
 
 
-def _render_script(
-    categories: list[tuple[str, list[RepoEntry]]],
-) -> str:
-    cat_names = json.dumps(["all"] + [c for c, _ in categories])
-    return (
-        f"<script>\nconst categories = {cat_names};\n"
-        f"</script>\n"
-        f"<script>\n{_INDEX_JS}</script>\n"
-    )
+def _render_script() -> str:
+    return f"<script>\n{_INDEX_JS}</script>\n"

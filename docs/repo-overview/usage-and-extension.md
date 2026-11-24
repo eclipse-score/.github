@@ -60,6 +60,44 @@ repository.
 Use `--config /path/to/file.toml` with `render-overview` to select another
 profile configuration.
 
+### Multiple Organizations
+
+Keep `org_name` as the primary organization and add one `organizations` table
+per additional GitHub organization. Each organization has its own repository name
+filters. An omitted or empty filter includes all its active repositories.
+
+```toml
+org_name = "example-platform"
+repo_include_patterns = ["platform-*"]
+
+[organizations.example-tools]
+repo_include_patterns = ["compiler", "build-*"]
+grouping_levels = [{ property = "team", default = "Tooling" }]
+registry_repo = "example-tools/bazel-registry"
+```
+
+Tracked dependencies, workflow signals, and platform documentation sources
+apply to the combined dashboard. Additional organizations inherit the primary
+grouping levels, registry, and Reference Integration unless they
+override `grouping_levels`, `registry_repo`, or `reference_integration_repo`.
+Use an empty grouping list or an empty repository string to disable the
+corresponding setting for that organization.
+
+The dashboard lists each organization's groups together in the combined view.
+Use the **Organization** selector to scope repository lists and the overview
+summary to one organization. The selected organization can be bookmarked with
+the tab and other filters.
+
+The snapshot and cache distinguish repositories by `owner/repo`. Primary
+organization detail URLs keep their existing `<repo>/index.html` format.
+Additional organizations use `@orgs/<owner>/<repo>/index.html`.
+
+Policy report entries with short repository names use the primary organization
+by default. Set `repository_owner` in `[policy_report]` when those names refer
+to another organization. Entries that include `owner/repo` use their own owner.
+The filters scope the policy matrix rows. Policy totals always describe the
+entire report.
+
 ### Tracked Workflows
 
 Configure one `[[signals.workflow_signals]]` entry per reusable workflow:

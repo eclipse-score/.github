@@ -3,10 +3,11 @@
 import json
 from dataclasses import replace
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
+from generate_repo_overview._html_common import workflow_ref_badges
 from generate_repo_overview.collector.workflow_versions import (
     fetch_workflow_ref_resolutions,
 )
@@ -23,8 +24,17 @@ from generate_repo_overview.models import (
 SOURCE = "example/workflows"
 DAILY = f"{SOURCE}/.github/workflows/daily.yml@"
 DOCS = f"{SOURCE}/.github/workflows/docs.yml@"
+DOCS_PUBLISH = f"{SOURCE}/.github/workflows/docs-publish.yml@"
 SHA = "a" * 40
 NEXT_SHA = "b" * 40
+DOCS_LABELER = """
+docs.yml:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/workflows/docs.yml
+          - .github/workflows/docs-publish.yml
+          - ".github/actions/deploy-versioned-pages/**"
+"""
 
 
 def _repo(*references: str) -> RepoEntry:
@@ -109,7 +119,111 @@ def test_matching_workflow_tag_takes_precedence_over_global_and_unrelated_tags()
 
     assert daily.version_tag == "daily/v1.0.0"
     assert docs.version_tag == "docs/v9.0.0"
-    assert daily.latest_release == "v2.0.0"
+    assert daily.latest_release == "daily/v1.0.0"
+    assert docs.latest_release == "docs/v9.0.0"
+    source.compare.assert_not_called()
+
+
+def test_docs_publish_pin_uses_latest_docs_release_even_on_a_shared_commit() -> None:
+    source = _source(
+        ("v2.0.0", SHA),
+        ("docs/v0.0.0", SHA),
+        ("daily/v1.0.0", SHA),
+    )
+    source.get_contents.return_value.decoded_content = DOCS_LABELER.encode()
+    github = Mock()
+    github.get_repo.return_value = source
+    repo = _repo(DOCS_PUBLISH + SHA)
+
+    (result,) = fetch_workflow_ref_resolutions([repo], github=github)
+
+    assert result.version_tag == result.latest_release == "docs/v0.0.0"
+    assert (result.ahead_by, result.behind_by) == (0, 0)
+    source.compare.assert_not_called()
+    html = workflow_ref_badges(repo, "Daily", (result,))
+    assert 'class="badge green mono"' in html
+    assert ">docs/v0.0.0</a>" in html
+    assert "vs " not in html
+
+
+def test_component_release_comparisons_are_cached_by_baseline_and_commit() -> None:
+    source = _source(
+        ("docs/v0.2.0", NEXT_SHA),
+        ("docs/v0.11.0-rc.1", NEXT_SHA),
+        ("docs/v0.10.0", NEXT_SHA),
+        ("docs/v0.0.0", SHA),
+        ("daily/v1.0.0", SHA),
+        ("daily/v2.0.0", NEXT_SHA),
+    )
+    source.get_contents.return_value.decoded_content = DOCS_LABELER.encode()
+    source.compare.side_effect = [
+        SimpleNamespace(ahead_by=0, behind_by=2),
+        SimpleNamespace(ahead_by=0, behind_by=8),
+    ]
+    github = Mock()
+    github.get_repo.return_value = source
+    repo = _repo(DAILY + SHA, DOCS_PUBLISH + SHA, DOCS + "docs/v0.0.0")
+
+    daily, publish, docs = fetch_workflow_ref_resolutions([repo], github=github)
+
+    assert (daily.latest_release, daily.behind_by) == ("daily/v2.0.0", 2)
+    assert (publish.latest_release, publish.behind_by) == ("docs/v0.10.0", 8)
+    assert (docs.latest_release, docs.behind_by) == ("docs/v0.10.0", 8)
+    source.get_contents.assert_called_once_with(".github/labeler.yml")
+    assert source.compare.call_args_list == [
+        call("daily/v2.0.0", SHA),
+        call("docs/v0.10.0", SHA),
+    ]
+    assert "vs docs/v0.10.0" in workflow_ref_badges(repo, "Daily", (publish,))
+
+
+@pytest.mark.parametrize("tag", ["docs/v1.0.0-rc.1", "other/v1.0.0"])
+def test_configured_component_without_stable_tag_has_no_baseline(tag: str) -> None:
+    source = _source((tag, SHA))
+    source.get_contents.return_value.decoded_content = DOCS_LABELER.encode()
+    github = Mock()
+    github.get_repo.return_value = source
+
+    (result,) = fetch_workflow_ref_resolutions(
+        [_repo(DOCS_PUBLISH + SHA)], github=github
+    )
+
+    assert result.latest_release is None
+    assert result.version_tag == (tag if tag.startswith("docs/") else None)
+    source.compare.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "labeler",
+    [
+        None,
+        "docs.yml: [",
+        DOCS_LABELER
+        + """
+daily.yml:
+  - changed-files:
+      - any-glob-to-any-file: .github/workflows/docs-publish.yml
+""",
+    ],
+    ids=["missing", "invalid", "ambiguous"],
+)
+def test_unusable_labeler_mapping_falls_back_to_workflow_filename(
+    labeler: str | None,
+) -> None:
+    source = _source(("docs-publish/v1.0.0", SHA), ("docs/v2.0.0", SHA))
+    if labeler:
+        source.get_contents.return_value.decoded_content = labeler.encode()
+    else:
+        source.get_contents.side_effect = RuntimeError("No labeler")
+    github = Mock()
+    github.get_repo.return_value = source
+
+    (result,) = fetch_workflow_ref_resolutions(
+        [_repo(DOCS_PUBLISH + SHA)], github=github
+    )
+
+    assert result.version_tag == result.latest_release == "docs-publish/v1.0.0"
+    source.compare.assert_not_called()
 
 
 def test_new_tags_releases_and_moved_branches_refresh_without_consumer_changes() -> (
@@ -281,8 +395,6 @@ def test_resolved_pins_roundtrip_and_render_in_both_views_without_losing_origina
 
 
 def test_release_context_is_escaped_in_version_labels_and_tooltips() -> None:
-    from generate_repo_overview._html_common import workflow_ref_badges
-
     html = workflow_ref_badges(
         _repo(DAILY + SHA),
         "Daily",
@@ -369,14 +481,13 @@ def test_collect_snapshot_refreshes_workflow_releases_while_reusing_consumer_con
         ("on-pr/v0.0.0", "v0.0.3", False),
         ("on-pr/v0.0.0", "on-pr/v0.0.1", True),
         ("on-pr/v0.0.0", "docs/v0.0.3", False),
+        ("v0.0.1", "docs/v0.0.3", True),
     ],
 )
-def test_green_version_labels_compare_only_differing_releases_in_the_same_series(
+def test_version_badges_show_comparisons_against_the_workflow_baseline(
     pin_type: str, tag: str, release: str, show_difference: bool
 ) -> None:
     """Both direct tags and SHA pins resolved to tags follow the same display rules."""
-    from generate_repo_overview._html_common import workflow_ref_badges
-
     pin = SHA if pin_type == "sha" else tag
     reference = DAILY + pin
     html = workflow_ref_badges(

@@ -38,23 +38,24 @@ def render_policy_sync_section(
         )
 
     policies = list(dict.fromkeys(outcome.policy_id for outcome in report.outcomes))
-    repositories = list(
-        dict.fromkeys(outcome.repository for outcome in report.outcomes)
-    )
-    by_pair = {
-        (outcome.repository, outcome.policy_id): outcome for outcome in report.outcomes
-    }
+    repository_labels: dict[str, str] = {}
+    by_pair: dict[tuple[str, str], PolicySyncOutcome] = {}
+    for outcome in report.outcomes:
+        identity = outcome.repository.casefold()
+        repository_labels.setdefault(identity, outcome.repository)
+        by_pair[(identity, outcome.policy_id)] = outcome
+    repositories = list(repository_labels.values())
     policy_definitions = {policy.id: policy for policy in report.policies}
     raw_link = _raw_json_link(raw_json_filename)
     summary = report.summary
     pull_request_states = _pull_request_state_counts(report.outcomes)
     summary_section = (
-        '<div class="section hidden" data-tab="policy-sync">\n'
+        '<div class="section hidden" data-tab="policy-sync" data-policy-summary>\n'
         '  <div class="section-header">\n'
         '    <span class="section-title">Policy Sync</span>\n'
         "  </div>\n"
         '  <div class="policy-sync-meta">\n'
-        '    <span class="section-subtitle">Repository policy compliance</span>\n'
+        '    <span class="section-subtitle">Repository policy compliance (report totals)</span>\n'
         f"    {raw_link}\n"
         "  </div>\n"
         '  <div class="policy-sync-statistics">\n'
@@ -120,7 +121,7 @@ def _group_policy_repositories(
     grouped: dict[str, list[str]] = {}
     ungrouped: list[str] = []
     for repository in repositories:
-        category = repository_categories.get(repository)
+        category = repository_categories.get(repository.casefold())
         if category is None:
             ungrouped.append(repository)
         else:
@@ -197,9 +198,7 @@ def _policy_header(
     description = definition.description if definition else ""
     if not description:
         return f"<th>{e(policy)}</th>"
-    return (
-        f'<th data-tooltip="{e(description)}" title="{e(description)}">{e(policy)}</th>'
-    )
+    return f'<th title="{e(description)}">{e(policy)}</th>'
 
 
 def _policy_stat(value: int, label: str, status_class: str, marker: str) -> str:
@@ -237,10 +236,11 @@ def _matrix_row(
     repository_filters: Mapping[str, tuple[bool, bool]] | None,
     category: str | None,
 ) -> str:
+    identity = repository.casefold()
     cells = "".join(
-        _matrix_cell_html(by_pair.get((repository, policy))) for policy in policies
+        _matrix_cell_html(by_pair.get((identity, policy))) for policy in policies
     )
-    included, docs_as_code = (repository_filters or {}).get(repository, (False, False))
+    included, docs_as_code = (repository_filters or {}).get(identity, (False, False))
     integration_value = "included" if included else "excluded"
     docs_value = "yes" if docs_as_code else "no"
     return (
@@ -256,7 +256,7 @@ def _matrix_cell_html(outcome: PolicySyncOutcome | None) -> str:
         return '<td><span class="policy-status not-applicable" aria-label="Not applicable">N/A</span></td>'
     tooltip = _outcome_tooltip(outcome)
     return (
-        f'<td class="policy-matrix-cell" data-tooltip="{e(tooltip)}" '
+        f'<td class="policy-matrix-cell" '
         f'title="{e(tooltip)}" tabindex="0">{_matrix_cell(outcome)}</td>'
     )
 
@@ -274,7 +274,7 @@ def _matrix_cell(outcome: PolicySyncOutcome | None) -> str:
         if link:
             return _policy_pr_badge(outcome.policy_pr_status, href=link)
     content = (
-        f'<span class="policy-status {status_class}" title="{e(label)}" '
+        f'<span class="policy-status {status_class}" '
         f'aria-label="{e(label)}">{marker}</span>'
     )
     if outcome.pull_request_url and not automated:
@@ -309,7 +309,6 @@ def _policy_pr_badge(state: str | None, *, href: str | None = None) -> str:
     return (
         f'<a href="{href}" class="policy-pr-badge policy-pr-{state_class}" '
         f'aria-label="{e(label)} policy pull request" '
-        f'title="View {e(label)} policy pull request" '
         f'target="_blank" rel="noopener">{badge_content}</a>'
     )
 

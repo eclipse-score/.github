@@ -24,6 +24,7 @@ from .git_checkout import (
     fetch_repository_ref,
     get_checkout_head_date,
     get_checkout_head_sha,
+    list_repository_paths,
     read_repository_text_at_ref,
     remote_repository_has_refs,
     sync_repository_checkout,
@@ -37,6 +38,7 @@ from .signal_detection import (
     fetch_repository_tree_paths,
     first_non_comment_line,
     get_all_bazel_dep_versions,
+    has_dependabot_config,
     inspect_repository_checkout,
     inspect_repository_content_slow,
 )
@@ -51,6 +53,8 @@ class PullRequestCounts(TypedDict):
     ready: int
     draft: int
     total: int
+    renovate: int | None
+    dependabot: int | None
 
 
 class LatestReleaseDetails(TypedDict):
@@ -70,6 +74,8 @@ class VolatileMetricsPayload(TypedDict):
     open_prs: int
     open_ready_prs: int
     open_draft_prs: int
+    open_renovate_prs: int | None
+    open_dependabot_prs: int | None
     latest_release_version: str | None
     latest_release_date: str | None
     commits_since_latest_release: int | None
@@ -179,6 +185,21 @@ def maybe_collect_repository_entry_fast_path(
         return None
 
     assert cached_entry is not None
+    if cached_entry.content.has_dependabot_config is None:
+        # Older snapshots lack this signal. Inspect paths without rerunning the
+        # expensive content checks for an otherwise unchanged checkout.
+        tree_paths = (
+            list_repository_paths(checkout_path)
+            if checkout_path is not None
+            else fetch_repository_tree_paths(repository, ref=default_branch_sha)
+        )
+        cached_entry = replace(
+            cached_entry,
+            content=replace(
+                cached_entry.content,
+                has_dependabot_config=has_dependabot_config(tree_paths),
+            ),
+        )
     if should_reuse_cached_volatile_metrics(cached_entry):
         return build_repo_entry_from_cached(
             cached_entry=cached_entry,
@@ -423,6 +444,8 @@ def collect_volatile_metrics(
         "open_prs": open_pull_request_counts["total"],
         "open_ready_prs": open_pull_request_counts["ready"],
         "open_draft_prs": open_pull_request_counts["draft"],
+        "open_renovate_prs": open_pull_request_counts["renovate"],
+        "open_dependabot_prs": open_pull_request_counts["dependabot"],
         "latest_release_version": latest_release["version"],
         "latest_release_date": latest_release["date"],
         "commits_since_latest_release": latest_release["commits_since_release"],
@@ -488,6 +511,7 @@ def cached_signals_for_repository(
         "has_pyproject_toml": cached_entry.content.has_pyproject_toml,
         "has_pre_commit_config": cached_entry.content.has_pre_commit_config,
         "has_ci": cached_entry.content.has_ci,
+        "has_dependabot_config": cached_entry.content.has_dependabot_config,
         "matched_workflow_signals": cached_entry.content.matched_workflow_signals,
         "workflow_refs": cached_entry.content.workflow_refs,
         "has_coverage_config": cached_entry.content.has_coverage_config,
@@ -605,6 +629,7 @@ def build_repo_entry(
                 content_signals.get("has_pre_commit_config", False)
             ),
             has_ci=content_signals["has_ci"],
+            has_dependabot_config=content_signals["has_dependabot_config"],
             matched_workflow_signals=content_signals["matched_workflow_signals"],
             workflow_refs=content_signals["workflow_refs"],
             has_coverage_config=content_signals["has_coverage_config"],
@@ -630,6 +655,8 @@ def build_repo_entry(
             open_prs=volatile_metrics["open_prs"],
             open_ready_prs=volatile_metrics["open_ready_prs"],
             open_draft_prs=volatile_metrics["open_draft_prs"],
+            open_renovate_prs=volatile_metrics["open_renovate_prs"],
+            open_dependabot_prs=volatile_metrics["open_dependabot_prs"],
             latest_release_version=volatile_metrics["latest_release_version"],
             latest_release_date=volatile_metrics["latest_release_date"],
             commits_since_latest_release=volatile_metrics[
@@ -726,12 +753,7 @@ def get_open_issue_count(repository: Any, *, open_pull_request_total: int) -> in
 
 def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
     try:
-        pulls = repository.get_pulls(state="open")
-    except Exception:
-        return default_open_pull_request_counts()
-
-    try:
-        pull_requests = list(pulls)
+        pull_requests = list(repository.get_pulls(state="open"))
     except Exception:
         return default_open_pull_request_counts()
 
@@ -739,10 +761,26 @@ def get_open_pull_request_counts(repository: Any) -> PullRequestCounts:
         is_draft_pull_request(pull_request) for pull_request in pull_requests
     )
     total_count = len(pull_requests)
+    renovate_count = dependabot_count = 0
+    for pull_request in pull_requests:
+        login = getattr(getattr(pull_request, "user", None), "login", None)
+        # S-CORE's self-hosted Renovate uses an account shared with other automation.
+        if login == "renovate[bot]" or (
+            login == "eclipse-score-bot"
+            and any(
+                getattr(label, "name", None) == "renovate"
+                for label in getattr(pull_request, "labels", ())
+            )
+        ):
+            renovate_count += 1
+        elif login == "dependabot[bot]":
+            dependabot_count += 1
     return {
         "ready": total_count - draft_count,
         "draft": draft_count,
         "total": total_count,
+        "renovate": renovate_count,
+        "dependabot": dependabot_count,
     }
 
 
@@ -795,7 +833,7 @@ def normalize_datetime_utc(value: object) -> datetime | None:
 
 
 def default_open_pull_request_counts() -> PullRequestCounts:
-    return {"ready": 0, "draft": 0, "total": 0}
+    return {"ready": 0, "draft": 0, "total": 0, "renovate": None, "dependabot": None}
 
 
 def is_draft_pull_request(pull_request: Any) -> bool:

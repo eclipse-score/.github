@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, cast
@@ -18,7 +19,8 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 30
+SNAPSHOT_SCHEMA_VERSION = 31
+_LEGACY_SNAPSHOT_SCHEMA_VERSION = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,6 +148,7 @@ class DeepContentSignals:
     repo_sphinx_modules: tuple[SphinxItem, ...] = ()
     sphinx_project_name: str | None = None
     sphinx_project_prefix: str | None = None
+    has_dependabot_config: bool | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DeepContentSignals:
@@ -193,6 +196,9 @@ class DeepContentSignals:
             has_pyproject_toml=bool(data.get("has_pyproject_toml", False)),
             has_pre_commit_config=bool(data.get("has_pre_commit_config", False)),
             has_ci=bool(data.get("has_ci", False)),
+            has_dependabot_config=cast(
+                "bool | None", data.get("has_dependabot_config")
+            ),
             matched_workflow_signals=normalize_string_tuple(
                 data.get("matched_workflow_signals")
             ),
@@ -254,9 +260,16 @@ class VolatileMetricsSnapshot:
     release_bazel_version: str | None = None
     release_bazel_deps: tuple[tuple[str, str], ...] = ()
     volatile_metrics_fetched_at: str | None = None
+    open_renovate_prs: int | None = None
+    open_dependabot_prs: int | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> VolatileMetricsSnapshot:
+        fetched_at = cast("str | None", data.get("volatile_metrics_fetched_at"))
+        # Refresh activity metrics for snapshots from before bot PR counts were
+        # collected. Explicit null counts are valid when GitHub is unavailable.
+        if "open_renovate_prs" not in data or "open_dependabot_prs" not in data:
+            fetched_at = None
         return cls(
             last_push_date=cast("str | None", data.get("last_push_date")),
             merged_prs_30_days=cast("int", data.get("merged_prs_30_days", 0)),
@@ -264,6 +277,8 @@ class VolatileMetricsSnapshot:
             open_prs=cast("int", data.get("open_prs", 0)),
             open_ready_prs=cast("int", data.get("open_ready_prs", 0)),
             open_draft_prs=cast("int", data.get("open_draft_prs", 0)),
+            open_renovate_prs=cast("int | None", data.get("open_renovate_prs")),
+            open_dependabot_prs=cast("int | None", data.get("open_dependabot_prs")),
             latest_release_version=cast(
                 "str | None", data.get("latest_release_version")
             ),
@@ -283,10 +298,7 @@ class VolatileMetricsSnapshot:
                 data.get("release_bazel_version"),
             ),
             release_bazel_deps=normalize_string_pairs(data.get("release_bazel_deps")),
-            volatile_metrics_fetched_at=cast(
-                "str | None",
-                data.get("volatile_metrics_fetched_at"),
-            ),
+            volatile_metrics_fetched_at=fetched_at,
         )
 
 
@@ -332,8 +344,37 @@ class RepoEntry:
     forks: int = 0
     traceability: tuple[TraceabilityTypeMetrics, ...] = ()
 
+    owner: str = ""
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.owner}/{self.name}" if self.owner else self.name
+
+    def validate_path_segments(self, default_owner: str = "") -> None:
+        # Snapshots can be loaded from disk. Each name must be a single GitHub path segment.
+        owner = self.owner or default_owner
+        parts = (owner, self.name) if owner else (self.name,)
+        if any(
+            part in {".", ".."} or not re.fullmatch(r"[a-zA-Z0-9_.-]+", part)
+            for part in parts
+        ):
+            raise ValueError(f"Invalid repository name in snapshot: {self.full_name!r}")
+
+    def detail_path(self, primary_org: str) -> str:
+        self.validate_path_segments(primary_org)
+        if self.owner and self.owner.casefold() != primary_org.casefold():
+            # The @ prefix reserves a namespace outside the GitHub repository name alphabet.
+            return f"@orgs/{self.full_name}/index.html"
+        return f"{self.name}/index.html"
+
+    def matches_repository(self, repository: str) -> bool:
+        identity = repository if self.owner else repository.rsplit("/", 1)[-1]
+        return self.full_name.casefold() == identity.casefold()
+
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> RepoEntry:
+    def from_dict(
+        cls, data: Mapping[str, Any], *, default_owner: str = ""
+    ) -> RepoEntry:
         content_payload = cast("Mapping[str, Any]", data.get("content", {}))
         registry_payload = cast("Mapping[str, Any]", data.get("registry", {}))
         volatile_payload = cast("Mapping[str, Any]", data.get("volatile", {}))
@@ -341,6 +382,7 @@ class RepoEntry:
 
         return cls(
             name=cast("str", data.get("name", "")),
+            owner=cast("str", data.get("owner") or default_owner),
             description=cast("str", data.get("description", "(no description)")),
             category=cast("str", data.get("category", DEFAULT_CATEGORY)),
             subcategory=cast("str", data.get("subcategory", DEFAULT_SUBCATEGORY)),
@@ -398,6 +440,11 @@ class RepoSnapshot:
     tracked_deps: tuple[TrackedDep, ...] = ()
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     workflow_ref_resolutions: tuple[WorkflowRefResolution, ...] = ()
+    additional_org_names: tuple[str, ...] = ()
+
+    @property
+    def organization_names(self) -> tuple[str, ...]:
+        return (self.org_name, *self.additional_org_names)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> RepoSnapshot:
@@ -406,7 +453,10 @@ class RepoSnapshot:
             raise ValueError("Snapshot payload must contain a 'repos' list.")
 
         schema_version = data.get("schema_version", SNAPSHOT_SCHEMA_VERSION)
-        if schema_version != SNAPSHOT_SCHEMA_VERSION:
+        if schema_version not in (
+            SNAPSHOT_SCHEMA_VERSION,
+            _LEGACY_SNAPSHOT_SCHEMA_VERSION,
+        ):
             raise ValueError(
                 "Unsupported snapshot schema version "
                 f"{schema_version}; expected {SNAPSHOT_SCHEMA_VERSION}."
@@ -422,6 +472,10 @@ class RepoSnapshot:
             )
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
+        # Schema 30 stored the organization once, at the snapshot level.
+        default_owner = (
+            org_name if schema_version == _LEGACY_SNAPSHOT_SCHEMA_VERSION else ""
+        )
 
         tracked_deps = tuple(
             TrackedDep.from_dict(cast("Mapping[str, Any]", item))
@@ -443,10 +497,16 @@ class RepoSnapshot:
         )
 
         return cls(
-            schema_version=cast("int", schema_version),
+            schema_version=SNAPSHOT_SCHEMA_VERSION,
             org_name=org_name,
             generated_at=generated_at,
-            repos=tuple(RepoEntry.from_dict(repo) for repo in typed_repos_data),
+            repos=tuple(
+                RepoEntry.from_dict(repo, default_owner=default_owner)
+                for repo in typed_repos_data
+            ),
+            additional_org_names=normalize_string_tuple(
+                data.get("additional_org_names")
+            ),
             tracked_deps=tracked_deps,
             workflow_signals=workflow_signals,
             workflow_ref_resolutions=tuple(
@@ -460,6 +520,7 @@ class RepoSnapshot:
         return {
             "schema_version": self.schema_version,
             "org_name": self.org_name,
+            "additional_org_names": list(self.additional_org_names),
             "generated_at": self.generated_at,
             "repos": [repo.to_dict() for repo in self.repos],
             "tracked_deps": [dep.to_dict() for dep in self.tracked_deps],
@@ -534,6 +595,6 @@ def is_tracked_dep_repo(
 ) -> bool:
     return any(
         lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
-        or entry.name == dep.repo.rsplit("/", 1)[-1]
+        or entry.matches_repository(dep.repo)
         for dep in tracked_deps
     )

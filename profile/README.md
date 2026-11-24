@@ -44,10 +44,10 @@ Core S-CORE modules, libraries, and APIs.
 | [baselibs](https://github.com/eclipse-score/baselibs) | base libraries including common functionality |
 | [communication](https://github.com/eclipse-score/communication) | Repository for the score::mw::com (with multiple bindings including LoLa), score::memory::shared, and score::message_passing |
 | [config_management](https://github.com/eclipse-score/config_management) | Repository for config management |
+| [crypto](https://github.com/eclipse-score/crypto) | Repository for cryptography feature |
 | [diagnostics](https://github.com/eclipse-score/diagnostics) | Repository for diagnostics feature |
 | [feo](https://github.com/eclipse-score/feo) | Repository for the Fixed Order Execution (FEO) framework |
 | [inc_ecu_model](https://github.com/eclipse-score/inc_ecu_model) | Repository for an ECU model |
-| [inc_security_crypto](https://github.com/eclipse-score/inc_security_crypto) | Incubation repository for Security & Cryptography feature |
 | [kyron](https://github.com/eclipse-score/kyron) | Safe async runtime for Rust |
 | [lifecycle](https://github.com/eclipse-score/lifecycle) | Repository for the lifecycle feature |
 | [logging](https://github.com/eclipse-score/logging) | Repository for logging daemon |

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 from typing import TYPE_CHECKING, cast
 
-from ._text_utils import escape_markdown_table_cell
+from ._text_utils import escape_markdown_table_cell, render_repository_link
 from .models import (
     DEFAULT_SUBCATEGORY,
     CategoryConfig,
@@ -356,6 +356,5 @@ def render_repo_table(entries: list[RepoEntry], org_name: str) -> list[str]:
 
 
 def render_repo_row(entry: RepoEntry, org_name: str) -> str:
-    url = f"https://github.com/{org_name}/{entry.name}"
     safe_description = escape_markdown_table_cell(entry.description)
-    return f"| [{entry.name}]({url}) | {safe_description} |"
+    return f"| {render_repository_link(entry, org_name)} | {safe_description} |"

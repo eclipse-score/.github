@@ -212,6 +212,7 @@ def test_fetch_repositories_reuses_cached_content_signals() -> None:
                     codeowners=("@infra-team",),
                     has_lint_config=True,
                     has_ci=True,
+                    has_dependabot_config=False,
                     matched_workflow_signals=("Daily Workflow",),
                     has_coverage_config=False,
                 ),
@@ -390,6 +391,43 @@ def test_fetch_repositories_uses_resolved_registry_repository_cache_key(
         == []
     )
     assert observed_registry_repositories == ["Eclipse-Score/Bazel_Registry"]
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_fetch_repositories_skips_missing_external_reference_integration(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], lazy: bool
+) -> None:
+    from github import GithubException
+
+    class MissingRepository:
+        @property
+        def default_branch(self) -> str:
+            raise GithubException(404, {"message": "Not Found"}, {})
+
+    class RepositoryResolver:
+        def get_repo(self, full_name_or_id: str) -> MissingRepository:
+            assert full_name_or_id == "other-org/integration"
+            if not lazy:
+                raise GithubException(404, {"message": "Not Found"}, {})
+            return MissingRepository()
+
+    monkeypatch.setattr(
+        collector, "fetch_active_repositories", lambda *_args, **_kwargs: {}
+    )
+    assert (
+        collector.fetch_repositories(
+            cast("Any", SimpleNamespace(login="first-org")),
+            config=OrgConfig(
+                org_name="first-org", reference_integration_repo="other-org/integration"
+            ),
+            github=RepositoryResolver(),
+        )
+        == []
+    )
+    assert (
+        "Reference integration repository other-org/integration is unavailable"
+        in capsys.readouterr().err
+    )
 
 
 def test_collect_repository_entry_reuses_cached_details_when_unchanged() -> None:
@@ -691,8 +729,10 @@ def test_collect_repository_entry_does_not_reuse_cached_registry_when_metadata_m
     assert entry.registry == RegistrySignals()
 
 
-def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_fetch(
+@pytest.mark.parametrize("legacy_snapshot", [False, True], ids=["expired", "legacy"])
+def test_collect_repository_entry_refreshes_volatile_metrics_with_cached_content(
     monkeypatch: pytest.MonkeyPatch,
+    legacy_snapshot: bool,
 ) -> None:
     class FixedDatetime(datetime):
         @classmethod
@@ -757,6 +797,7 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
             codeowners=("@infra-team",),
             has_lint_config=True,
             has_ci=True,
+            has_dependabot_config=False,
             matched_workflow_signals=("Daily Workflow",),
             has_coverage_config=False,
         ),
@@ -772,6 +813,16 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
         ),
     )
 
+    if legacy_snapshot:
+        # The timestamp is fresh, but the snapshot predates the PR counters.
+        cached_data = cached_entry.to_dict()
+        cached_data["volatile"]["volatile_metrics_fetched_at"] = FixedDatetime.now(
+            UTC
+        ).isoformat()
+        cached_data["volatile"].pop("open_renovate_prs")
+        cached_data["volatile"].pop("open_dependabot_prs")
+        cached_entry = RepoEntry.from_dict(cached_data)
+
     entry = repo_entry.collect_repository_entry(
         repository_name="tools",
         repository=repo,
@@ -785,33 +836,102 @@ def test_collect_repository_entry_refreshes_stale_volatile_metrics_without_tree_
     assert entry.volatile.open_prs == 2
     assert entry.volatile.open_ready_prs == 1
     assert entry.volatile.open_draft_prs == 1
+    assert entry.volatile.open_renovate_prs == 0
+    assert entry.volatile.open_dependabot_prs == 0
     assert entry.volatile.open_issues == 4
     assert entry.volatile.latest_release_version == "v1.0.0"
     assert entry.volatile.commits_since_latest_release == 4
     assert entry.volatile.volatile_metrics_fetched_at == "2026-04-17T12:00:00+00:00"
 
 
-def test_get_open_pull_request_counts_splits_ready_and_draft() -> None:
+def test_get_open_pull_request_counts_splits_ready_draft_and_bot_authors() -> None:
     repository = SimpleNamespace(
         get_pulls=lambda state="open": [
-            SimpleNamespace(draft=False),
-            SimpleNamespace(raw_data={"draft": True}),
-            SimpleNamespace(draft=False),
+            SimpleNamespace(draft=False, user=SimpleNamespace(login="renovate[bot]")),
+            SimpleNamespace(
+                raw_data={"draft": True}, user=SimpleNamespace(login="dependabot[bot]")
+            ),
+            SimpleNamespace(
+                draft=False,
+                user=SimpleNamespace(login="eclipse-score-bot"),
+                labels=[SimpleNamespace(name="renovate")],
+            ),
+            SimpleNamespace(
+                draft=False,
+                user=SimpleNamespace(login="eclipse-score-bot"),
+                labels=[SimpleNamespace(name="automation")],
+            ),
+            SimpleNamespace(
+                draft=False,
+                user=SimpleNamespace(login="contributor"),
+                labels=[SimpleNamespace(name="renovate")],
+            ),
         ]
     )
 
     assert repo_entry.get_open_pull_request_counts(repository) == {
-        "ready": 2,
+        "ready": 4,
         "draft": 1,
-        "total": 3,
+        "total": 5,
+        "renovate": 2,
+        "dependabot": 1,
     }
     assert (
         repo_entry.get_open_issue_count(
-            SimpleNamespace(open_issues_count=5),
-            open_pull_request_total=3,
+            SimpleNamespace(open_issues_count=7),
+            open_pull_request_total=5,
         )
         == 2
     )
+
+
+def test_unavailable_bot_counts_do_not_invalidate_snapshot_timestamp() -> None:
+    fetched_at = "2026-04-17T12:00:00+00:00"
+    volatile = VolatileMetricsSnapshot.from_dict(
+        {
+            "volatile_metrics_fetched_at": fetched_at,
+            "open_renovate_prs": None,
+            "open_dependabot_prs": None,
+        }
+    )
+
+    assert volatile.volatile_metrics_fetched_at == fetched_at
+
+
+@pytest.mark.parametrize("suffix", ["yml", "yaml"])
+def test_cached_repository_backfills_dependabot_config_from_checkout(
+    tmp_path: Path, suffix: str
+) -> None:
+    config = tmp_path / ".github" / f"dependabot.{suffix}"
+    config.parent.mkdir()
+    config.write_text("version: 2\n", encoding="utf-8")
+    cached_entry = RepoEntry(
+        name="tools",
+        description="Tooling",
+        category="Infrastructure",
+        subcategory="Tooling",
+        default_branch="main",
+        default_branch_sha="abc123",
+        volatile=VolatileMetricsSnapshot(
+            volatile_metrics_fetched_at=datetime.now(UTC).isoformat()
+        ),
+    )
+
+    entry = repo_entry.maybe_collect_repository_entry_fast_path(
+        repository_name="tools",
+        repository=SimpleNamespace(),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        referenced_by_reference_integration=False,
+        cached_entry=cached_entry,
+        default_branch="main",
+        default_branch_sha="abc123",
+        checkout_path=tmp_path,
+    )
+
+    assert entry is not None
+    assert entry.content.has_dependabot_config is True
+    assert entry.volatile == cached_entry.volatile
 
 
 def test_get_merged_pull_request_count_last_30_days_filters_by_branch_and_window(
@@ -1070,22 +1190,58 @@ include(":nested.MODULE.bazel")
     ) == ("score_root", "score_tooling", "score_logging")
 
 
-def test_reference_integration_maps_git_overrides_to_active_repositories() -> None:
-    assert reference_integration.get_git_override_repositories_from_text(
-        """
-git_override(
-    module_name = "score_tooling",
-    commit = "abc123",
-    remote = "https://github.com/eclipse-score/tooling.git",
+@pytest.mark.parametrize(
+    ("override", "expected"),
+    [
+        (
+            'git_override(module_name = "score_tooling", remote = "https://github.com/FIRST-ORG/Tooling.git")',
+            ({"tooling"}, set()),
+        ),
+        (
+            'git_override(module_name = "score_tooling", remote = "git@github.com:first-org/tooling.git")',
+            ({"tooling"}, set()),
+        ),
+        (
+            'git_override(module_name = "score_tooling", remote = "ssh://git@github.com/first-org/tooling.git")',
+            ({"tooling"}, set()),
+        ),
+        (
+            '# git_override(module_name = "score_tooling", remote = "https://github.com/first-org/tooling.git")',
+            ({"tooling"}, {"tooling"}),
+        ),
+    ],
 )
-git_override(
-    module_name = "external",
-    remote = "https://github.com/example/external.git",
-)
-""".strip(),
-        active_repository_names={"tooling"},
-        org_name="eclipse-score",
-    ) == {"score_tooling": "tooling"}
+def test_reference_integration_resolves_active_overrides_before_registry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    override: str,
+    expected: tuple[set[str], set[str]],
+) -> None:
+    (tmp_path / "MODULE.bazel").write_text(
+        f'bazel_dep(name = "score_tooling")\n{override}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        reference_integration, "sync_repository_checkout", lambda **kwargs: tmp_path
+    )
+    monkeypatch.setattr(
+        reference_integration,
+        "get_bazel_registry_repositories_by_module",
+        lambda **kwargs: {"score_tooling": "tooling"},
+    )
+    repository = SimpleNamespace(
+        default_branch="main", full_name="first-org/integration"
+    )
+
+    def collect(org_name: str) -> set[str]:
+        return reference_integration.fetch_reference_integration_repository_names(
+            reference_integration_repository=repository,
+            active_repository_names={"tooling"},
+            registry_repository="second-org/registry",
+            org_name=org_name,
+        )
+
+    assert (collect("first-org"), collect("second-org")) == expected
 
 
 def test_known_good_pin_parser_accepts_hashes_and_versions_and_ignores_invalid_entries() -> (
@@ -1096,7 +1252,7 @@ def test_known_good_pin_parser_accepts_hashes_and_versions_and_ignores_invalid_e
             "modules": {
                 "Core": {
                     "versioned": {
-                        "repo": "https://github.com/eclipse-score/versioned.git",
+                        "repo": "https://github.com/Eclipse-Score/Versioned.git",
                         "version": "1.2.3",
                     },
                     "hashed": {
@@ -1427,13 +1583,14 @@ def test_parse_bazel_registry_metadata_maps_active_repository_and_latest_version
     }
   ],
   "repository": [
-    "github:eclipse-score/baselibs",
+    "github:Eclipse-Score/BaseLibs",
     "github:someone-else/ignored"
   ],
   "versions": ["0.2.5", "0.2.4"]
 }
 """.strip(),
-        active_repository_names={"baselibs"},
+        active_repository_names={"baselibs", "ignored"},
+        org_name="eclipse-score",
     )
 
     assert metadata == {

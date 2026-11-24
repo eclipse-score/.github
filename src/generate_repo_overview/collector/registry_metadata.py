@@ -18,6 +18,7 @@ def fetch_bazel_registry_metadata_by_repo(
     *,
     bazel_registry_repository: object | None,
     active_repository_names: set[str],
+    org_name: str = "",
 ) -> dict[str, RegistrySignalsPayload]:
     if bazel_registry_repository is None:
         return {}
@@ -50,6 +51,7 @@ def fetch_bazel_registry_metadata_by_repo(
         for repository_name, metadata in parse_bazel_registry_metadata(
             content,
             active_repository_names=active_repository_names,
+            org_name=org_name,
         ).items():
             metadata_by_repo_name[repository_name] = merge_bazel_registry_metadata(
                 metadata_by_repo_name.get(repository_name),
@@ -62,6 +64,7 @@ def parse_bazel_registry_metadata(
     text: str | None,
     *,
     active_repository_names: set[str],
+    org_name: str = "",
 ) -> dict[str, RegistrySignalsPayload]:
     if not text:
         return {}
@@ -81,12 +84,20 @@ def parse_bazel_registry_metadata(
     if not isinstance(raw_repositories, list):
         return metadata_by_repo_name
 
+    active_names_by_identity = {
+        name.casefold(): name for name in active_repository_names
+    }
     repository_entries = cast("list[object]", raw_repositories)
     for raw_repository in repository_entries:
-        repository_name = parse_github_repository_name(raw_repository)
-        if repository_name is None or repository_name not in active_repository_names:
+        repository_name = parse_github_repository_name(
+            raw_repository, org_name=org_name
+        )
+        if repository_name is None:
             continue
-        metadata_by_repo_name[repository_name] = {
+        active_name = active_names_by_identity.get(repository_name.casefold())
+        if active_name is None:
+            continue
+        metadata_by_repo_name[active_name] = {
             "maintainers_in_bazel_registry": maintainers,
             "latest_bazel_registry_version": latest_version,
         }
@@ -132,7 +143,7 @@ def parse_latest_bazel_registry_version(raw_versions: object) -> str | None:
     return None
 
 
-def parse_github_repository_name(value: object) -> str | None:
+def parse_github_repository_name(value: object, *, org_name: str = "") -> str | None:
     if not isinstance(value, str) or not value.startswith("github:"):
         return None
 
@@ -140,7 +151,9 @@ def parse_github_repository_name(value: object) -> str | None:
     if "/" not in owner_and_repo:
         return None
 
-    _, repository_name = owner_and_repo.split("/", maxsplit=1)
+    owner, repository_name = owner_and_repo.split("/", maxsplit=1)
+    if org_name and owner.casefold() != org_name.casefold():
+        return None
     repository_name = repository_name.strip()
     return repository_name or None
 

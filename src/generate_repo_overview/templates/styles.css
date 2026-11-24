@@ -23,14 +23,17 @@ body {
   padding: 2rem 1.5rem;
 }
 
+body:has(#sections) { --report-max-width: 1920px; }
+
 header {
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 0 auto 2rem;
 }
+.dashboard-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.6rem 1rem; }
 h1 { font-size: 1.6rem; font-weight: 600; color: #e6edf3; }
 .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.3rem; }
 
-#summary {
+.dashboard-summary {
   display: flex;
   gap: 1.2rem;
   flex-wrap: wrap;
@@ -49,7 +52,7 @@ h1 { font-size: 1.6rem; font-weight: 600; color: #e6edf3; }
   flex-shrink: 0;
 }
 
-#lang-summary {
+.language-summary {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -64,7 +67,7 @@ h1 { font-size: 1.6rem; font-weight: 600; color: #e6edf3; }
 }
 
 #filters {
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 0 auto 1.2rem;
   padding: 0.9rem 1rem;
   display: flex;
@@ -133,7 +136,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
 .repo-filter-hidden { display: none !important; }
 
 #sections {
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -141,7 +144,7 @@ button:hover { border-color: var(--accent); color: var(--accent); }
 }
 
 .tab-bar {
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 0 auto 1.2rem;
   display: flex;
   gap: 0;
@@ -187,9 +190,15 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   border-radius: var(--radius);
   overflow: hidden;
 }
-.section.hidden { display: none; }
+.section.hidden, #no-matching-repos.hidden { display: none; }
+.overview-table { overflow-x: auto; }
+.overview-table th { white-space: normal; }
+.overview-table td:first-child { overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .overview-table th, .overview-table td { padding-inline: 0.45rem; }
+}
 #version-view-toggle {
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 0 auto 0.8rem;
   display: none;
   align-items: center;
@@ -488,7 +497,7 @@ pre.lockfile-error {
 .presence { text-align: center; }
 
 footer {
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 2.5rem auto 0;
   font-size: 0.75rem;
   color: var(--muted);
@@ -499,10 +508,6 @@ footer {
 
 .naming-section { overflow-x: auto; }
 .naming-table { min-width: 1500px; }
-.naming-table th[data-tooltip]::after {
-  white-space: normal;
-  width: 260px;
-}
 .module-match-legend {
   display: flex;
   gap: 0.4rem;
@@ -560,7 +565,7 @@ footer {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 1rem;
   margin: 1.5rem auto;
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
 }
 .stat-card {
   background: var(--surface);
@@ -575,7 +580,7 @@ footer {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  max-width: 1400px;
+  max-width: var(--report-max-width, 1400px);
   margin: 0 auto 1.2rem;
   overflow: hidden;
 }
@@ -607,37 +612,37 @@ footer {
 .gh-count { text-decoration: none; }
 .gh-count:hover { text-decoration: none; opacity: 0.8; }
 
-th[data-tooltip], td[data-tooltip] { cursor: help; }
-th[data-tooltip]::after, td[data-tooltip]::after {
+th[title], td[title], th[data-tooltip], td[data-tooltip] { cursor: help; }
+
+/* Fixed positioning keeps the tooltip outside the table's scroll area. */
+#sections [data-tooltip]:hover,
+#sections:not(:has([data-tooltip]:hover)) .policy-matrix-cell[data-tooltip]:is(:focus-visible, :has(:focus-visible)) { anchor-name: --table-tooltip; }
+#sections [data-tooltip]:hover::after,
+#sections:not(:has([data-tooltip]:hover)) .policy-matrix-cell[data-tooltip]:is(:focus-visible, :has(:focus-visible))::after {
+  --tooltip-width: min(28rem, calc(100vw - 1rem));
   content: attr(data-tooltip);
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1c2129;
+  position: fixed;
+  position-anchor: --table-tooltip;
+  top: calc(anchor(bottom) + .4rem);
+  left: clamp(.5rem, calc(anchor(center) - var(--tooltip-width) / 2), calc(100vw - var(--tooltip-width) - .5rem));
+  position-try-fallbacks: flip-block;
+  width: var(--tooltip-width);
+  padding: .5rem .75rem;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 55%);
   color: var(--text);
-  font-size: 0.72rem;
+  font-size: .75rem;
   font-weight: 400;
+  text-align: left;
   text-transform: none;
-  letter-spacing: 0;
-  padding: 0.5rem 0.85rem;
-  /* Keep hidden tooltips from becoming very tall scrollable overflow on narrow cells. */
-  width: min(32rem, calc(100vw - 2rem));
-  max-width: min(32rem, calc(100vw - 2rem));
+  letter-spacing: normal;
   white-space: pre-line;
   overflow-wrap: anywhere;
-  text-align: left;
   z-index: 100;
   pointer-events: none;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.55);
-  opacity: 0;
-  transition: opacity .15s;
 }
-th[data-tooltip]::after { top: calc(100% + 6px); }
-td[data-tooltip]::after { bottom: calc(100% + 6px); }
-th[data-tooltip]:hover::after, td[data-tooltip]:hover::after { opacity: 1; }
-th[data-tooltip]:focus::after, td[data-tooltip]:focus::after { opacity: 1; }
 .policy-matrix-cell:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* Traceability tab */
@@ -654,7 +659,7 @@ th[data-tooltip]:focus::after, td[data-tooltip]:focus::after { opacity: 1; }
   border-radius: 2px;
   transition: width 0.4s ease;
 }
-#trace-summary .stat-grid {
+.trace-summary .stat-grid {
   margin: 0 0 1rem;
 }
 

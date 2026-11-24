@@ -15,8 +15,6 @@ CSS = (_TEMPLATES / "styles.css").read_text(encoding="utf-8")
 
 BAZEL_ICON = '<img src="bazel_logo.svg" alt="Bazel" class="icon-bazel">'
 
-BAZEL_DETAIL_ICON = '<img src="../bazel_logo.svg" alt="Bazel" class="icon-bazel">'
-
 
 GITHUB_ICON = (
     '<svg viewBox="0 0 16 16" fill="currentColor">'
@@ -85,7 +83,8 @@ def repo_name_cell(
     bazel_icon: bool = True,
     include_description: bool = True,
 ) -> str:
-    detail_url = f"{e(entry.name)}/index.html"
+    detail_url = e(entry.detail_path(org_name))
+    org_name = entry.owner or org_name
     github_url = f"https://github.com/{org_name}/{entry.name}"
     docs_link_str = docs_url(org_name, entry.name)
     cell = f'<a href="{detail_url}">{e(entry.name)}</a>'
@@ -199,18 +198,14 @@ def workflow_ref_badges(
 
 
 def _show_workflow_release_difference(resolution: WorkflowRefResolution) -> bool:
-    if not resolution.latest_release:
+    release = resolution.latest_release
+    if not release or (resolution.ahead_by == 0 and resolution.behind_by == 0):
         return False
     tag = resolution.version_tag
-    if not tag:
-        return True
-    # Workflow-specific and global tags describe separate version series.
-    # A matching tag already identifies the release without a redundant diff.
-    if tag.rpartition("/")[0] != resolution.latest_release.rpartition("/")[0]:
+    # Older snapshots can pair a component tag with the repository's release.
+    if tag and "/" in tag and tag.rpartition("/")[0] != release.rpartition("/")[0]:
         return False
-    return tag != resolution.latest_release and not (
-        resolution.ahead_by == 0 and resolution.behind_by == 0
-    )
+    return tag != release
 
 
 def render_ref_difference(

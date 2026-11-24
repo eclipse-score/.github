@@ -42,6 +42,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
+    from github import Github
+
 
 class OrganizationLike(Protocol):
     @property
@@ -180,28 +182,18 @@ def collect_snapshot(
     previous_gh_token = os.environ.get("GH_TOKEN")
     os.environ["GH_TOKEN"] = token
     try:
-        organization = github.get_organization(org_name)
-
-        registry_repository = None
-        if config.registry_repo:
-            try:
-                registry_repository = github.get_repo(config.registry_repo)
-            except Exception as exc:
-                print_status(
-                    f"Could not resolve registry repo {config.registry_repo}: {exc}",
-                    prefix=status_prefix,
-                )
-
-        print_status("Collecting repository overview", prefix=status_prefix)
-        repos = fetch_repositories(
-            organization,
-            existing_snapshot=existing_snapshot,
-            github_token=token,
-            status_prefix=status_prefix,
-            config=config,
-            registry_repository=registry_repository,
-        )
-
+        configs = config.collection_configs()
+        repos = [
+            entry
+            for org_config in configs
+            for entry in _collect_organization(
+                github,
+                config=org_config,
+                existing_snapshot=existing_snapshot,
+                token=token,
+                status_prefix=status_prefix,
+            )
+        ]
         repos = enrich_repositories_with_platform_docs(
             repos,
             github=github,
@@ -209,23 +201,10 @@ def collect_snapshot(
             status_prefix=status_prefix,
         )
 
-        trace_by_repo = traceability.fetch_all_traceability_metrics(
-            org_name,
-            repos,
-            tracked_deps=config.tracked_deps,
-            status_prefix=status_prefix,
-        )
-        if trace_by_repo:
-            repos = [
-                replace(r, traceability=trace_by_repo[r.name])
-                if r.name in trace_by_repo
-                else r
-                for r in repos
-            ]
-
         snapshot = RepoSnapshot(
             schema_version=SNAPSHOT_SCHEMA_VERSION,
             org_name=org_name,
+            additional_org_names=tuple(c.org_name for c in configs[1:]),
             generated_at=datetime.now(UTC).isoformat(),
             repos=tuple(repos),
             tracked_deps=config.tracked_deps,
@@ -248,6 +227,49 @@ def collect_snapshot(
             when="after collection",
             status_prefix=status_prefix,
         )
+
+
+def _collect_organization(
+    github: Github,
+    *,
+    config: OrgConfig,
+    existing_snapshot: RepoSnapshot | None,
+    token: str,
+    status_prefix: str,
+) -> list[RepoEntry]:
+    print_status(f"Collecting repositories in {config.org_name}", prefix=status_prefix)
+    organization = github.get_organization(config.org_name)
+    registry_repository = None
+    if config.registry_repo:
+        try:
+            registry_repository = github.get_repo(config.registry_repo)
+        except Exception as exc:
+            print_status(
+                f"Could not resolve registry repo {config.registry_repo}: {exc}",
+                prefix=status_prefix,
+            )
+
+    repos = fetch_repositories(
+        organization,
+        existing_snapshot=existing_snapshot,
+        github_token=token,
+        status_prefix=status_prefix,
+        config=config,
+        registry_repository=registry_repository,
+        github=github,
+    )
+    trace_by_repo = traceability.fetch_all_traceability_metrics(
+        config.org_name,
+        repos,
+        tracked_deps=config.tracked_deps,
+        status_prefix=status_prefix,
+    )
+    return [
+        replace(entry, traceability=trace_by_repo[entry.name])
+        if entry.name in trace_by_repo
+        else entry
+        for entry in repos
+    ]
 
 
 def enrich_repositories_with_platform_docs(
@@ -341,6 +363,7 @@ def fetch_repositories(
     status_prefix: str = "repo-overview",
     config: OrgConfig | None = None,
     registry_repository: object | None = None,
+    github: RepositoryResolverLike | None = None,
 ) -> list[RepoEntry]:
     """Fetch and collect all repository entries for an organization.
 
@@ -389,6 +412,7 @@ def fetch_repositories(
             registry_metadata.fetch_bazel_registry_metadata_by_repo(
                 bazel_registry_repository=registry_repository,
                 active_repository_names=set(active_repositories),
+                org_name=config.org_name,
             )
         )
         print_status(
@@ -397,49 +421,19 @@ def fetch_repositories(
             prefix=status_prefix,
         )
 
-    reference_integration_repository_names: set[str] = set()
-    reference_integration_pins: dict[str, reference_integration.KnownGoodPin] = {}
-    if config.reference_integration_repo:
-        print_status(
-            f"Loading {config.reference_integration_repo} Bazel dependencies",
-            prefix=status_prefix,
+    reference_integration_repository_names, reference_integration_pins = (
+        _collect_reference_integration(
+            config, active_repositories, registry_repository_name, github, status_prefix
         )
-        ref_int_short_name = config.reference_integration_repo.rsplit("/", 1)[-1]
-        reference_integration_data = active_repositories.get(ref_int_short_name)
-        reference_integration_repository_names = (
-            reference_integration.fetch_reference_integration_repository_names(
-                reference_integration_repository=(
-                    reference_integration_data.repository
-                    if reference_integration_data is not None
-                    else None
-                ),
-                active_repository_names=set(active_repositories),
-                registry_repository=registry_repository_name,
-                org_name=config.org_name,
-            )
-        )
-        reference_integration_pins = (
-            reference_integration.fetch_reference_integration_pins(
-                reference_integration_repository=(
-                    reference_integration_data.repository
-                    if reference_integration_data is not None
-                    else None
-                ),
-                active_repository_names=set(active_repositories),
-                org_name=config.org_name,
-            )
-        )
-        reference_integration_repository_names.update(reference_integration_pins)
-        print_status(
-            f"Loaded {config.reference_integration_repo} Bazel dependencies for "
-            f"{len(reference_integration_repository_names)} active repositories",
-            prefix=status_prefix,
-        )
+    )
 
-    cached_by_name: dict[str, RepoEntry] = {}
+    cached_by_full_name: dict[str, RepoEntry] = {}
     if existing_snapshot is not None:
         if config.workflow_signals == existing_snapshot.workflow_signals:
-            cached_by_name = {repo.name: repo for repo in existing_snapshot.repos}
+            cached_by_full_name = {
+                f"{repo.owner or existing_snapshot.org_name}/{repo.name}".casefold(): repo
+                for repo in existing_snapshot.repos
+            }
         else:
             print_status(
                 "Workflow signal definitions changed — ignoring content cache",
@@ -476,7 +470,9 @@ def fetch_repositories(
             sorted_repositories,
             start=1,
         ):
-            cached_entry = cached_by_name.get(repository_name)
+            cached_entry = cached_by_full_name.get(
+                f"{config.org_name}/{repository_name}".casefold()
+            )
             collect_entry = partial(
                 repo_entry.collect_repository_entry,
                 repository_name=repository_name,
@@ -510,7 +506,7 @@ def fetch_repositories(
                     f"{repository_name}: collection failed", prefix=status_prefix
                 )
                 raise
-            repos_by_index[index] = entry
+            repos_by_index[index] = replace(entry, owner=config.org_name)
             progress.update(1)
             progress.set_postfix_str(repository_name)
             print_status(
@@ -519,6 +515,63 @@ def fetch_repositories(
             )
 
     return [repos_by_index[index] for index in range(1, total_repositories + 1)]
+
+
+def _collect_reference_integration(
+    config: OrgConfig,
+    active_repositories: dict[str, ActiveRepositoryData],
+    registry_repository: str,
+    github: RepositoryResolverLike | None,
+    status_prefix: str,
+) -> tuple[set[str], dict[str, reference_integration.KnownGoodPin]]:
+    from github import GithubException
+
+    if not config.reference_integration_repo:
+        return set(), {}
+
+    print_status(
+        f"Loading {config.reference_integration_repo} Bazel dependencies",
+        prefix=status_prefix,
+    )
+    reference_owner, reference_name = config.reference_integration_repo.split("/", 1)
+    reference_data = (
+        active_repositories.get(reference_name)
+        if reference_owner.casefold() == config.org_name.casefold()
+        else None
+    )
+    reference_repository = reference_data.repository if reference_data else None
+    try:
+        if reference_data is None and github is not None:
+            reference_repository = github.get_repo(config.reference_integration_repo)
+        repository_names = (
+            reference_integration.fetch_reference_integration_repository_names(
+                reference_integration_repository=reference_repository,
+                active_repository_names=set(active_repositories),
+                registry_repository=registry_repository,
+                org_name=config.org_name,
+            )
+        )
+        pins = reference_integration.fetch_reference_integration_pins(
+            reference_integration_repository=reference_repository,
+            active_repository_names=set(active_repositories),
+            org_name=config.org_name,
+        )
+    except GithubException as exc:
+        if exc.status != 404:
+            raise
+        print_status(
+            f"Reference integration repository {config.reference_integration_repo} is unavailable",
+            prefix=status_prefix,
+        )
+        return set(), {}
+
+    repository_names.update(pins)
+    print_status(
+        f"Loaded {config.reference_integration_repo} Bazel dependencies for "
+        f"{len(repository_names)} active repositories",
+        prefix=status_prefix,
+    )
+    return repository_names, pins
 
 
 def _collect_entry_with_reference_refs(
@@ -562,27 +615,25 @@ def _collect_entry_with_reference_refs(
         if resolved_pin_hash is not None
         else None
     )
-    content_changes: dict[str, object] = {
-        "reference_integration_release_ahead_of_main_by": (release_ahead),
-        "reference_integration_main_ahead_of_release_by": (branch_ahead),
-        "reference_integration_pin_ahead_of_main_by": (
+    content = replace(
+        entry.content,
+        reference_integration_release_ahead_of_main_by=release_ahead,
+        reference_integration_main_ahead_of_release_by=branch_ahead,
+        reference_integration_pin_ahead_of_main_by=(
             pin_comparison.right_ahead_by if pin_comparison is not None else None
         ),
-        "reference_integration_main_ahead_of_pin_by": (
+        reference_integration_main_ahead_of_pin_by=(
             pin_comparison.left_ahead_by if pin_comparison is not None else None
         ),
-    }
-    if pin is not None:
-        content_changes.update(
-            reference_integration_module=pin.module,
-            reference_integration_group=pin.group,
-            reference_integration_branch=main_branch,
-            reference_integration_version=pin.version,
-            reference_integration_hash=pin.commit_hash,
-            reference_integration_resolved_hash=resolved_pin_hash,
-        )
+        reference_integration_module=pin.module if pin is not None else None,
+        reference_integration_group=pin.group if pin is not None else None,
+        reference_integration_branch=main_branch if pin is not None else None,
+        reference_integration_version=pin.version if pin is not None else None,
+        reference_integration_hash=pin.commit_hash if pin is not None else None,
+        reference_integration_resolved_hash=resolved_pin_hash,
+    )
     print_status(f"{entry.name}: completed collection in {monotonic() - started:.1f}s")
-    return replace(entry, content=replace(entry.content, **content_changes))
+    return replace(entry, content=content)
 
 
 def resolve_max_collection_workers() -> int:

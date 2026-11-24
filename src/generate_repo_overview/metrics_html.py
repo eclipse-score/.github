@@ -22,6 +22,7 @@ def render_all_pages(
     *,
     policy_report_json: str | None = None,
     policy_report_filename: str = POLICY_REPORT_FILENAME,
+    policy_report_owner: str = "",
 ) -> dict[str, str]:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
     max_bazel = get_max_bazel_version(list(repos))
@@ -36,6 +37,7 @@ def render_all_pages(
             policy_report,
             raw_json_available=policy_report_json is not None,
             raw_json_filename=policy_report_filename,
+            policy_report_owner=policy_report_owner,
         ),
         "data.json": json.dumps(snapshot.to_dict(), indent=2, sort_keys=True) + "\n",
         "bazel_logo.svg": (_TEMPLATE_DIR / "bazel_logo.svg").read_text(
@@ -47,7 +49,7 @@ def render_all_pages(
     if policy_report_json is not None:
         pages[policy_report_filename] = policy_report_json
     for entry in repos:
-        pages[f"{entry.name}/index.html"] = render_detail_page(
+        pages[entry.detail_path(snapshot.org_name)] = render_detail_page(
             entry, snapshot, max_bazel, latest_dep_versions
         )
     return pages

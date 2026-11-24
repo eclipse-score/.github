@@ -347,7 +347,7 @@ def test_policy_sync_tab_renders_details_links_and_escaped_values() -> None:
     assert "&lt;description&gt;" in page
     assert "&lt;warning&gt;" in page
     assert "&lt;error&gt;" in page
-    assert 'data-tooltip="&lt;policy description&gt;"' in page
+    assert 'title="&lt;policy description&gt;"' in page
     assert "<description>" not in page
     assert "<details" not in page
     assert 'href="https://github.com/org/repo/pull/1"' in page
@@ -369,7 +369,6 @@ def test_policy_sync_matrix_compacts_long_policy_columns() -> None:
     assert "table-layout: fixed;" in page
     assert "overflow-wrap: anywhere;" in page
     assert "white-space: normal;" in page
-    assert "width: min(32rem, calc(100vw - 2rem));" in page
     assert "minimum-bazel-version" in page
 
 
@@ -432,14 +431,11 @@ def test_policy_sync_tab_uses_repository_groups_and_pr_states() -> None:
     assert 'class="policy-pr-badge policy-pr-open"' in page
     assert ">Open</a>" in page
     assert (
-        '<span class="policy-status changes-required" title="Changes required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"'
+        '<span class="policy-status changes-required" aria-label="Changes required">X</span> <a href="https://github.com/org/tools/pull/1"'
         not in page
     )
     assert ".policy-pr-open { color: var(--orange);" in page
-    assert (
-        'title="Compliant (automated PR)" aria-label="Compliant (automated PR)">✓✓</span>'
-        in page
-    )
+    assert 'aria-label="Compliant (automated PR)">✓✓</span>' in page
     assert "Status: Compliant\nApplicable:" not in page
     assert "Automated policy PR (merged):" in page
     assert "Automated policy PR (closed):" in page
@@ -469,10 +465,7 @@ def test_policy_sync_error_outcomes_render_red_x() -> None:
         '<span class="policy-status error" aria-label="Evaluation Errors">X</span>'
         in page
     )
-    assert (
-        '<span class="policy-status error" title="Error" aria-label="Error">X</span>'
-        in page
-    )
+    assert '<span class="policy-status error" aria-label="Error">X</span>' in page
     assert ".policy-status.error { color: var(--red);" in page
 
 
@@ -513,6 +506,6 @@ cache_path = '.cache/report.json'
     )
     index = (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
     assert "2" in index
-    assert 'data-tooltip="Use Bazel 8.6.0 or newer."' in index
+    assert 'title="Use Bazel 8.6.0 or newer."' in index
     assert 'href="report.json"' in index
     assert (tmp_path / "site" / "report.json").exists()
