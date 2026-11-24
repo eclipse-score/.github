@@ -900,6 +900,12 @@ def _lockfile_cell(entry: RepoEntry, org_name: str) -> tuple[str, str]:
     if status == LockfileStatus.TIMEOUT:
         cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">timeout</a></span>'
         return cell, "Bazel lockfile check timed out — click for details."
+    if status == LockfileStatus.SKIPPED:
+        return (
+            '<span class="text-muted">skipped</span>',
+            "Repository tools are disabled for this organization, "
+            "so Bazel did not check the lockfile.",
+        )
     if entry.content.has_bazel_module:
         return (
             '<span class="text-muted">n/a</span>',

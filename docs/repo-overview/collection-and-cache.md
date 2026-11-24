@@ -43,6 +43,11 @@ A changed repository with `MODULE.bazel` and `MODULE.bazel.lock` is checked
 with `bazel mod deps --lockfile_mode=error`. The result is a content signal, so
 an unchanged repository is not checked again.
 
+Bazel executes code from the repository and inherits the collector's
+environment, including the GitHub token. The check therefore runs only for
+organizations with `run_repository_tools` enabled. Other repositories report
+`skipped`.
+
 Repositories are collected in parallel, but only one lockfile check runs at a
 time. Bazel already uses all cores, and concurrent checks would overload small
 CI runners. Each checkout has its own Bazel server. The collector shuts it down

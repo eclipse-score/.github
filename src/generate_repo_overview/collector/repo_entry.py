@@ -118,6 +118,7 @@ def collect_repository_entry(
     referenced_by_reference_integration: bool = False,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
     github_token: str | None = None,
+    run_repository_tools: bool = True,
 ) -> RepoEntry:
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
     print_status(f"{repository_name}: syncing default-branch checkout")
@@ -127,6 +128,10 @@ def collect_repository_entry(
         default_branch=default_branch,
         github_token=github_token,
     )
+    if cached_entry is not None and _cached_lockfile_status_is_outdated(
+        cached_entry, run_repository_tools=run_repository_tools
+    ):
+        cached_entry = None
     fast_entry = maybe_collect_repository_entry_fast_path(
         repository_name=repository_name,
         repository=repository,
@@ -154,6 +159,7 @@ def collect_repository_entry(
         cached_entry=cached_entry,
         workflow_signals=workflow_signals,
         github_token=github_token,
+        run_repository_tools=run_repository_tools,
         checkout_path=checkout_path,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
@@ -264,6 +270,7 @@ def collect_repository_entry_slow_path(
     cached_entry: RepoEntry | None,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
     github_token: str | None = None,
+    run_repository_tools: bool = True,
     checkout_path: Path | None = None,
     default_branch: str | None = None,
     default_branch_sha: str | None = None,
@@ -303,6 +310,7 @@ def collect_repository_entry_slow_path(
             repository=repository,
             default_branch=default_branch,
             checkout_path=checkout_path,
+            run_repository_tools=run_repository_tools,
         )
         content_signals["bazel_lockfile_status"] = lockfile_status
         content_signals["bazel_lockfile_error_output"] = lockfile_error
@@ -382,12 +390,32 @@ def _sync_content_checkout(
     return (synced, default_branch_sha)
 
 
+def _cached_lockfile_status_is_outdated(
+    cached_entry: RepoEntry, *, run_repository_tools: bool
+) -> bool:
+    """Tell whether the cached status predates a changed `run_repository_tools`.
+
+    An unchanged repository otherwise keeps its cached status, so the setting
+    would only take effect with the repository's next commit.
+    """
+    content = cached_entry.content
+    if not content.has_bazel_module:
+        return False
+    was_skipped = content.bazel_lockfile_status == LockfileStatus.SKIPPED
+    return was_skipped == run_repository_tools
+
+
 def _detect_lockfile_ok_for_repo(
     *,
     repository: Any,
     default_branch: str | None,
     checkout_path: Path | None = None,
+    run_repository_tools: bool = True,
 ) -> tuple[LockfileStatus, str | None]:
+    if not run_repository_tools:
+        # Bazel executes code from the repository, which could read and leak
+        # the GitHub token from the collector's environment.
+        return LockfileStatus.SKIPPED, None
     if checkout_path is not None:
         return detect_bazel_lockfile_ok(checkout_path)
     if default_branch is None:

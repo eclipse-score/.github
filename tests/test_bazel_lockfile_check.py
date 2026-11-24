@@ -1,15 +1,25 @@
 """The lockfile check runs a real fake `bazel` executable found on PATH."""
 
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+import generate_repo_overview.collector.repo_entry as repo_entry
 import generate_repo_overview.collector.signal_detection as signal_detection
 from generate_repo_overview.collector.signal_detection import (
     detect_bazel_lockfile_ok,
 )
-from generate_repo_overview.models import LockfileStatus
+from generate_repo_overview.metrics_html import render_all_pages
+from generate_repo_overview.models import (
+    SNAPSHOT_SCHEMA_VERSION,
+    LockfileStatus,
+    RepoEntry,
+    RepoSnapshot,
+)
+from generate_repo_overview.org_config import load_org_config
 
 FAKE_BAZEL = """#!/bin/sh
 # Log one line per event: <checkout name> <startup option> <event>
@@ -116,4 +126,149 @@ def test_repository_without_lockfile_does_not_start_bazel(
     (checkout / "MODULE.bazel.lock").unlink()
 
     assert detect_bazel_lockfile_ok(checkout) == (LockfileStatus.MISSING, None)
+    assert _events(bazel_log) == []
+
+
+def _collect_entry(
+    monkeypatch: pytest.MonkeyPatch,
+    checkout: Path,
+    *,
+    run_repository_tools: bool,
+    cached_entry: RepoEntry | None = None,
+) -> RepoEntry:
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=checkout, check=True)
+    subprocess.run(["git", "add", "."], cwd=checkout, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "-m",
+            "Initial commit",
+        ],
+        cwd=checkout,
+        check=True,
+    )
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=checkout,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setattr(
+        repo_entry, "_sync_content_checkout", lambda **_kwargs: (checkout, head)
+    )
+    return repo_entry.collect_repository_entry(
+        repository_name="repo",
+        repository=SimpleNamespace(default_branch="main", description="Repo"),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=cached_entry,
+        run_repository_tools=run_repository_tools,
+    )
+
+
+def test_organization_without_repository_tools_never_starts_bazel(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+
+    entry = _collect_entry(monkeypatch, checkout, run_repository_tools=False)
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.SKIPPED
+    assert _events(bazel_log) == []
+
+    index = render_all_pages(
+        RepoSnapshot(
+            schema_version=SNAPSHOT_SCHEMA_VERSION,
+            org_name="example",
+            generated_at="2026-01-01T00:00:00+00:00",
+            repos=(entry,),
+        )
+    )["index.html"]
+    assert "Repository tools are disabled for this organization" in index
+
+
+def test_skipped_lockfile_is_checked_once_repository_tools_are_enabled(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+    skipped = _collect_entry(monkeypatch, checkout, run_repository_tools=False)
+
+    # The repository is unchanged, but its cached status no longer applies.
+    entry = repo_entry.collect_repository_entry(
+        repository_name="repo",
+        repository=SimpleNamespace(default_branch="main", description="Repo"),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=skipped,
+        run_repository_tools=True,
+    )
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.OK
+    assert [event for _, _, event in _events(bazel_log)] == [
+        "check-start",
+        "check-end",
+        "shutdown",
+    ]
+
+
+def test_only_the_primary_organization_runs_repository_tools_by_default(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "org.toml"
+    config_path.write_text(
+        """
+org_name = "primary"
+
+[organizations.untrusted]
+
+[organizations.trusted]
+run_repository_tools = true
+""",
+        encoding="utf-8",
+    )
+
+    configs = load_org_config(config_path).collection_configs()
+
+    assert {config.org_name: config.run_repository_tools for config in configs} == {
+        "primary": True,
+        "untrusted": False,
+        "trusted": True,
+    }
+
+
+def test_repository_tools_setting_must_be_a_boolean(tmp_path: Path) -> None:
+    config_path = tmp_path / "org.toml"
+    config_path.write_text(
+        'org_name = "primary"\nrun_repository_tools = "no"\n', encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="run_repository_tools must be true or false"):
+        load_org_config(config_path)
+
+
+def test_checked_lockfile_becomes_skipped_once_repository_tools_are_disabled(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+    checked = _collect_entry(monkeypatch, checkout, run_repository_tools=True)
+    assert checked.content.bazel_lockfile_status == LockfileStatus.OK
+    bazel_log.write_text("", encoding="utf-8")
+
+    entry = repo_entry.collect_repository_entry(
+        repository_name="repo",
+        repository=SimpleNamespace(default_branch="main", description="Repo"),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=checked,
+        run_repository_tools=False,
+    )
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.SKIPPED
     assert _events(bazel_log) == []

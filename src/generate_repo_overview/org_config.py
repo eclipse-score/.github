@@ -75,6 +75,9 @@ class OrganizationSettings:
     grouping_levels: tuple[GroupingLevel, ...] | None = None
     reference_integration_repo: str | None = None
     registry_repo: str | None = None
+    # See OrgConfig.run_repository_tools. Additional organizations are often
+    # less trusted than the primary one, so they must opt in.
+    run_repository_tools: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +93,12 @@ class OrgConfig:
     platform_repos: tuple[str, ...] = ()
     grouping_levels: tuple[GroupingLevel, ...] = ()
     policy_report: PolicyReportConfig = field(default_factory=PolicyReportConfig)
+    # Whether collection may start tools such as Bazel inside repository
+    # checkouts. These tools execute code from the repository, for example
+    # Bazel module extensions. They inherit the collector's environment, so
+    # that code can read the GitHub token and leak it. Enable this only for
+    # organizations whose default branches are trusted with that token.
+    run_repository_tools: bool = True
 
     additional_organizations: tuple[OrganizationSettings, ...] = ()
 
@@ -110,6 +119,7 @@ class OrgConfig:
                     registry_repo=self.registry_repo
                     if settings.registry_repo is None
                     else settings.registry_repo,
+                    run_repository_tools=settings.run_repository_tools,
                     additional_organizations=(),
                 )
                 for settings in self.additional_organizations
@@ -196,6 +206,7 @@ def load_org_config(path: Path) -> OrgConfig:
         platform_repos=platform_repos,
         grouping_levels=grouping_levels,
         policy_report=policy_report,
+        run_repository_tools=_parse_bool(raw, "run_repository_tools", default=True),
         additional_organizations=_parse_organizations(
             raw.get("organizations", {}), primary_org=org_name.strip()
         ),
@@ -231,9 +242,19 @@ def _parse_organizations(
                     overrides, "reference_integration_repo"
                 ),
                 registry_repo=_parse_repo_override(overrides, "registry_repo"),
+                run_repository_tools=_parse_bool(
+                    overrides, "run_repository_tools", default=False
+                ),
             )
         )
     return tuple(settings)
+
+
+def _parse_bool(table: dict[str, Any], key: str, *, default: bool) -> bool:
+    value = table.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{key} must be true or false.")
+    return value
 
 
 def _parse_repo_override(overrides: dict[str, Any], key: str) -> str | None:

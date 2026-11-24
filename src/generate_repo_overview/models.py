@@ -13,6 +13,8 @@ class LockfileStatus(StrEnum):
     MISSING = "missing"
     ERROR = "error"
     TIMEOUT = "timeout"
+    # The organization does not run repository tools, so nothing was checked.
+    SKIPPED = "skipped"
     UNKNOWN = "unknown"
 
 

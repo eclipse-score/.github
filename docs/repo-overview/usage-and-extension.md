@@ -83,6 +83,21 @@ override `grouping_levels`, `registry_repo`, or `reference_integration_repo`.
 Use an empty grouping list or an empty repository string to disable the
 corresponding setting for that organization.
 
+Collection can start tools inside repository checkouts. Currently this is the
+Bazel lockfile check. Such tools execute code from the repository and inherit
+the collector's environment, so that code could read and leak the GitHub
+token. `run_repository_tools` controls this per organization. It defaults to
+`true` for the primary organization and to `false` for additional
+organizations, whose lockfile status is then shown as `skipped`:
+
+```toml
+# Only for organizations whose default branches are trusted with the token.
+run_repository_tools = false
+
+[organizations.example-tools]
+run_repository_tools = true
+```
+
 The dashboard lists each organization's groups together in the combined view.
 Use the **Organization** selector to scope repository lists and the overview
 summary to one organization. The selected organization can be bookmarked with
