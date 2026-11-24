@@ -37,6 +37,18 @@ Use `collect --clean` to delete the snapshot before collection and force a full
 content refresh. Existing Git checkouts are retained and updated rather than
 cloned again.
 
+## Bazel Lockfile Checks
+
+A changed repository with `MODULE.bazel` and `MODULE.bazel.lock` is checked
+with `bazel mod deps --lockfile_mode=error`. The result is a content signal, so
+an unchanged repository is not checked again.
+
+Repositories are collected in parallel, but only one lockfile check runs at a
+time. Bazel already uses all cores, and concurrent checks would overload small
+CI runners. Each checkout has its own Bazel server. The collector shuts it down
+after the check. A short idle limit stops servers whose shutdown did not
+succeed.
+
 ## Transport Split
 
 GitHub API collection is limited to organization and activity metadata:
