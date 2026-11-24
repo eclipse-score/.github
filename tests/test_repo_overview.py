@@ -1057,7 +1057,8 @@ def test_detect_bazel_version_ignores_module_version_without_dot_bazelversion() 
 def test_get_bazel_module_name_extracts_root_module_name() -> None:
     assert (
         signal_detection.get_bazel_module_name(
-            'module(\n    name = "score_logging",\n    version = "1.0.0",\n)\n'
+            '# module(name = "example")\n'
+            "module(\n    name = 'score_logging',\n    version = '1.0.0',\n)\n"
             'bazel_dep(name = "score_tooling", version = "2.0.0")\n'
         )
         == "score_logging"

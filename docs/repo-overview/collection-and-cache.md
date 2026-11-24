@@ -109,6 +109,6 @@ errors.
 
 ## Schema Changes
 
-Render commands can read snapshots using schemas 30 through 33. Earlier
-snapshots show consumer data as unavailable. Collection rebuilds them to
-record organization-specific sources and release comparisons.
+Render commands can read snapshots using schemas 30 through 35. Snapshots
+older than schema 35 show consumer data as unavailable. Collection rebuilds
+them to refresh dependency declarations, sources, and release comparisons.

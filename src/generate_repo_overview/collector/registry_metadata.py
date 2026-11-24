@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, TypedDict, cast
 from urllib.parse import unquote, urlsplit
 
@@ -55,6 +55,7 @@ class RegistryGitSource:
     repository: str
     kind: DependencyPinKind
     revision: str
+    package_modified: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,12 +65,14 @@ class RegistryModule:
     latest_version: str | None
     versions: frozenset[str]
 
+    def has_version(self, version: str) -> bool:
+        return (
+            _VERSION.fullmatch(version) is not None
+            and version.partition("+")[0] in self.versions
+        )
+
     def update_available(self, version: str) -> bool | None:
-        if (
-            self.latest_version is None
-            or not _VERSION.fullmatch(version)
-            or version.partition("+")[0] not in self.versions
-        ):
+        if self.latest_version is None or not self.has_version(version):
             return None
         pin = _bazel_version_key(version)
         latest = _bazel_version_key(self.latest_version)
@@ -81,9 +84,15 @@ class RegistryModule:
             return None
         normalized_version = version.partition("+")[0]
         source = _read_object(self.directory / normalized_version / "source.json")
+        package_modified = bool(source.get("patches") or source.get("overlay"))
         if source.get("type", "archive") == "archive":
             url = source.get("url")
-            return _github_archive_source(url) if isinstance(url, str) else None
+            git_source = _github_archive_source(url) if isinstance(url, str) else None
+            return (
+                replace(git_source, package_modified=True)
+                if git_source is not None and package_modified
+                else git_source
+            )
         if source.get("type") != "git_repository":
             return None
         remote = source.get("remote")
@@ -99,7 +108,7 @@ class RegistryModule:
         ):
             revision = source.get(kind.value)
             if isinstance(revision, str) and revision:
-                return RegistryGitSource(repository, kind, revision)
+                return RegistryGitSource(repository, kind, revision, package_modified)
         return None
 
 

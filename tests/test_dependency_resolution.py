@@ -262,15 +262,15 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
         {
             "0.3.3": {"url": "https://example.com/opaque-release-0.3.3.tar.gz"},
             "0.3.4": {
-                "url": f"https://github.com/{first_source}/archive/refs/tags/v1.0.0.tar.gz"
+                "type": "git_repository",
+                "remote": f"https://github.com/{first_source}",
+                "tag": "v1.0.0",
             },
             "9.9.9": {
                 "url": f"https://github.com/{first_source}/archive/refs/tags/v1.1.0.tar.gz"
             },
             "0.3.5": {
-                "type": "git_repository",
-                "remote": f"https://github.com/{first_source}",
-                "tag": "v1.0.0",
+                "url": f"https://github.com/{first_source}/archive/refs/tags/v1.0.0.tar.gz",
                 "patches": {"module-fix.patch": "sha256-example"},
             },
         },
@@ -279,6 +279,9 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
         cache / "second-org/registry",
         second_source,
         {
+            "0.3.2": {
+                "url": f"https://github.com/{second_source}/archive/refs/tags/v1.0.0.tar.gz"
+            },
             "0.3.4": {
                 "url": f"https://github.com/{second_source}/archive/{baselibs['v1.1.0']}.zip"
             },
@@ -356,6 +359,25 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
             latest_release_version="v1.0.0", release_bazel_deps=(other_ref,)
         ),
     )
+    missing_version = replace(dependency, version="0.3.2")
+    missing_version_consumer = replace(
+        override_consumer,
+        name="missing-version-consumer",
+        content=DeepContentSignals(bazel_deps=(missing_version,)),
+        volatile=VolatileMetricsSnapshot(),
+    )
+    git_pin = DependencyDeclaration(
+        "score_python_basics",
+        override=DependencyOverride.GIT,
+        remote=f"https://github.com/{first_source}",
+        revision="v1.0.0",
+        pin_kind=DependencyPinKind.TAG,
+    )
+    git_consumer = replace(
+        missing_version_consumer,
+        name="git-consumer",
+        content=DeepContentSignals(bazel_deps=(git_pin,)),
+    )
     selected_registries: list[str] = []
 
     class LazyRegistryRepository:
@@ -389,7 +411,13 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
         "fetch_repositories",
         lambda owner, **_: [
             repo
-            for repo in (*sources, *consumers, override_consumer)
+            for repo in (
+                *sources,
+                *consumers,
+                override_consumer,
+                missing_version_consumer,
+                git_consumer,
+            )
             if repo.owner == owner
         ],
     )
@@ -429,16 +457,33 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
     assert snapshot.dependency_repository(consumers[2], dependency) is None
     assert snapshot.dependency_repository(override_consumer, override) == second_source
     assert snapshot.dependency_repository(override_consumer, other_ref) is None
+
+    # This pin exists only in the other registry, so the module-wide map
+    # from the first registry cannot identify its repository.
+    assert (
+        snapshot.dependency_repository(missing_version_consumer, missing_version)
+        is None
+    )
+    git_resolution = snapshot.dependency_resolution(git_consumer, git_pin)
+    assert git_resolution is not None
+    assert git_resolution.resolved_sha == baselibs["v1.0.0"]
+    assert git_resolution.latest_release == "0.3.5"
+    assert git_resolution.release_update_available is None
+    assert git_resolution.behind_default_branch_by == 3
+
     pages = render_all_pages(snapshot)
     first_page = pages["tooling/index.html"]
     assert "first-org/first-org-consumer</a>" in first_page
     assert "second-org/second-org-consumer</a>" not in first_page
     assert "first-org/override-consumer</a>" not in first_page
+    assert "first-org/missing-version-consumer</a>" not in first_page
     second_page = pages["@orgs/second-org/tooling/index.html"]
     assert "second-org/second-org-consumer</a>" in second_page
     assert "first-org/first-org-consumer</a>" not in second_page
     assert "first-org/override-consumer</a>" in second_page
 
+    assert "source unknown" in pages["missing-version-consumer/index.html"]
+    assert "0.3.5 · comparison unavailable" in pages["git-consumer/index.html"]
     first_consumer_page = pages["first-org-consumer/index.html"]
     assert "0.3.5 available" in first_consumer_page
     assert "3 behind main" in first_consumer_page

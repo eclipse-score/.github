@@ -18,8 +18,8 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 34
-_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31, 32, 33)
+SNAPSHOT_SCHEMA_VERSION = 35
+_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31, 32, 33, 34)
 
 
 @dataclass(frozen=True, slots=True)
@@ -606,6 +606,10 @@ class RepoSnapshot:
         resolution = self.dependency_resolution(consumer, declaration)
         if resolution is not None:
             return resolution.repository
+        if declaration.pinned_revision is not None:
+            # For a versioned pin, the module-wide mapping may point to a
+            # different registry's source. Git remotes identify their own source.
+            return dependency_repository(declaration, {})
         owner = (consumer.owner or self.org_name).casefold()
         return dependency_repository(
             declaration, self.module_repositories.get(owner, {})

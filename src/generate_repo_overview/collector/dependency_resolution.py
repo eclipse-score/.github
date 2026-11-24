@@ -194,7 +194,7 @@ def _plan_pins(
                 else None
             )
             repository = _pin_repository(
-                declaration, source, registry_pin, module_sources
+                declaration, revision, source, registry_pin, module_sources
             )
             if repository is None:
                 continue
@@ -251,12 +251,16 @@ def _plan_pins(
 
 def _pin_repository(
     declaration: DependencyDeclaration,
+    revision: str,
     source: RegistryGitSource | None,
     registry_module: RegistryModule | None,
     default_sources: Mapping[str, str],
 ) -> str | None:
     if source is not None:
         return source.repository
+    if registry_module is not None and not registry_module.has_version(revision):
+        # A registry may publish other versions of this module from a fork.
+        return None
     if declaration.registry_override is not None and registry_module is not None:
         repositories = {repo.casefold() for repo in registry_module.repositories}
         return next(iter(repositories)) if len(repositories) == 1 else None
@@ -279,6 +283,9 @@ def _latest_module_release(
             return version, None
         source = read_source(registry_module, version) if version is not None else None
         if source is not None and source.repository.casefold() == identity:
+            # Git ancestry cannot account for changes applied by the registry.
+            if source.package_modified:
+                return version, None
             return version, (source.kind, source.revision)
         known_sources = {repo.casefold() for repo in registry_module.repositories}
         return (

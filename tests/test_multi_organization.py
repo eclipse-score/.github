@@ -265,7 +265,7 @@ repository_owner = "second-org"
     assert "policy-status changes-required" in policy_rows[0]
 
 
-@pytest.mark.parametrize("schema_version", [30, 31, 32, 33])
+@pytest.mark.parametrize("schema_version", [30, 31, 32, 33, 34])
 def test_older_snapshot_renders_but_is_not_reused_for_collection(
     schema_version: int, tmp_path: Path
 ) -> None:

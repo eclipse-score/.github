@@ -1,4 +1,4 @@
-"""Parse ``bazel_dep`` declarations and their overrides from Bazel module files."""
+"""Parse declarations and overrides from Bazel module files."""
 
 from __future__ import annotations
 
@@ -28,6 +28,16 @@ _GIT_PINS = (
     ("tag", DependencyPinKind.TAG),
     ("branch", DependencyPinKind.BRANCH),
 )
+
+
+def get_bazel_module_name(text: str | None) -> str | None:
+    for function, call, constants in _calls(text or ""):
+        if function == "module":
+            for keyword in call.keywords:
+                if keyword.arg == "name":
+                    name = _string_value(keyword.value, constants)
+                    return (name or "").strip() or None
+    return None
 
 
 def read_module_files(read_text: Callable[[str], str | None]) -> dict[str, str]:

@@ -89,6 +89,12 @@ def _snapshot() -> RepoSnapshot:
         },
         dependency_resolutions=(
             DependencyResolution(
+                "other-org/external",
+                "2.0.0",
+                consumer_org="eclipse-score",
+                module="external",
+            ),
+            DependencyResolution(
                 BASELIBS,
                 "1.1.0",
                 "b" * 40,

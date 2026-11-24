@@ -12,7 +12,7 @@ import yaml
 from generate_repo_overview.console import print_status
 from generate_repo_overview.models import LockfileStatus, SphinxItem
 
-from .bazel_modules import parse_dependencies, read_module_files
+from .bazel_modules import get_bazel_module_name, parse_dependencies, read_module_files
 from .git_checkout import list_repository_paths, read_repository_text
 from .sphinx import parse_sphinx_directives
 
@@ -530,22 +530,6 @@ def codeowners_pattern_matches(pattern: str, *, target_path: str) -> bool:
         ) or fnmatch.fnmatch(normalized_target_path, normalized_pattern)
 
     return fnmatch.fnmatch(normalized_target_path, normalized_pattern)
-
-
-def get_bazel_module_name(text: str | None) -> str | None:
-    if not text:
-        return None
-
-    module_match = re.search(r"\bmodule\s*\((?P<body>.*?)\)", text, re.DOTALL)
-    if module_match is None:
-        return None
-    name_match = re.search(
-        r'\bname\s*=\s*"(?P<name>[^"]+)"',
-        module_match.group("body"),
-    )
-    if name_match is None:
-        return None
-    return name_match.group("name").strip() or None
 
 
 def detect_matched_workflow_signals(
