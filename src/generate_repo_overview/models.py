@@ -18,8 +18,8 @@ class LockfileStatus(StrEnum):
 
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
-SNAPSHOT_SCHEMA_VERSION = 32
-_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31)
+SNAPSHOT_SCHEMA_VERSION = 33
+_LEGACY_SNAPSHOT_SCHEMA_VERSIONS = (30, 31, 32)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +113,7 @@ class DependencyDeclaration:
     remote: str | None = None
     revision: str | None = None
     pin_kind: DependencyPinKind = DependencyPinKind.VERSION
+    override_source: tuple[tuple[str, str], ...] = ()
 
     @property
     def pinned_revision(self) -> str | None:
@@ -136,7 +137,18 @@ class DependencyDeclaration:
             return self.revision or "unknown"
         if self.override in (DependencyOverride.ARCHIVE, DependencyOverride.LOCAL_PATH):
             return "unknown"
-        return self.version or "unversioned"
+        return self.version or (
+            "unknown"
+            if self.override is DependencyOverride.SINGLE_VERSION
+            else "unversioned"
+        )
+
+    @property
+    def version_for_comparison(self) -> str | None:
+        """Only version pins can participate in version-string comparisons."""
+        return (
+            self.pinned_revision if self.pin_kind is DependencyPinKind.VERSION else None
+        )
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DependencyDeclaration:
@@ -150,6 +162,7 @@ class DependencyDeclaration:
             remote=cast("str | None", data.get("remote")),
             revision=cast("str | None", data.get("revision")),
             pin_kind=DependencyPinKind(data.get("pin_kind", DependencyPinKind.VERSION)),
+            override_source=normalize_string_pairs(data.get("override_source")),
         )
 
 
@@ -165,6 +178,8 @@ class DependencyResolution:
     ahead_of_default_branch_by: int | None = None
     behind_default_branch_by: int | None = None
     pin_kind: DependencyPinKind = DependencyPinKind.VERSION
+    consumer_org: str = field(kw_only=True)
+    module: str = field(kw_only=True)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> DependencyResolution:
@@ -183,6 +198,8 @@ class DependencyResolution:
                 "int | None", data.get("behind_default_branch_by")
             ),
             pin_kind=DependencyPinKind(data.get("pin_kind", DependencyPinKind.VERSION)),
+            consumer_org=cast("str", data.get("consumer_org", "")),
+            module=cast("str", data.get("module", "")),
         )
 
 
@@ -537,10 +554,13 @@ class RepoSnapshot:
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     workflow_ref_resolutions: tuple[WorkflowRefResolution, ...] = ()
     additional_org_names: tuple[str, ...] = ()
-    module_repositories: Mapping[str, str] = field(default_factory=dict[str, str])
+    module_repositories: Mapping[str, Mapping[str, str]] = field(
+        default_factory=dict[str, Mapping[str, str]]
+    )
     dependency_resolutions: tuple[DependencyResolution, ...] = ()
+    dependency_sources_available: bool = True
     _dependency_resolutions_by_pin: dict[
-        tuple[str, DependencyPinKind, str], DependencyResolution
+        tuple[str, str, DependencyPinKind, str, str], DependencyResolution
     ] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -549,9 +569,13 @@ class RepoSnapshot:
             "_dependency_resolutions_by_pin",
             {
                 (
-                    resolution.repository.casefold(),
+                    resolution.consumer_org.casefold(),
+                    resolution.module,
                     resolution.pin_kind,
                     resolution.revision,
+                    resolution.repository.casefold()
+                    if resolution.pin_kind is not DependencyPinKind.VERSION
+                    else "",
                 ): resolution
                 for resolution in self.dependency_resolutions
             },
@@ -561,18 +585,36 @@ class RepoSnapshot:
     def organization_names(self) -> tuple[str, ...]:
         return (self.org_name, *self.additional_org_names)
 
-    def dependency_repository(self, declaration: DependencyDeclaration) -> str | None:
-        return dependency_repository(declaration, self.module_repositories)
+    def dependency_repository(
+        self, consumer: RepoEntry, declaration: DependencyDeclaration
+    ) -> str | None:
+        resolution = self.dependency_resolution(consumer, declaration)
+        if resolution is not None:
+            return resolution.repository
+        owner = (consumer.owner or self.org_name).casefold()
+        return dependency_repository(
+            declaration, self.module_repositories.get(owner, {})
+        )
 
     def dependency_resolution(
-        self, declaration: DependencyDeclaration
+        self, consumer: RepoEntry, declaration: DependencyDeclaration
     ) -> DependencyResolution | None:
-        repository = self.dependency_repository(declaration)
         revision = declaration.pinned_revision
-        if repository is None or revision is None:
+        if revision is None:
             return None
+        repository = (
+            dependency_repository(declaration, {})
+            if declaration.override is DependencyOverride.GIT
+            else None
+        )
         return self._dependency_resolutions_by_pin.get(
-            (repository.casefold(), declaration.pin_kind, revision)
+            (
+                (consumer.owner or self.org_name).casefold(),
+                declaration.module,
+                declaration.pin_kind,
+                revision,
+                (repository or "").casefold(),
+            )
         )
 
     @classmethod
@@ -601,7 +643,10 @@ class RepoSnapshot:
             )
 
         typed_repos_data = cast("list[Mapping[str, Any]]", repos_data)
-        module_repositories = data.get("module_repositories")
+        dependency_sources_available = (
+            schema_version == SNAPSHOT_SCHEMA_VERSION
+            and data.get("dependency_sources_available", True) is True
+        )
 
         tracked_deps = tuple(
             TrackedDep.from_dict(cast("Mapping[str, Any]", item))
@@ -642,23 +687,22 @@ class RepoSnapshot:
                 for item in (data.get("workflow_ref_resolutions") or ())
                 if isinstance(item, dict) and isinstance(item.get("reference"), str)
             ),
-            module_repositories={
-                module: repository
-                for module, repository in cast(
-                    "Mapping[object, object]",
-                    module_repositories
-                    if isinstance(module_repositories, Mapping)
-                    else {},
-                ).items()
-                if isinstance(module, str) and isinstance(repository, str)
-            },
+            module_repositories=_parse_module_repositories(
+                data.get("module_repositories")
+                if dependency_sources_available
+                else None
+            ),
             dependency_resolutions=tuple(
                 DependencyResolution.from_dict(cast("Mapping[str, Any]", item))
                 for item in (data.get("dependency_resolutions") or ())
-                if isinstance(item, dict)
+                if dependency_sources_available
+                and isinstance(item, dict)
                 and isinstance(item.get("repository"), str)
                 and isinstance(item.get("revision"), str)
+                and isinstance(item.get("consumer_org"), str)
+                and isinstance(item.get("module"), str)
             ),
+            dependency_sources_available=dependency_sources_available,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -673,8 +717,12 @@ class RepoSnapshot:
             "workflow_ref_resolutions": [
                 asdict(r) for r in self.workflow_ref_resolutions
             ],
-            "module_repositories": dict(sorted(self.module_repositories.items())),
+            "module_repositories": {
+                owner: dict(sorted(modules.items()))
+                for owner, modules in sorted(self.module_repositories.items())
+            },
             "dependency_resolutions": [asdict(r) for r in self.dependency_resolutions],
+            "dependency_sources_available": self.dependency_sources_available,
         }
 
 
@@ -742,6 +790,20 @@ def _parse_dependencies(value: object) -> tuple[DependencyDeclaration, ...]:
     return declarations + legacy
 
 
+def _parse_module_repositories(value: object) -> dict[str, Mapping[str, str]]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        owner.casefold(): {
+            module: repo
+            for module, repo in cast("dict[object, object]", modules).items()
+            if isinstance(module, str) and isinstance(repo, str)
+        }
+        for owner, modules in cast("dict[object, object]", value).items()
+        if isinstance(owner, str) and isinstance(modules, dict)
+    }
+
+
 def dependency_repository(
     declaration: DependencyDeclaration,
     module_repositories: Mapping[str, str],
@@ -787,17 +849,11 @@ def short_revision(revision: str) -> str:
     return revision[:7] if re.fullmatch(r"[0-9a-f]{40}", revision) else revision
 
 
-def dependency_versions(
-    declarations: tuple[DependencyDeclaration, ...],
-) -> dict[str, str]:
-    return {d.module: d.display_version for d in declarations}
-
-
-def lookup_bazel_dep_version(
+def lookup_bazel_dependency(
     bazel_deps: tuple[DependencyDeclaration, ...],
     dep_name: str,
-) -> str | None:
-    return dependency_versions(bazel_deps).get(dep_name)
+) -> DependencyDeclaration | None:
+    return next((dep for dep in bazel_deps if dep.module == dep_name), None)
 
 
 def is_tracked_dep_repo(
@@ -805,7 +861,7 @@ def is_tracked_dep_repo(
     tracked_deps: tuple[TrackedDep, ...],
 ) -> bool:
     return any(
-        lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name) is not None
+        lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name) is not None
         or entry.matches_repository(dep.repo)
         for dep in tracked_deps
     )

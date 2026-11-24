@@ -268,7 +268,7 @@ def _render_versions_section(
     max_bazel: tuple[int, ...] | None,
     latest_dep_versions: dict[str, str | None],
 ) -> str:
-    from .models import lookup_bazel_dep_version
+    from .models import lookup_bazel_dependency
 
     items: list[str] = []
 
@@ -282,10 +282,17 @@ def _render_versions_section(
 
     for dep in snapshot.tracked_deps:
         dep_label = tracked_dep_label(dep)
-        dep_ver = lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name)
-        latest_ver = latest_dep_versions.get(dep.module_name)
+        declaration = lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name)
+        latest_ver = (
+            latest_dep_versions.get(dep.module_name)
+            if declaration and declaration.version_for_comparison
+            else None
+        )
         badge = version_badge(
-            dep_ver, None, latest_dep_version=latest_ver, is_bazel=False
+            declaration.display_version if declaration else None,
+            None,
+            latest_dep_version=latest_ver,
+            is_bazel=False,
         )
         items.append(
             f'<div class="info-item">'

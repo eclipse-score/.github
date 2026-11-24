@@ -202,8 +202,13 @@ def collect_snapshot(
             status_prefix=status_prefix,
         )
 
-        module_repositories = dependency_resolution.map_module_repositories(
-            repos, configs
+        module_repositories, dependency_resolutions = (
+            dependency_resolution.collect_dependencies(
+                repos,
+                configs,
+                max_workers=resolve_max_collection_workers(),
+                status_prefix=status_prefix,
+            )
         )
         snapshot = RepoSnapshot(
             schema_version=SNAPSHOT_SCHEMA_VERSION,
@@ -217,12 +222,7 @@ def collect_snapshot(
                 repos, github=github, status_prefix=status_prefix
             ),
             module_repositories=module_repositories,
-            dependency_resolutions=dependency_resolution.resolve_dependencies(
-                repos,
-                module_repositories,
-                max_workers=resolve_max_collection_workers(),
-                status_prefix=status_prefix,
-            ),
+            dependency_resolutions=dependency_resolutions,
         )
         if cache_path is not None:
             write_snapshot(snapshot, cache_path)

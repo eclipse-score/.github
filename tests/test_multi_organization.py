@@ -272,7 +272,7 @@ repository_owner = "second-org"
     assert "policy-status changes-required" in policy_rows[0]
 
 
-@pytest.mark.parametrize("schema_version", [30, 31])
+@pytest.mark.parametrize("schema_version", [30, 31, 32])
 def test_older_snapshot_renders_but_is_not_reused_for_collection(
     schema_version: int, tmp_path: Path
 ) -> None:
@@ -282,6 +282,10 @@ def test_older_snapshot_renders_but_is_not_reused_for_collection(
         "content": {"bazel_deps": [["rules_python", "1.2.3"]]},
         "volatile": {"latest_release_version": "v1.2.3"},
     }
+    source_repo = {
+        "name": "rules_python",
+        "content": {"bazel_module_name": "rules_python"},
+    }
     cache.write_text(
         json.dumps(
             {
@@ -289,7 +293,8 @@ def test_older_snapshot_renders_but_is_not_reused_for_collection(
                 "org_name": "first-org",
                 "generated_at": "2026-01-01T00:00:00+00:00",
                 "repos": [
-                    repo if schema_version == 30 else dict(repo, owner="first-org")
+                    item if schema_version == 30 else dict(item, owner="first-org")
+                    for item in (repo, source_repo)
                 ],
             }
         )
@@ -307,6 +312,10 @@ def test_older_snapshot_renders_but_is_not_reused_for_collection(
     page = render_all_pages(snapshot)["tools/index.html"]
     assert 'href="https://github.com/first-org/tools"' in page
     assert "rules_python" in page
+    source_page = render_all_pages(snapshot)["rules_python/index.html"]
+    assert "Consumer data unavailable" in source_page
+    assert "No collected repository uses this one." not in source_page
+    assert not RepoSnapshot.from_dict(snapshot.to_dict()).dependency_sources_available
     # Older caches lack overrides and must be recollected even if the HEAD is unchanged.
     assert collector.load_snapshot_if_present(cache) is None
 

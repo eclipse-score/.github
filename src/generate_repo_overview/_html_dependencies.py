@@ -40,12 +40,14 @@ def render_dependencies_section(
     for module in sorted(head.keys() | release.keys()):
         head_dep, release_dep = head.get(module), release.get(module)
         name = f"<span class='mono'>{e(module)}</span>"
-        head_source = snapshot.dependency_repository(head_dep) if head_dep else None
-        release_source = (
-            snapshot.dependency_repository(release_dep) if release_dep else None
+        head_source = (
+            snapshot.dependency_repository(entry, head_dep) if head_dep else None
         )
-        head_usage = _usage(head_dep, snapshot)
-        release_usage = _usage(release_dep, snapshot) if release_tag else None
+        release_source = (
+            snapshot.dependency_repository(entry, release_dep) if release_dep else None
+        )
+        head_usage = _usage(head_dep, entry, snapshot)
+        release_usage = _usage(release_dep, entry, snapshot) if release_tag else None
         if head_dep and release_dep and head_source != release_source:
             if head_source:
                 head_usage += f"<br>{_source_links(head_source, snapshot, site_root)}"
@@ -91,16 +93,21 @@ def render_used_by_section(
 ) -> str:
     """List collected repositories whose default branch or release uses *entry*."""
     rows: list[str] = []
-    for consumer in sorted(snapshot.repos, key=lambda r: r.full_name.casefold()):
+    consumers = (
+        sorted(snapshot.repos, key=lambda r: r.full_name.casefold())
+        if snapshot.dependency_sources_available
+        else ()
+    )
+    for consumer in consumers:
         if consumer is entry:
             continue
-        head = _used(entry, consumer.content.bazel_deps, snapshot)
-        release = _used(entry, consumer.volatile.release_bazel_deps, snapshot)
+        head = _used(entry, consumer, consumer.content.bazel_deps, snapshot)
+        release = _used(entry, consumer, consumer.volatile.release_bazel_deps, snapshot)
         if not head and not release:
             continue
         release_tag = consumer.volatile.latest_release_version
         release_cell = (
-            _consumer_pins(release, snapshot)
+            _consumer_pins(release, consumer, snapshot)
             if release
             else _MUTED_DASH
             if release_tag
@@ -110,7 +117,7 @@ def render_used_by_section(
             release_cell += f' <span class="text-muted">in {e(release_tag)}</span>'
         rows.append(
             f"<tr><td>{_repository_link(consumer, snapshot, site_root)}</td>"
-            f"<td>{_consumer_pins(head, snapshot) if head else _MUTED_DASH}</td>"
+            f"<td>{_consumer_pins(head, consumer, snapshot) if head else _MUTED_DASH}</td>"
             f"<td>{release_cell}</td></tr>\n"
         )
 
@@ -119,6 +126,8 @@ def render_used_by_section(
         f"<th>Latest release</th></tr></thead>\n<tbody>\n{''.join(rows)}</tbody></table>"
         if rows
         else '<span class="text-muted">No collected repository uses this one.</span>'
+        if snapshot.dependency_sources_available
+        else '<span class="text-muted">Consumer data unavailable. Recollect the snapshot to see dependencies.</span>'
     )
     return (
         '<section class="detail-section" id="used-by">\n'
@@ -133,24 +142,28 @@ def render_used_by_section(
 
 def _used(
     entry: RepoEntry,
+    consumer: RepoEntry,
     declarations: tuple[DependencyDeclaration, ...],
     snapshot: RepoSnapshot,
 ) -> tuple[DependencyDeclaration, ...]:
     return tuple(
         declaration
         for declaration in declarations
-        if (repository := snapshot.dependency_repository(declaration)) is not None
+        if (repository := snapshot.dependency_repository(consumer, declaration))
+        is not None
         and entry.matches_repository(repository)
     )
 
 
 def _consumer_pins(
-    declarations: tuple[DependencyDeclaration, ...], snapshot: RepoSnapshot
+    declarations: tuple[DependencyDeclaration, ...],
+    consumer: RepoEntry,
+    snapshot: RepoSnapshot,
 ) -> str:
     if len(declarations) == 1:
-        return _usage(declarations[0], snapshot)
+        return _usage(declarations[0], consumer, snapshot)
     return "<br>".join(
-        f"{e(declaration.module)} {_usage(declaration, snapshot)}"
+        f"{e(declaration.module)} {_usage(declaration, consumer, snapshot)}"
         for declaration in declarations
     )
 
@@ -201,7 +214,11 @@ def _collected(snapshot: RepoSnapshot, repository: str) -> RepoEntry | None:
     return next((r for r in snapshot.repos if r.matches_repository(repository)), None)
 
 
-def _usage(declaration: DependencyDeclaration | None, snapshot: RepoSnapshot) -> str:
+def _usage(
+    declaration: DependencyDeclaration | None,
+    consumer: RepoEntry,
+    snapshot: RepoSnapshot,
+) -> str:
     """Render the pin Bazel builds and how fresh it is."""
     if declaration is None:
         return _MUTED_DASH
@@ -212,20 +229,17 @@ def _usage(declaration: DependencyDeclaration | None, snapshot: RepoSnapshot) ->
             f"<span class='mono'>{version}</span> "
             f'<span class="badge muted">{e(kind.replace("_", " "))}</span>'
         )
-    repository = snapshot.dependency_repository(declaration)
+    repository = snapshot.dependency_repository(consumer, declaration)
     if repository is None:
         return (
             f"<span class='mono'>{version}</span> "
             '<span class="badge muted">source unknown</span>'
         )
-    resolution = snapshot.dependency_resolution(declaration)
+    resolution = snapshot.dependency_resolution(consumer, declaration)
+    if _collected(snapshot, repository) is None:
+        return f"<span class='mono'>{version}</span> <span class=\"badge muted\">outside overview</span>"
     if resolution is None:
-        reason = (
-            "comparison unavailable"
-            if _collected(snapshot, repository)
-            else "outside overview"
-        )
-        return f"<span class='mono'>{version}</span> <span class=\"badge muted\">{reason}</span>"
+        return f"<span class='mono'>{version}</span> <span class=\"badge muted\">comparison unavailable</span>"
     if resolution.resolved_sha is None:
         return (
             f"<span class='mono'>{version}</span> "
@@ -255,7 +269,7 @@ def _usage(declaration: DependencyDeclaration | None, snapshot: RepoSnapshot) ->
 
 def _release_badge(latest_release: str | None, behind: int | None) -> str:
     if latest_release is None:
-        return '<span class="badge muted">no release</span>'
+        return '<span class="badge muted">release comparison unavailable</span>'
     if behind is None:
         return (
             f'<span class="badge muted" title="Release comparison unavailable">'

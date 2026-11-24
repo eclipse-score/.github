@@ -26,9 +26,8 @@ from .metrics_report import (
 )
 from .models import (
     LockfileStatus,
-    dependency_versions,
     is_tracked_dep_repo,
-    lookup_bazel_dep_version,
+    lookup_bazel_dependency,
 )
 from .module_name_matching import NameMatch, classify_repository_name_match
 from .policy_sync import POLICY_REPORT_FILENAME, render_policy_sync_section
@@ -535,18 +534,22 @@ def _render_dep_changes(
             "No release has been published — nothing to compare against.",
         )
 
-    head_deps = dependency_versions(entry.content.bazel_deps)
-    release_deps = dependency_versions(entry.volatile.release_bazel_deps)
+    head_deps = {d.module: d for d in entry.content.bazel_deps}
+    release_deps = {d.module: d for d in entry.volatile.release_bazel_deps}
 
     changes: list[str] = []
     all_names = sorted(set(head_deps) | set(release_deps))
     for name in all_names:
         if name in excluded_deps:
             continue
-        hv = head_deps.get(name)
-        rv = release_deps.get(name)
-        if hv != rv:
-            changes.append(f"{name}: {rv or '—'} → {hv or '—'}")
+        head = head_deps.get(name)
+        release = release_deps.get(name)
+        if head != release:
+            hv = head.display_version if head else "—"
+            rv = release.display_version if release else "—"
+            changes.append(
+                f"{name}: {rv} → {hv}" if rv != hv else f"{name}: source changed"
+            )
 
     count = len(changes)
     if count == 0:
@@ -636,19 +639,22 @@ def _versions_card(
             f"{e(entry.volatile.release_bazel_version)}</span> → {bazel_cell}"
         )
 
-    release_deps = dependency_versions(entry.volatile.release_bazel_deps)
+    release_deps = {d.module: d for d in entry.volatile.release_bazel_deps}
     dependency_cards: list[str] = []
     for dep in tracked_deps:
         dep_label = tracked_dep_label(dep)
-        head_version = lookup_bazel_dep_version(
-            entry.content.bazel_deps,
-            dep.module_name,
-        )
-        release_version = release_deps.get(dep.module_name)
+        head = lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name)
+        release = release_deps.get(dep.module_name)
+        head_version = head.display_version if head else None
+        release_version = release.display_version if release else None
         dependency_badge = version_badge(
             head_version,
             None,
-            latest_dep_version=latest_dep_versions.get(dep.module_name),
+            latest_dep_version=(
+                latest_dep_versions.get(dep.module_name)
+                if head and head.version_for_comparison
+                else None
+            ),
             is_bazel=False,
         )
         if release_version and release_version != head_version:
@@ -792,15 +798,21 @@ def _versions_row(
             f'<span class="mono text-muted">{e(release_bazel)}</span> → {bazel_cell}'
         )
 
-    release_deps = dependency_versions(entry.volatile.release_bazel_deps)
+    release_deps = {d.module: d for d in entry.volatile.release_bazel_deps}
     dedicated_dep_names = frozenset(dep.module_name for dep in tracked_deps)
 
     dep_cells: list[str] = []
     for dep in tracked_deps:
         dep_label = tracked_dep_label(dep)
-        head_ver = lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name)
-        release_ver = release_deps.get(dep.module_name)
-        latest_ver = latest_dep_versions.get(dep.module_name)
+        head = lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name)
+        release = release_deps.get(dep.module_name)
+        head_ver = head.display_version if head else None
+        release_ver = release.display_version if release else None
+        latest_ver = (
+            latest_dep_versions.get(dep.module_name)
+            if head and head.version_for_comparison
+            else None
+        )
         cell = version_badge(
             head_ver, None, latest_dep_version=latest_ver, is_bazel=False
         )

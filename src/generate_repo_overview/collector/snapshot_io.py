@@ -20,6 +20,13 @@ def load_snapshot(path: Path, *, require_current_schema: bool = False) -> RepoSn
             f"Unsupported snapshot schema version {schema_version}; "
             f"expected {SNAPSHOT_SCHEMA_VERSION} for the collection cache."
         )
+    if (
+        require_current_schema
+        and raw.get("dependency_sources_available", True) is not True
+    ):
+        raise ValueError(
+            "Cached snapshot is missing organization-specific dependency sources."
+        )
     return RepoSnapshot.from_dict(raw)
 
 

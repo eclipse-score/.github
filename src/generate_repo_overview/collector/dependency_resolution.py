@@ -7,7 +7,10 @@ number of GitHub API calls does not grow with the number of pins.
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, replace
+from functools import cache
 from typing import TYPE_CHECKING
 
 from repo_cache import RepoCacheError, default_cache_directory, sync_default_branch
@@ -20,108 +23,234 @@ from generate_repo_overview.models import (
 )
 
 from .git_checkout import git_output
-from .registry_metadata import get_bazel_registry_module_sources
+from .registry_metadata import (
+    RegistryGitSource,
+    RegistryModule,
+    get_bazel_registry_modules,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping
+    from collections.abc import Callable, Iterable, Mapping
     from pathlib import Path
 
-    from generate_repo_overview.models import RepoEntry
+    from generate_repo_overview.models import DependencyDeclaration, RepoEntry
     from generate_repo_overview.org_config import OrgConfig
 
 _COMMIT_HASH = re.compile(r"[0-9a-fA-F]{7,40}")
 
 
-def map_module_repositories(
+@dataclass(frozen=True, slots=True)
+class _Pin:
+    resolution: DependencyResolution
+    revision: tuple[DependencyPinKind, str] | None
+    latest_revision: tuple[DependencyPinKind, str] | None
+
+
+def collect_dependencies(
     repos: Iterable[RepoEntry],
     configs: Iterable[OrgConfig],
-) -> dict[str, str]:
-    """Map Bazel module names to their GitHub ``owner/name`` repositories.
-
-    Registry metadata names the source repository explicitly, including for
-    modules that are not the root module of their repository. A collected
-    repository's own root module name fills the remaining gaps.
-    """
-    repos = tuple(repo for repo in repos if repo.owner)
-    canonical_names = {repo.full_name.casefold(): repo.full_name for repo in repos}
-    registered: dict[str, set[str]] = {}
-    roots: dict[str, set[str]] = {}
-    for registry in dict.fromkeys(config.registry_repo for config in configs):
-        for module, sources in get_bazel_registry_module_sources(registry).items():
-            registered.setdefault(module, set()).update(
-                canonical_names.get(source.casefold(), source.casefold())
-                for source in sources
-            )
-    for repo in repos:
-        if repo.content.bazel_module_name:
-            roots.setdefault(repo.content.bazel_module_name, set()).add(repo.full_name)
-    # With conflicting source identities there is no safe comparison target.
-    return {
-        module: next(iter(sources))
-        for module, sources in sorted((roots | registered).items())
-        if len(sources) == 1
-    }
-
-
-def resolve_dependencies(
-    repos: Iterable[RepoEntry],
-    module_repositories: Mapping[str, str],
     *,
     cache_directory: Path | None = None,
     max_workers: int = 8,
     status_prefix: str = "repo-overview",
-) -> tuple[DependencyResolution, ...]:
-    """Compare every pinned revision of a collected repository with its history.
-
-    Only dependencies on collected repositories are resolved: the default
-    branch and latest release used for comparison come from their entries.
-    """
+) -> tuple[dict[str, Mapping[str, str]], tuple[DependencyResolution, ...]]:
+    """Resolve each organization's module sources, then compare pins locally."""
     repos = tuple(repos)
-    entries = {repo.full_name.casefold(): repo for repo in repos}
-    revisions: dict[str, set[tuple[DependencyPinKind, str]]] = {}
-    for repo in repos:
-        for declaration in (
-            *repo.content.bazel_deps,
-            *repo.volatile.release_bazel_deps,
-        ):
-            repository = dependency_repository(declaration, module_repositories)
-            revision = declaration.pinned_revision
-            if repository and revision and repository.casefold() in entries:
-                revisions.setdefault(repository.casefold(), set()).add(
-                    (declaration.pin_kind, revision)
-                )
-    if not revisions:
-        return ()
-
+    configs = tuple(configs)
     root = cache_directory or default_cache_directory()
+    registry_paths = {
+        config.org_name.casefold(): config.registry_repo for config in configs
+    }
+    registries = {
+        path: get_bazel_registry_modules(path, cache_directory=root)
+        for path in set(registry_paths.values())
+    }
+    registry_by_owner = {
+        owner: registries[path] for owner, path in registry_paths.items()
+    }
+    entries = {entry.full_name.casefold(): entry for entry in repos if entry.owner}
+    module_repositories, modules_by_repository = _module_sources(
+        entries, registry_by_owner
+    )
+    pinned = _plan_pins(
+        repos, module_repositories, registry_by_owner, entries, modules_by_repository
+    )
+    local = {
+        repository: pins for repository, pins in pinned.items() if repository in entries
+    }
+    external = [
+        pin.resolution
+        for repository, pins in sorted(pinned.items())
+        if repository not in local
+        for pin in pins
+    ]
+    if not local:
+        return module_repositories, tuple(external)
+
     print_status(
-        f"Resolving {sum(map(len, revisions.values()))} dependency pins "
-        f"in {len(revisions)} repositories",
+        f"Resolving {sum(map(len, local.values()))} dependency pins in {len(local)} repositories",
         prefix=status_prefix,
     )
-    with ThreadPoolExecutor(
-        max_workers=max(1, min(max_workers, len(revisions)))
-    ) as pool:
+    with ThreadPoolExecutor(max_workers=max(1, min(max_workers, len(local)))) as pool:
         results = pool.map(
-            lambda key: _resolve_repository(
-                entries[key],
-                sorted(revisions[key]),
-                history=root / entries[key].full_name,
+            lambda repository: _resolve_repository(
+                entries[repository],
+                local[repository],
+                history=root / entries[repository].full_name,
                 status_prefix=status_prefix,
             ),
-            sorted(revisions),
+            sorted(local),
         )
-        return tuple(resolution for result in results for resolution in result)
+        return module_repositories, (
+            *external,
+            *(result for group in results for result in group),
+        )
+
+
+def _module_sources(
+    entries: Mapping[str, RepoEntry],
+    registries: Mapping[str, Mapping[str, RegistryModule]],
+) -> tuple[dict[str, Mapping[str, str]], dict[str, set[str]]]:
+    roots: dict[str, set[str]] = defaultdict(set)
+    modules_by_repository: dict[str, set[str]] = defaultdict(set)
+    for identity, entry in entries.items():
+        if module := entry.content.bazel_module_name:
+            roots[module].add(identity)
+            modules_by_repository[identity].add(module)
+
+    sources: dict[str, Mapping[str, str]] = {}
+    for owner, registry in registries.items():
+        registered = {
+            name: {repo.casefold() for repo in module.repositories}
+            for name, module in registry.items()
+        }
+        for name, repositories in registered.items():
+            for repository in repositories:
+                modules_by_repository[repository].add(name)
+        sources[owner] = {
+            name: entries[identity].full_name if identity in entries else identity
+            for name, identities in sorted((roots | registered).items())
+            if len(identities) == 1
+            for identity in identities
+        }
+    return sources, modules_by_repository
+
+
+def _plan_pins(
+    repos: Iterable[RepoEntry],
+    module_repositories: Mapping[str, Mapping[str, str]],
+    registries: Mapping[str, Mapping[str, RegistryModule]],
+    entries: Mapping[str, RepoEntry],
+    modules_by_repository: Mapping[str, set[str]],
+) -> dict[str, list[_Pin]]:
+    @cache
+    def read_source(module: RegistryModule, version: str) -> RegistryGitSource | None:
+        return module.git_source(version)
+
+    pins: dict[str, list[_Pin]] = defaultdict(list)
+    seen: set[tuple[str, str, DependencyPinKind, str, str]] = set()
+    for consumer in repos:
+        owner = consumer.owner.casefold()
+        registry = registries.get(owner, {})
+        module_sources = module_repositories.get(owner, {})
+        for declaration in (
+            *consumer.content.bazel_deps,
+            *consumer.volatile.release_bazel_deps,
+        ):
+            revision = declaration.pinned_revision
+            if revision is None:
+                continue
+            registry_module = registry.get(declaration.module)
+            source = (
+                read_source(registry_module, revision)
+                if registry_module is not None
+                and declaration.pin_kind is DependencyPinKind.VERSION
+                else None
+            )
+            repository = (
+                source.repository
+                if source
+                else dependency_repository(declaration, module_sources)
+            )
+            if repository is None:
+                continue
+            identity = repository.casefold()
+            key = owner, declaration.module, declaration.pin_kind, revision, identity
+            if key in seen:
+                continue
+            seen.add(key)
+
+            latest_version, latest_revision = _latest_module_release(
+                declaration,
+                registry_module,
+                identity,
+                entries,
+                modules_by_repository,
+                read_source,
+            )
+            revision_to_resolve = (declaration.pin_kind, revision)
+            if (
+                registry_module is not None
+                and declaration.pin_kind is DependencyPinKind.VERSION
+            ):
+                # Registry versions identify packages. Only source.json identifies
+                # the Git commits from which these packages were constructed.
+                revision_to_resolve = (source.kind, source.revision) if source else None
+            pins[identity].append(
+                _Pin(
+                    DependencyResolution(
+                        repository=entries[identity].full_name
+                        if identity in entries
+                        else repository,
+                        revision=revision,
+                        latest_release=latest_version,
+                        pin_kind=declaration.pin_kind,
+                        consumer_org=owner,
+                        module=declaration.module,
+                    ),
+                    revision_to_resolve,
+                    latest_revision,
+                )
+            )
+    return pins
+
+
+def _latest_module_release(
+    declaration: DependencyDeclaration,
+    registry_module: RegistryModule | None,
+    identity: str,
+    entries: Mapping[str, RepoEntry],
+    modules_by_repository: Mapping[str, set[str]],
+    read_source: Callable[[RegistryModule, str], RegistryGitSource | None],
+) -> tuple[str | None, tuple[DependencyPinKind, str] | None]:
+    if registry_module is not None:
+        version = registry_module.latest_version
+        source = read_source(registry_module, version) if version is not None else None
+        if source is not None and source.repository.casefold() == identity:
+            return version, (source.kind, source.revision)
+        known_sources = {repo.casefold() for repo in registry_module.repositories}
+        return (
+            version if source is None and known_sources == {identity} else None
+        ), None
+
+    entry = entries.get(identity)
+    if (
+        entry is not None
+        and entry.content.bazel_module_name == declaration.module
+        and modules_by_repository.get(identity) == {declaration.module}
+        and (tag := entry.volatile.latest_release_version)
+    ):
+        return tag, (DependencyPinKind.TAG, tag)
+    return None, None
 
 
 def _resolve_repository(
     entry: RepoEntry,
-    revisions: list[tuple[DependencyPinKind, str]],
+    pins: list[_Pin],
     *,
     history: Path,
     status_prefix: str,
 ) -> list[DependencyResolution]:
-    latest_release = entry.volatile.latest_release_version
     if entry.default_branch:
         try:
             sync_default_branch(
@@ -137,55 +266,48 @@ def _resolve_repository(
                 prefix=status_prefix,
             )
         else:
-            return _compare_revisions(entry, revisions, history)
-    return [
-        DependencyResolution(
-            entry.full_name, revision, latest_release=latest_release, pin_kind=kind
-        )
-        for kind, revision in revisions
-    ]
+            return _compare_revisions(entry, pins, history)
+    return [pin.resolution for pin in pins]
 
 
 def _compare_revisions(
-    entry: RepoEntry,
-    revisions: list[tuple[DependencyPinKind, str]],
-    history: Path,
+    entry: RepoEntry, pins: list[_Pin], history: Path
 ) -> list[DependencyResolution]:
     default_sha = (
         _commit(history, entry.default_branch_sha)
         if entry.default_branch_sha
         else _ref_commit(history, f"refs/remotes/origin/{entry.default_branch}")
     )
-    latest_release = entry.volatile.latest_release_version
-    latest_sha = (
-        _ref_commit(history, f"refs/tags/{latest_release}") if latest_release else None
-    )
-    resolutions: list[DependencyResolution] = []
-    for kind, revision in revisions:
-        sha = _resolve_revision(history, kind, revision)
-        ahead_of_default, behind_default = (
+
+    @cache
+    def resolve(kind: DependencyPinKind, revision: str) -> str | None:
+        return _resolve_revision(history, kind, revision)
+
+    results: list[DependencyResolution] = []
+    for pin in pins:
+        sha = resolve(*pin.revision) if pin.revision is not None else None
+        latest_sha = (
+            resolve(*pin.latest_revision) if pin.latest_revision is not None else None
+        )
+        ahead, behind = (
             _ahead_behind(history, sha, default_sha)
             if sha and default_sha
             else (None, None)
         )
-        behind_latest = (
-            _commits_missing_from_release(history, sha, latest_sha)
-            if sha and latest_sha
-            else None
-        )
-        resolutions.append(
-            DependencyResolution(
-                repository=entry.full_name,
-                revision=revision,
+        results.append(
+            replace(
+                pin.resolution,
                 resolved_sha=sha,
-                latest_release=latest_release,
-                behind_latest_release_by=behind_latest,
-                ahead_of_default_branch_by=ahead_of_default,
-                behind_default_branch_by=behind_default,
-                pin_kind=kind,
+                ahead_of_default_branch_by=ahead,
+                behind_default_branch_by=behind,
+                behind_latest_release_by=(
+                    _commits_missing_from_release(history, sha, latest_sha)
+                    if sha and latest_sha
+                    else None
+                ),
             )
         )
-    return resolutions
+    return results
 
 
 def _resolve_revision(

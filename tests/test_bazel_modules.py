@@ -44,7 +44,12 @@ archive_override(module_name = "vendored", urls = ["https://example.com/v.tgz"])
             pin_kind=DependencyPinKind.COMMIT,
         ),
         DependencyDeclaration("some_lib"),
-        DependencyDeclaration("vendored", "2.0.0", DependencyOverride.ARCHIVE),
+        DependencyDeclaration(
+            "vendored",
+            "2.0.0",
+            DependencyOverride.ARCHIVE,
+            override_source=(("urls", "['https://example.com/v.tgz']"),),
+        ),
     )
 
 
@@ -90,3 +95,27 @@ def test_read_module_files_follows_includes_within_the_repository() -> None:
         "root",
         "tooling",
     ]
+
+
+def test_single_version_override_resolves_constants_and_marks_computed_pins_unknown() -> (
+    None
+):
+    resolved, unchanged, unknown = parse_dependencies(
+        [
+            """
+PIN = "2.0.0"
+ALIAS = PIN
+bazel_dep(name = "resolved", version = "1.0.0")
+bazel_dep(name = "unknown", version = "1.0.0")
+bazel_dep(name = "unchanged", version = "1.0.0")
+single_version_override(module_name = "resolved", version = ALIAS)
+single_version_override(module_name = "unknown", version = versions["current"])
+single_version_override(module_name = "unchanged", patch_strip = 1)
+"""
+        ]
+    )
+
+    assert resolved.pinned_revision == "2.0.0"
+    assert unknown.pinned_revision is None
+    assert unknown.display_version == "unknown"
+    assert unchanged.pinned_revision == "1.0.0"

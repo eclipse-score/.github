@@ -77,19 +77,22 @@ with other repository tools such as `score-repo-policy-sync` and
 ## Dependency Resolution
 
 After all organizations are collected, the snapshot maps Bazel module names
-to GitHub repositories (`module_repositories`). Registry metadata names a
-module's source repository. A collected repository's root module name fills
-remaining gaps when the name identifies a single repository. A `git_override`
-uses its own remote.
+to GitHub repositories for each consuming organization
+(`module_repositories`). Each organization uses its configured registry.
+A collected repository's root module name fills remaining gaps when it
+identifies a single repository. A `git_override` uses its own remote.
 
 Each pinned revision of a collected dependency is then resolved once per
 collection into `dependency_resolutions`: the commit it names, how many
 commits of the dependency's latest release it lacks, and how far it is ahead
-of and behind the dependency's default branch. A registry version is displayed
-as declared and resolved through an unambiguous matching tag, optionally with
-a `v` prefix. Git overrides resolve according to whether they declare a
-commit, tag, or branch. Unknown pins and unavailable comparisons are marked
-on the detail page.
+of and behind the dependency's default branch. For a registered module, its
+version-specific `source.json` identifies the Git revision. Its latest
+non-yanked registry version supplies the release comparison for that module.
+For a module absent from the configured registry, an unambiguous matching
+tag can resolve a version. Git overrides resolve as a commit, tag, or branch.
+Release comparisons use a GitHub release tag only when the repository's
+release can be attributed to the module. Unknown pins and unavailable
+comparisons are marked on the detail page.
 
 The shared `repo_cache` upgrades a dependency's existing checkout to a blobless
 clone with full history when needed. Commit comparisons then run locally,
@@ -106,6 +109,6 @@ errors.
 
 ## Schema Changes
 
-Render commands can read snapshots using schemas 30 through 32.
-Collection rebuilds older snapshots because only schema 32 stores dependency
-overrides and comparisons.
+Render commands can read snapshots using schemas 30 through 33. Earlier
+snapshots show consumer data as unavailable. Collection rebuilds them to
+record organization-specific sources and release comparisons.

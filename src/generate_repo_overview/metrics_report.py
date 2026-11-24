@@ -78,7 +78,7 @@ def render_versions_section(
     repos: list[RepoEntry], *, snapshot: RepoSnapshot
 ) -> list[str]:
     """Render the Versions table with one column per tracked dep plus Bazel and Ref-Int."""
-    from .models import lookup_bazel_dep_version
+    from .models import lookup_bazel_dependency
 
     tracked_deps = snapshot.tracked_deps
     max_bazel_version = get_max_bazel_version(repos)
@@ -93,13 +93,20 @@ def render_versions_section(
         bazel_cell = render_bazel_version_status(
             entry.content.bazel_version, max_bazel_version
         )
-        dep_cells = " | ".join(
-            render_dep_version_status(
-                lookup_bazel_dep_version(entry.content.bazel_deps, dep.module_name),
-                latest_dep_versions.get(dep.module_name),
+        dependency_cells: list[str] = []
+        for dep in tracked_deps:
+            declaration = lookup_bazel_dependency(
+                entry.content.bazel_deps, dep.module_name
             )
-            for dep in tracked_deps
-        )
+            dependency_cells.append(
+                render_dep_version_status(
+                    declaration.display_version if declaration else None,
+                    latest_dep_versions.get(dep.module_name)
+                    if declaration and declaration.version_for_comparison
+                    else None,
+                )
+            )
+        dep_cells = " | ".join(dependency_cells)
         refint = render_bool(entry.content.referenced_by_reference_integration)
         parts = f"| {render_repository_link(entry, org_name)} | {bazel_cell} |"
         if dep_cells:

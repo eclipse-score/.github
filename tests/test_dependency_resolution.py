@@ -1,16 +1,20 @@
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
 import generate_repo_overview.collector.dependency_resolution as dependency_resolution
+from generate_repo_overview.metrics_html import render_all_pages
 from generate_repo_overview.models import (
+    SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
     DependencyDeclaration,
     DependencyOverride,
     DependencyPinKind,
     DependencyResolution,
     RepoEntry,
+    RepoSnapshot,
     VolatileMetricsSnapshot,
 )
 from generate_repo_overview.org_config import OrgConfig
@@ -133,9 +137,9 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
         ),
     )
 
-    resolutions = dependency_resolution.resolve_dependencies(
+    _, resolutions = dependency_resolution.collect_dependencies(
         (dependency, consumer, git_pinned),
-        {"score_baselibs": "eclipse-score/baselibs"},
+        (OrgConfig(org_name="eclipse-score"),),
         cache_directory=tmp_path / "cache",
     )
 
@@ -159,6 +163,8 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
             behind_latest_release_by=0,
             ahead_of_default_branch_by=0,
             behind_default_branch_by=1,
+            consumer_org="eclipse-score",
+            module="score_baselibs",
         ),
         # The annotated tag resolves to its commit.
         "1.0.0": DependencyResolution(
@@ -169,20 +175,27 @@ def test_resolve_dependencies_compares_pins_with_release_and_default_branch(
             behind_latest_release_by=2,
             ahead_of_default_branch_by=0,
             behind_default_branch_by=3,
+            consumer_org="eclipse-score",
+            module="score_baselibs",
         ),
         # Diverged history must not look up to date.
         baselibs["experiment"]: DependencyResolution(
             "eclipse-score/baselibs",
             baselibs["experiment"],
             resolved_sha=baselibs["experiment"],
-            latest_release="v1.1.0",
             ahead_of_default_branch_by=1,
             behind_default_branch_by=3,
             pin_kind=DependencyPinKind.COMMIT,
+            consumer_org="eclipse-score",
+            module="score_baselibs_fork",
         ),
         # A branch of the same name does not resolve a Bazel module version.
         "9.9.9": DependencyResolution(
-            "eclipse-score/baselibs", "9.9.9", latest_release="v1.1.0"
+            "eclipse-score/baselibs",
+            "9.9.9",
+            latest_release="v1.1.0",
+            consumer_org="eclipse-score",
+            module="score_baselibs",
         ),
     }
 
@@ -205,40 +218,164 @@ def test_resolve_dependencies_skips_repositories_outside_the_collection(
         ),
     )
 
-    assert (
-        dependency_resolution.resolve_dependencies(
-            (consumer,), {"score_external": "other-org/external"}
-        )
-        == ()
-    )
+    assert dependency_resolution.collect_dependencies(
+        (consumer,), (OrgConfig(org_name="eclipse-score"),)
+    ) == ({"eclipse-score": {}}, ())
 
 
-def test_module_sources_use_full_identities_and_leave_conflicts_unmapped(
-    monkeypatch: pytest.MonkeyPatch,
+def _write_registry_module(
+    root: Path, repository: str, versions: dict[str, dict[str, str]]
 ) -> None:
-    repos = tuple(
+    module = root / "modules/score_python_basics"
+    module.mkdir(parents=True)
+    (module / "metadata.json").write_text(
+        json.dumps(
+            {
+                "repository": [f"github:{repository}"],
+                "versions": list(versions),
+                "yanked_versions": {"9.9.9": "broken"},
+            }
+        )
+    )
+    for version, source in versions.items():
+        version_directory = module / version
+        version_directory.mkdir()
+        (version_directory / "source.json").write_text(json.dumps(source))
+
+
+def test_registry_versions_and_consumers_use_their_organizations_registry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, baselibs: dict[str, str]
+) -> None:
+    # Both registries publish the same module/version name from different repos.
+    # The root module and the repository-wide release belong to a different module.
+    cache = tmp_path / "cache"
+    first_source = "first-org/tooling"
+    second_source = "second-org/tooling"
+    _write_registry_module(
+        cache / "first-org/registry",
+        first_source,
+        {
+            "0.3.3": {"url": "https://example.com/opaque-release-0.3.3.tar.gz"},
+            "0.3.4": {
+                "url": f"https://github.com/{first_source}/archive/refs/tags/v1.0.0.tar.gz"
+            },
+            "9.9.9": {
+                "url": f"https://github.com/{first_source}/archive/refs/tags/v1.1.0.tar.gz"
+            },
+            "0.3.5": {
+                "type": "git_repository",
+                "remote": f"https://github.com/{first_source}",
+                "tag": "v1.1.0",
+            },
+        },
+    )
+    _write_registry_module(
+        cache / "second-org/registry",
+        second_source,
+        {
+            "0.3.4": {
+                "url": f"https://github.com/{second_source}/archive/{baselibs['v1.1.0']}.zip"
+            },
+        },
+    )
+    git(tmp_path / "baselibs", "tag", "v0.3.4", baselibs["main"])
+    git(tmp_path / "baselibs", "tag", "v0.3.3", baselibs["main"])
+    git(tmp_path / "baselibs", "tag", "unrelated-release", baselibs["main"])
+
+    def clone_history(
+        *, repository: str, branch: str, destination: Path, history: bool
+    ) -> None:
+        assert history
+        assert repository in {first_source, second_source}
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        git(
+            tmp_path,
+            "clone",
+            "-q",
+            "--branch",
+            branch,
+            str(tmp_path / "baselibs"),
+            str(destination),
+        )
+
+    monkeypatch.setattr(dependency_resolution, "sync_default_branch", clone_history)
+    dependency = DependencyDeclaration("score_python_basics", "0.3.4")
+    opaque_archive = DependencyDeclaration("score_python_basics", "0.3.3")
+    consumer_orgs = ("first-org", "second-org", "disabled-org")
+    consumers = tuple(
         RepoEntry(
-            "shared",
+            f"{owner}-consumer",
             "",
             "Platform",
             "General",
             owner=owner,
-            content=DeepContentSignals(bazel_module_name="shared_module"),
+            content=DeepContentSignals(bazel_deps=(dependency,)),
+            volatile=VolatileMetricsSnapshot(release_bazel_deps=(opaque_archive,))
+            if owner == "first-org"
+            else VolatileMetricsSnapshot(),
         )
-        for owner in ("first-org", "second-org")
+        for owner in consumer_orgs
     )
-    monkeypatch.setattr(
-        dependency_resolution,
-        "get_bazel_registry_module_sources",
-        lambda _: {
-            "second_module": ("Second-Org/SHARED",),
-            "external_module": ("external-org/external",),
-        },
+    sources = tuple(
+        RepoEntry(
+            "tooling",
+            "",
+            "Platform",
+            "General",
+            owner=owner,
+            default_branch="main",
+            content=DeepContentSignals(bazel_module_name="tooling"),
+            volatile=VolatileMetricsSnapshot(
+                latest_release_version="unrelated-release"
+            ),
+        )
+        for owner in consumer_orgs[:2]
     )
-    mapping = dependency_resolution.map_module_repositories(
-        repos, (OrgConfig(org_name="first-org", registry_repo="first-org/registry"),)
+    configs = tuple(
+        OrgConfig(
+            org_name=owner,
+            registry_repo=f"{owner}/registry" if owner != "disabled-org" else "",
+        )
+        for owner in consumer_orgs
     )
-    assert mapping == {
-        "second_module": "second-org/shared",
-        "external_module": "external-org/external",
-    }
+    repos = (*sources, *consumers)
+    mapping, resolutions = dependency_resolution.collect_dependencies(
+        repos, configs, cache_directory=cache
+    )
+    snapshot = RepoSnapshot.from_dict(
+        RepoSnapshot(
+            SNAPSHOT_SCHEMA_VERSION,
+            "first-org",
+            "2026-11-20T00:00:00+00:00",
+            repos,
+            additional_org_names=consumer_orgs[1:],
+            module_repositories=mapping,
+            dependency_resolutions=resolutions,
+        ).to_dict()
+    )
+
+    first = snapshot.dependency_resolution(consumers[0], dependency)
+    assert first is not None
+    assert first.repository == first_source
+    assert first.resolved_sha == baselibs["v1.0.0"]
+    assert first.latest_release == "0.3.5"
+    assert first.behind_latest_release_by == 2
+    assert first.behind_default_branch_by == 3
+    opaque = snapshot.dependency_resolution(consumers[0], opaque_archive)
+    assert opaque is not None
+    assert opaque.resolved_sha is None
+    assert opaque.behind_default_branch_by is None
+    second = snapshot.dependency_resolution(consumers[1], dependency)
+    assert second is not None
+    assert second.repository == second_source
+    assert second.resolved_sha == baselibs["v1.1.0"]
+    assert second.latest_release == "0.3.4"
+    assert second.behind_latest_release_by == 0
+    assert snapshot.dependency_repository(consumers[2], dependency) is None
+    pages = render_all_pages(snapshot)
+    first_page = pages["tooling/index.html"]
+    assert "first-org/first-org-consumer</a>" in first_page
+    assert "second-org/second-org-consumer</a>" not in first_page
+    second_page = pages["@orgs/second-org/tooling/index.html"]
+    assert "second-org/second-org-consumer</a>" in second_page
+    assert "first-org/first-org-consumer</a>" not in second_page
