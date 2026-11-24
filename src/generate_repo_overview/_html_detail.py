@@ -19,7 +19,6 @@ from .metrics_report import tracked_dep_label
 from .models import (
     DEFAULT_CATEGORY,
     DEFAULT_SUBCATEGORY,
-    LockfileStatus,
 )
 
 if TYPE_CHECKING:
@@ -48,7 +47,6 @@ def render_detail_page(
         + render_used_by_section(entry, snapshot, site_root)
         + _render_tooling_section(entry)
         + _render_workflows_section(entry, snapshot)
-        + _render_lockfile_error_section(entry)
         + _render_ownership_section(entry)
         + _render_versions_section(entry, snapshot, max_bazel)
         + _render_footer(snapshot, site_root)
@@ -209,29 +207,6 @@ def _render_workflows_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
         '<section class="detail-section"><div class="section-header">'
         '<span class="section-title">Workflows</span></div>'
         f'<div class="detail-body"><table>{rows}</table></div></section>\n'
-    )
-
-
-def _render_lockfile_error_section(entry: RepoEntry) -> str:
-    c = entry.content
-    if c.bazel_lockfile_status == LockfileStatus.MISSING:
-        body = (
-            "<p>No <code>MODULE.bazel.lock</code> file found. "
-            "Run <code>bazel mod deps</code> to generate it.</p>"
-        )
-    elif c.bazel_lockfile_status == LockfileStatus.TIMEOUT:
-        body = "<p>Bazel lockfile check timed out.</p>"
-    elif c.bazel_lockfile_error_output:
-        body = f'<pre class="lockfile-error">{e(c.bazel_lockfile_error_output)}</pre>'
-    else:
-        return ""
-    return (
-        '<section class="detail-section" id="lockfile-error">\n'
-        '  <div class="section-header">'
-        '<span class="section-title">Bazel Lockfile</span>'
-        "</div>\n"
-        f'  <div class="detail-body">{body}</div>\n'
-        "</section>\n\n"
     )
 
 

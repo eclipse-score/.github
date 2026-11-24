@@ -7,17 +7,6 @@ from enum import StrEnum
 from typing import Any, cast
 from urllib.parse import urlsplit
 
-
-class LockfileStatus(StrEnum):
-    OK = "ok"
-    MISSING = "missing"
-    ERROR = "error"
-    TIMEOUT = "timeout"
-    # The organization does not run repository tools, so nothing was checked.
-    SKIPPED = "skipped"
-    UNKNOWN = "unknown"
-
-
 DEFAULT_CATEGORY = "Uncategorized"
 DEFAULT_SUBCATEGORY = "General"
 SNAPSHOT_SCHEMA_VERSION = 36
@@ -305,8 +294,7 @@ class DeepContentSignals:
     has_coverage_config: bool = False
     top_languages: tuple[str, ...] = ()
     bazel_deps: tuple[DependencyDeclaration, ...] = ()
-    bazel_lockfile_status: LockfileStatus = LockfileStatus.UNKNOWN
-    bazel_lockfile_error_output: str | None = None
+    has_bazel_lockfile: bool = False
     sphinx_features: tuple[SphinxItem, ...] = ()
     sphinx_modules: tuple[SphinxItem, ...] = ()
     docs_feature_paths: tuple[str, ...] = ()
@@ -372,12 +360,7 @@ class DeepContentSignals:
             has_coverage_config=bool(data.get("has_coverage_config", False)),
             top_languages=normalize_string_tuple(data.get("top_languages")),
             bazel_deps=_parse_dependencies(data.get("bazel_deps")),
-            bazel_lockfile_status=_parse_lockfile_status(
-                data.get("bazel_lockfile_status")
-            ),
-            bazel_lockfile_error_output=cast(
-                "str | None", data.get("bazel_lockfile_error_output")
-            ),
+            has_bazel_lockfile=_parse_has_bazel_lockfile(data),
             sphinx_features=_parse_sphinx_items(data.get("sphinx_features")),
             sphinx_modules=_parse_sphinx_items(data.get("sphinx_modules")),
             docs_feature_paths=normalize_string_tuple(data.get("docs_feature_paths")),
@@ -788,13 +771,12 @@ class RepoSnapshot:
 CustomPropertyValue = str | list[str] | None
 
 
-def _parse_lockfile_status(value: object) -> LockfileStatus:
-    if isinstance(value, str):
-        try:
-            return LockfileStatus(value)
-        except ValueError:
-            pass
-    return LockfileStatus.UNKNOWN
+def _parse_has_bazel_lockfile(data: Mapping[str, object]) -> bool:
+    if "has_bazel_lockfile" in data:
+        return bool(data["has_bazel_lockfile"])
+    # Snapshots before schema 36 recorded a Bazel lockfile check; every status
+    # except these two implies that the lockfile exists.
+    return data.get("bazel_lockfile_status", "unknown") not in ("missing", "unknown")
 
 
 def normalize_string_pairs(value: object) -> tuple[tuple[str, str], ...]:

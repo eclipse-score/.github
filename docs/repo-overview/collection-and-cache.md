@@ -37,29 +37,13 @@ Use `collect --clean` to delete the snapshot before collection and force a full
 content refresh. Existing Git checkouts are retained and updated rather than
 cloned again.
 
-## Bazel Lockfile Checks
+## Bazel Lockfile
 
-A changed repository with `MODULE.bazel` and `MODULE.bazel.lock` is checked
-with `bazel mod deps --lockfile_mode=error`. The result is a content signal, so
-an unchanged repository is not checked again. The exception is a check that
-timed out or could not start Bazel: it is repeated on every collection until
-it produces a result.
-
-Bazel executes code from the repository and inherits the collector's
-environment, including the GitHub token. The check therefore runs only for
-organizations with `run_repository_tools` enabled. Other repositories report
-`skipped`, or `missing` when they have no `MODULE.bazel.lock`, which is
-determined without Bazel.
-
-Repositories are collected in parallel, but only one lockfile check runs at a
-time. Bazel already uses all cores, and concurrent checks would overload small
-CI runners. Each checkout has its own Bazel server. The collector shuts it down
-after the check. A short idle limit stops servers whose shutdown did not
-succeed.
-
-A check times out after 120 seconds. Set
-`REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS` to change this, for example on
-runners that start with a cold Bazel cache.
+The Lockfile column shows whether a repository with `MODULE.bazel` commits
+`MODULE.bazel.lock`. It is read from the checkout like the other content
+signals. Whether the lockfile is up to date is not checked: that needs
+`bazel mod deps`, which takes minutes per repository on CI runners with a cold
+Bazel cache.
 
 ## Transport Split
 

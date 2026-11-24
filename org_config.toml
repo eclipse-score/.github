@@ -14,11 +14,10 @@
 [organizations.eclipse-score]
 
 # Required. Allows collection to start tools such as Bazel inside repository
-# checkouts, currently for the Bazel lockfile check. These tools execute code
-# from the repository with the collector's environment, so that code could
-# read and leak the GitHub token. Set it to true only for organizations whose
-# default branches are trusted with that token; otherwise the lockfile status
-# is shown as skipped, or as missing when there is no lockfile.
+# checkouts. These tools execute code from the repository with the collector's
+# environment, so that code could read and leak the GitHub token. Set it to
+# true only for organizations whose default branches are trusted with that
+# token. Collection currently starts no such tools.
 run_repository_tools = true
 
 # Optional fnmatch glob patterns to limit which repositories are included.

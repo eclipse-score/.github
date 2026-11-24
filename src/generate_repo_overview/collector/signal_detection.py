@@ -1,17 +1,10 @@
 from __future__ import annotations
 
 import fnmatch
-import os
 import re
-import subprocess
-import threading
-from time import monotonic
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 import yaml
-
-from generate_repo_overview.console import print_status
-from generate_repo_overview.models import LockfileStatus, SphinxItem
 
 from .bazel_modules import get_bazel_module_name, parse_dependencies, read_module_files
 from .git_checkout import list_repository_paths, read_repository_text
@@ -21,7 +14,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from generate_repo_overview.models import DependencyDeclaration, WorkflowSignal
+    from generate_repo_overview.models import (
+        DependencyDeclaration,
+        SphinxItem,
+        WorkflowSignal,
+    )
 
 
 class DeepContentPayload(TypedDict):
@@ -42,8 +39,7 @@ class DeepContentPayload(TypedDict):
     has_coverage_config: bool
     top_languages: tuple[str, ...]
     bazel_deps: tuple[DependencyDeclaration, ...]
-    bazel_lockfile_status: LockfileStatus
-    bazel_lockfile_error_output: str | None
+    has_bazel_lockfile: bool
     docs_feature_paths: tuple[str, ...]
     repo_sphinx_features: tuple[SphinxItem, ...]
     repo_sphinx_modules: tuple[SphinxItem, ...]
@@ -60,6 +56,7 @@ DEPENDABOT_CONFIG_PATHS = {".github/dependabot.yml", ".github/dependabot.yaml"}
 COVERAGE_PATHS = ("coverage.yml", "coverage.xml", "pytest.ini", ".coveragerc")
 BAZEL_VERSION_PATHS = (".bazelversion",)
 MODULE_PATHS = ("MODULE.bazel",)
+MODULE_LOCKFILE_PATH = "MODULE.bazel.lock"
 BAZEL_REPO_MARKER_PATHS = (
     BAZEL_VERSION_PATHS
     + MODULE_PATHS
@@ -79,109 +76,6 @@ SINGLE_FEATURE_DOC_SECTIONS = (
 SPHINX_CONFIG_PATHS = ("docs/conf.py", "docs/sphinx/conf.py")
 WORKFLOW_PATH_PREFIX = ".github/workflows/"
 WORKFLOW_FILE_SUFFIXES = (".yml", ".yaml")
-
-
-DEFAULT_BAZEL_LOCKFILE_TIMEOUT_SECONDS = 120.0
-BAZEL_LOCKFILE_TIMEOUT_ENV = "REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS"
-# Larger values overflow the subprocess timeout and are no meaningful limit.
-_MAX_BAZEL_LOCKFILE_TIMEOUT_SECONDS = 24 * 60 * 60
-BAZEL_SHUTDOWN_TIMEOUT_SECONDS = 30
-# Every checkout gets its own Bazel server, which outlives its command. The
-# idle limit stops a server whose explicit shutdown did not succeed. Shutdown
-# must use the same startup options, or Bazel would first restart the server.
-_BAZEL_COMMAND = ("bazel", "--max_idle_secs=30")
-# Repositories are collected in parallel, but Bazel already uses all cores.
-# Concurrent checks overload small CI runners and time each other out.
-_BAZEL_LOCKFILE_CHECK_LOCK = threading.Lock()
-
-
-def detect_bazel_lockfile_ok(
-    checkout_path: Path, *, run_bazel: bool = True
-) -> tuple[LockfileStatus, str | None]:
-    """Run `bazel mod deps --lockfile_mode=error` in the checkout.
-
-    Only one check runs at a time, and its Bazel server is stopped afterwards.
-
-    Returns (status, error_output):
-      (OK,      None)    — lockfile exists and is up to date
-      (ERROR,   stderr)  — lockfile check failed
-      (MISSING, None)    — MODULE.bazel.lock does not exist
-      (TIMEOUT, None)    — bazel timed out
-      (SKIPPED, None)    — lockfile exists, but Bazel must not run
-      (UNKNOWN, None)    — bazel unavailable or MODULE.bazel missing
-    """
-    if not (checkout_path / "MODULE.bazel").exists():
-        return LockfileStatus.UNKNOWN, None
-    if not (checkout_path / "MODULE.bazel.lock").exists():
-        return LockfileStatus.MISSING, None
-    if not run_bazel:
-        return LockfileStatus.SKIPPED, None
-    with _BAZEL_LOCKFILE_CHECK_LOCK:
-        try:
-            return _run_bazel_lockfile_check(checkout_path)
-        finally:
-            _shutdown_bazel_server(checkout_path)
-
-
-def resolve_bazel_lockfile_timeout_seconds() -> float:
-    """Read the timeout of one lockfile check; invalid values use the default."""
-    raw_value = os.getenv(BAZEL_LOCKFILE_TIMEOUT_ENV, "").strip()
-    try:
-        timeout = float(raw_value)
-    except ValueError:
-        return DEFAULT_BAZEL_LOCKFILE_TIMEOUT_SECONDS
-    # Also rejects NaN, which fails every comparison.
-    if not 0 < timeout <= _MAX_BAZEL_LOCKFILE_TIMEOUT_SECONDS:
-        return DEFAULT_BAZEL_LOCKFILE_TIMEOUT_SECONDS
-    return timeout
-
-
-def _run_bazel_lockfile_check(
-    checkout_path: Path,
-) -> tuple[LockfileStatus, str | None]:
-    started = monotonic()
-    timeout = resolve_bazel_lockfile_timeout_seconds()
-    print_status(
-        f"{checkout_path}: starting Bazel lockfile check (timeout {timeout:g}s)"
-    )
-    try:
-        result = subprocess.run(
-            [*_BAZEL_COMMAND, "mod", "deps", "--lockfile_mode=error"],
-            cwd=checkout_path,
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=timeout,
-        )
-    except OSError as exc:
-        print_status(f"{checkout_path}: Bazel lockfile check could not start: {exc}")
-        return LockfileStatus.UNKNOWN, None
-    except subprocess.TimeoutExpired:
-        print_status(
-            f"{checkout_path}: Bazel lockfile check timed out after {monotonic() - started:.1f}s"
-        )
-        return LockfileStatus.TIMEOUT, None
-    print_status(
-        f"{checkout_path}: Bazel lockfile check exited {result.returncode} after {monotonic() - started:.1f}s"
-    )
-    if result.returncode != 0:
-        return LockfileStatus.ERROR, result.stderr.strip() or None
-    return LockfileStatus.OK, None
-
-
-def _shutdown_bazel_server(checkout_path: Path) -> None:
-    try:
-        subprocess.run(
-            [*_BAZEL_COMMAND, "shutdown"],
-            cwd=checkout_path,
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=BAZEL_SHUTDOWN_TIMEOUT_SECONDS,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        print_status(f"{checkout_path}: Bazel server shutdown failed: {exc}")
 
 
 def inspect_repository_content_slow(
@@ -276,8 +170,7 @@ def _inspect_repository_content(
             tree_contains_path(tree_paths, path) for path in COVERAGE_PATHS
         ),
         "top_languages": top_languages,
-        "bazel_lockfile_status": LockfileStatus.UNKNOWN,
-        "bazel_lockfile_error_output": None,
+        "has_bazel_lockfile": tree_contains_path(tree_paths, MODULE_LOCKFILE_PATH),
         "docs_feature_paths": docs_feature_paths,
         "repo_sphinx_features": repo_sphinx_features,
         "repo_sphinx_modules": repo_sphinx_modules,
@@ -305,8 +198,7 @@ def default_content_signals() -> DeepContentPayload:
         "workflow_refs": (),
         "has_coverage_config": False,
         "top_languages": (),
-        "bazel_lockfile_status": LockfileStatus.UNKNOWN,
-        "bazel_lockfile_error_output": None,
+        "has_bazel_lockfile": False,
         "docs_feature_paths": (),
         "repo_sphinx_features": (),
         "repo_sphinx_modules": (),

@@ -13,7 +13,6 @@ from generate_repo_overview.models import (
     CustomPropertyValue,
     DeepContentSignals,
     GroupingLevel,
-    LockfileStatus,
     RegistrySignals,
     RepoEntry,
     VolatileMetricsSnapshot,
@@ -33,7 +32,6 @@ from .git_checkout import (
 from .signal_detection import (
     DeepContentPayload,
     detect_bazel_dependencies,
-    detect_bazel_lockfile_ok,
     detect_bazel_version,
     detect_top_languages,
     fetch_repository_tree_paths,
@@ -118,7 +116,6 @@ def collect_repository_entry(
     referenced_by_reference_integration: bool = False,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
     github_token: str | None = None,
-    run_repository_tools: bool = True,
 ) -> RepoEntry:
     default_branch = cast("str | None", getattr(repository, "default_branch", None))
     print_status(f"{repository_name}: syncing default-branch checkout")
@@ -128,43 +125,6 @@ def collect_repository_entry(
         default_branch=default_branch,
         github_token=github_token,
     )
-    if cached_entry is not None and _cached_lockfile_status_is_outdated(
-        cached_entry, run_repository_tools=run_repository_tools
-    ):
-        cached_entry = None
-    if (
-        cached_entry is not None
-        and cached_entry.content.bazel_lockfile_status
-        in (
-            (LockfileStatus.TIMEOUT, LockfileStatus.UNKNOWN)
-            if run_repository_tools
-            else (LockfileStatus.SKIPPED,)
-        )
-        and cached_entry_matches_default_branch(
-            cached_entry,
-            default_branch=default_branch,
-            default_branch_sha=default_branch_sha,
-        )
-    ):
-        # A timeout, or Bazel failing to start, says nothing about the
-        # lockfile, so it is not a result to keep. An error is: it stays the
-        # same while the repository does.
-        # Without repository tools, the cheap check for a missing lockfile
-        # also covers snapshots that recorded every such repository as skipped.
-        lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
-            repository=repository,
-            default_branch=default_branch,
-            checkout_path=checkout_path,
-            run_repository_tools=run_repository_tools,
-        )
-        cached_entry = replace(
-            cached_entry,
-            content=replace(
-                cached_entry.content,
-                bazel_lockfile_status=lockfile_status,
-                bazel_lockfile_error_output=lockfile_error,
-            ),
-        )
     fast_entry = maybe_collect_repository_entry_fast_path(
         repository_name=repository_name,
         repository=repository,
@@ -192,7 +152,6 @@ def collect_repository_entry(
         cached_entry=cached_entry,
         workflow_signals=workflow_signals,
         github_token=github_token,
-        run_repository_tools=run_repository_tools,
         checkout_path=checkout_path,
         default_branch=default_branch,
         default_branch_sha=default_branch_sha,
@@ -303,7 +262,6 @@ def collect_repository_entry_slow_path(
     cached_entry: RepoEntry | None,
     workflow_signals: tuple[WorkflowSignal, ...] = (),
     github_token: str | None = None,
-    run_repository_tools: bool = True,
     checkout_path: Path | None = None,
     default_branch: str | None = None,
     default_branch_sha: str | None = None,
@@ -335,18 +293,6 @@ def collect_repository_entry_slow_path(
             )
     else:
         content_signals = cached_content_signals
-    if content_signals["has_bazel_module"] and (
-        cached_content_signals is None
-        or content_signals["bazel_lockfile_status"] == LockfileStatus.UNKNOWN
-    ):
-        lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
-            repository=repository,
-            default_branch=default_branch,
-            checkout_path=checkout_path,
-            run_repository_tools=run_repository_tools,
-        )
-        content_signals["bazel_lockfile_status"] = lockfile_status
-        content_signals["bazel_lockfile_error_output"] = lockfile_error
     content_signals["referenced_by_reference_integration"] = (
         referenced_by_reference_integration
     )
@@ -421,53 +367,6 @@ def _sync_content_checkout(
             f"Could not resolve default-branch SHA for repository {repository_name}."
         )
     return (synced, default_branch_sha)
-
-
-def _cached_lockfile_status_is_outdated(
-    cached_entry: RepoEntry, *, run_repository_tools: bool
-) -> bool:
-    """Tell whether the cached status predates a changed `run_repository_tools`.
-
-    An unchanged repository otherwise keeps its cached status, so the setting
-    would only take effect with the repository's next commit.
-    """
-    content = cached_entry.content
-    if not content.has_bazel_module:
-        return False
-    status = content.bazel_lockfile_status
-    if run_repository_tools:
-        return status == LockfileStatus.SKIPPED
-    # A missing lockfile is found without running Bazel.
-    return status not in (LockfileStatus.SKIPPED, LockfileStatus.MISSING)
-
-
-def _detect_lockfile_ok_for_repo(
-    *,
-    repository: Any,
-    default_branch: str | None,
-    checkout_path: Path | None = None,
-    run_repository_tools: bool = True,
-) -> tuple[LockfileStatus, str | None]:
-    if checkout_path is not None:
-        # Bazel executes code from the repository, which could read and leak
-        # the GitHub token from the collector's environment.
-        return detect_bazel_lockfile_ok(checkout_path, run_bazel=run_repository_tools)
-    if not run_repository_tools:
-        return LockfileStatus.SKIPPED, None
-    if default_branch is None:
-        return LockfileStatus.UNKNOWN, None
-    repository_identity = cast("str | None", getattr(repository, "full_name", None))
-    if repository_identity is None:
-        return LockfileStatus.UNKNOWN, None
-    checkout_path = DEFAULT_REPOSITORY_CHECKOUTS / repository_identity
-    synced = sync_repository_checkout(
-        repository=repository_identity,
-        default_branch=default_branch,
-        checkout_path=checkout_path,
-    )
-    if synced is None:
-        return LockfileStatus.UNKNOWN, None
-    return detect_bazel_lockfile_ok(synced)
 
 
 def collect_volatile_metrics(
@@ -584,8 +483,7 @@ def cached_signals_for_repository(
         "has_coverage_config": cached_entry.content.has_coverage_config,
         "top_languages": cached_entry.content.top_languages,
         "bazel_deps": cached_entry.content.bazel_deps,
-        "bazel_lockfile_status": cached_entry.content.bazel_lockfile_status,
-        "bazel_lockfile_error_output": cached_entry.content.bazel_lockfile_error_output,
+        "has_bazel_lockfile": cached_entry.content.has_bazel_lockfile,
         "docs_feature_paths": cached_entry.content.docs_feature_paths,
         "repo_sphinx_features": cached_entry.content.repo_sphinx_features,
         "repo_sphinx_modules": cached_entry.content.repo_sphinx_modules,
@@ -702,12 +600,7 @@ def build_repo_entry(
             has_coverage_config=content_signals["has_coverage_config"],
             top_languages=content_signals.get("top_languages", ()),
             bazel_deps=content_signals.get("bazel_deps", ()),
-            bazel_lockfile_status=content_signals.get(
-                "bazel_lockfile_status", LockfileStatus.UNKNOWN
-            ),
-            bazel_lockfile_error_output=content_signals.get(
-                "bazel_lockfile_error_output"
-            ),
+            has_bazel_lockfile=content_signals["has_bazel_lockfile"],
             docs_feature_paths=content_signals["docs_feature_paths"],
             repo_sphinx_features=content_signals["repo_sphinx_features"],
             repo_sphinx_modules=content_signals["repo_sphinx_modules"],

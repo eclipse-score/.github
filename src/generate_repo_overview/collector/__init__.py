@@ -523,7 +523,6 @@ def fetch_repositories(
                 ),
                 workflow_signals=config.workflow_signals,
                 github_token=github_token,
-                run_repository_tools=config.run_repository_tools,
             )
             future = executor.submit(
                 _collect_entry_with_reference_refs,

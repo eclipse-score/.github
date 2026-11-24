@@ -82,6 +82,7 @@ class OrgConfig:
     # Bazel module extensions. They inherit the collector's environment, so
     # that code can read the GitHub token and leak it. Enable this only for
     # organizations whose default branches are trusted with that token.
+    # Collection currently starts no such tools.
     run_repository_tools: bool = False
 
     def repo_matches_filter(self, repo_name: str) -> bool:

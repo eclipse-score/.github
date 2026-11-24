@@ -25,7 +25,6 @@ from .metrics_report import (
     tracked_dep_label,
 )
 from .models import (
-    LockfileStatus,
     is_tracked_dep_repo,
     lookup_bazel_dependency,
 )
@@ -871,7 +870,7 @@ def _render_automation_sections(
             f'      <th data-sort="name">Repository <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="lang">Language <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="bazel" class="text-center" title="Whether this repository uses Bazel as its build system.">Bazel <span class="sort-arrow"></span></th>\n'
-            f'      <th data-sort="lockfile" class="text-center" title="Whether `bazel mod deps --lockfile_mode=error` passes — the Bazel lockfile is up to date.">Lockfile <span class="sort-arrow"></span></th>\n'
+            f'      <th data-sort="lockfile" class="text-center" title="Whether this Bazel module commits its MODULE.bazel.lock. Whether the lockfile is up to date is not checked.">Lockfile <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="gitlint" class="text-center" title="Whether this repository enforces commit message formatting rules (gitlint).">Gitlint <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="pyproject" class="text-center" title="Whether this repository has a pyproject.toml — the standard configuration file for Python projects.">Pyproject <span class="sort-arrow"></span></th>\n'
             f'      <th data-sort="precommit" class="text-center" title="Whether this repository runs automated checks (formatting, linting, etc.) before each commit is accepted.">Pre-commit <span class="sort-arrow"></span></th>\n'
@@ -885,44 +884,18 @@ def _render_automation_sections(
     return "".join(parts)
 
 
-def _lockfile_cell(entry: RepoEntry, org_name: str) -> tuple[str, str]:
-    status = entry.content.bazel_lockfile_status
-    has_error = bool(entry.content.bazel_lockfile_error_output)
-    url = f"{e(entry.detail_path(org_name))}#lockfile-error"
-
-    if status == LockfileStatus.OK:
+def _lockfile_cell(entry: RepoEntry) -> tuple[str, str]:
+    if not entry.content.has_bazel_module:
+        return '<span class="text-muted">—</span>', "Not a Bazel module repository."
+    if entry.content.has_bazel_lockfile:
         return (
-            '<span class="badge green">ok</span>',
-            "The Bazel lockfile is up to date.",
+            '<span class="badge green">yes</span>',
+            "MODULE.bazel.lock is committed.",
         )
-    if status == LockfileStatus.MISSING:
-        cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">missing</a></span>'
-        return cell, "MODULE.bazel.lock does not exist — click for details."
-    if status == LockfileStatus.ERROR:
-        link_text = (
-            f'<a href="{url}" class="lockfile-error-link">error</a>'
-            if has_error
-            else "error"
-        )
-        return (
-            f'<span class="badge red">{link_text}</span>',
-            "The Bazel lockfile is out of date — click to see the error.",
-        )
-    if status == LockfileStatus.TIMEOUT:
-        cell = f'<span class="badge yellow"><a href="{url}" class="lockfile-error-link">timeout</a></span>'
-        return cell, "Bazel lockfile check timed out — click for details."
-    if status == LockfileStatus.SKIPPED:
-        return (
-            '<span class="text-muted">skipped</span>',
-            "Repository tools are disabled for this organization, "
-            "so Bazel did not check the lockfile.",
-        )
-    if entry.content.has_bazel_module:
-        return (
-            '<span class="text-muted">n/a</span>',
-            "Lockfile status not yet collected.",
-        )
-    return '<span class="text-muted">—</span>', "Not a Bazel module repository."
+    return (
+        '<span class="badge yellow">missing</span>',
+        "MODULE.bazel.lock does not exist. Run bazel mod deps to generate it.",
+    )
 
 
 def _automation_row(entry: RepoEntry, org_name: str) -> str:
@@ -940,7 +913,7 @@ def _automation_row(entry: RepoEntry, org_name: str) -> str:
             return '<span class="badge green">yes</span>'
         return '<span class="text-muted">no</span>'
 
-    lockfile_cell, lockfile_tip = _lockfile_cell(entry, org_name)
+    lockfile_cell, lockfile_tip = _lockfile_cell(entry)
 
     tips = {
         "bazel": "This repository uses Bazel as its build system."

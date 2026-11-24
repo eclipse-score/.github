@@ -90,13 +90,12 @@ organization as well, so each organization's sections show only its own
 columns; list a shared workflow or dependency in every organization that uses
 it. Platform documentation sources in `[signals]` apply to all organizations.
 
-`run_repository_tools` is required. Collection can start tools inside
-repository checkouts; currently this is the Bazel lockfile check. Such tools
-execute code from the repository and inherit the collector's environment, so
-that code could read and leak the GitHub token. Set it to `true` only for
-organizations whose default branches are trusted with that token. Otherwise
-the lockfile status is shown as `skipped`, or as `missing` when there is no
-lockfile.
+`run_repository_tools` is required. It decides whether collection may start
+tools inside repository checkouts. Such tools execute code from the repository
+and inherit the collector's environment, so that code could read and leak the
+GitHub token. Set it to `true` only for organizations whose default branches
+are trusted with that token. Collection currently starts no such tools, so the
+setting has no effect yet.
 
 The dashboard lists each organization's groups together in the combined view.
 The **Organization** filter in the filter bar scopes repository lists and the
