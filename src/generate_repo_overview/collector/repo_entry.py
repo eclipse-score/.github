@@ -132,6 +132,39 @@ def collect_repository_entry(
         cached_entry, run_repository_tools=run_repository_tools
     ):
         cached_entry = None
+    if (
+        cached_entry is not None
+        and cached_entry.content.bazel_lockfile_status
+        in (
+            (LockfileStatus.TIMEOUT, LockfileStatus.UNKNOWN)
+            if run_repository_tools
+            else (LockfileStatus.SKIPPED,)
+        )
+        and cached_entry_matches_default_branch(
+            cached_entry,
+            default_branch=default_branch,
+            default_branch_sha=default_branch_sha,
+        )
+    ):
+        # A timeout, or Bazel failing to start, says nothing about the
+        # lockfile, so it is not a result to keep. An error is: it stays the
+        # same while the repository does.
+        # Without repository tools, the cheap check for a missing lockfile
+        # also covers snapshots that recorded every such repository as skipped.
+        lockfile_status, lockfile_error = _detect_lockfile_ok_for_repo(
+            repository=repository,
+            default_branch=default_branch,
+            checkout_path=checkout_path,
+            run_repository_tools=run_repository_tools,
+        )
+        cached_entry = replace(
+            cached_entry,
+            content=replace(
+                cached_entry.content,
+                bazel_lockfile_status=lockfile_status,
+                bazel_lockfile_error_output=lockfile_error,
+            ),
+        )
     fast_entry = maybe_collect_repository_entry_fast_path(
         repository_name=repository_name,
         repository=repository,

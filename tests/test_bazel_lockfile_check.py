@@ -2,6 +2,7 @@
 
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -311,3 +312,96 @@ def test_invalid_lockfile_timeout_uses_the_default(
     monkeypatch.setenv("REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS", value)
 
     assert signal_detection.resolve_bazel_lockfile_timeout_seconds() == 60
+
+
+def _collect_unchanged(cached_entry: RepoEntry) -> RepoEntry:
+    return repo_entry.collect_repository_entry(
+        repository_name="repo",
+        repository=SimpleNamespace(default_branch="main", description="Repo"),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=cached_entry,
+    )
+
+
+def test_timed_out_lockfile_check_is_repeated_for_an_unchanged_repository(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo", duration="5")
+    # The duration file is untracked, so changing it keeps the commit.
+    (checkout / ".gitignore").write_text("duration\n", encoding="utf-8")
+    monkeypatch.setenv("REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS", "0.2")
+    timed_out = _collect_entry(monkeypatch, checkout, run_repository_tools=True)
+    assert timed_out.content.bazel_lockfile_status == LockfileStatus.TIMEOUT
+
+    (checkout / "duration").write_text("0", encoding="utf-8")
+    monkeypatch.setattr(
+        repo_entry,
+        "inspect_repository_checkout",
+        lambda *_args, **_kwargs: pytest.fail("repository was inspected again"),
+    )
+    entry = _collect_unchanged(timed_out)
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.OK
+
+
+def test_lockfile_error_is_kept_for_an_unchanged_repository(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+    (checkout / "outdated").touch()
+    failed = _collect_entry(monkeypatch, checkout, run_repository_tools=True)
+    assert failed.content.bazel_lockfile_status == LockfileStatus.ERROR
+    bazel_log.write_text("", encoding="utf-8")
+
+    entry = _collect_unchanged(failed)
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.ERROR
+    assert _events(bazel_log) == []
+
+
+def test_repository_cached_as_skipped_reports_its_missing_lockfile(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+    (checkout / "MODULE.bazel.lock").unlink()
+    entry = _collect_entry(monkeypatch, checkout, run_repository_tools=False)
+    # Earlier versions recorded every repository without repository tools as skipped.
+    cached = replace(
+        entry,
+        content=replace(entry.content, bazel_lockfile_status=LockfileStatus.SKIPPED),
+    )
+
+    upgraded = repo_entry.collect_repository_entry(
+        repository_name="repo",
+        repository=SimpleNamespace(default_branch="main", description="Repo"),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=cached,
+        run_repository_tools=False,
+    )
+
+    assert upgraded.content.bazel_lockfile_status == LockfileStatus.MISSING
+    assert _events(bazel_log) == []
+
+
+def test_check_without_bazel_is_repeated_once_bazel_is_available(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+    available = signal_detection._BAZEL_COMMAND
+    monkeypatch.setattr(
+        signal_detection, "_BAZEL_COMMAND", (str(tmp_path / "no-bazel"),)
+    )
+    without_bazel = _collect_entry(monkeypatch, checkout, run_repository_tools=True)
+    assert without_bazel.content.bazel_lockfile_status == LockfileStatus.UNKNOWN
+
+    monkeypatch.setattr(signal_detection, "_BAZEL_COMMAND", available)
+    monkeypatch.setattr(
+        repo_entry,
+        "inspect_repository_checkout",
+        lambda *_args, **_kwargs: pytest.fail("repository was inspected again"),
+    )
+    entry = _collect_unchanged(without_bazel)
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.OK

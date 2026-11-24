@@ -41,7 +41,9 @@ cloned again.
 
 A changed repository with `MODULE.bazel` and `MODULE.bazel.lock` is checked
 with `bazel mod deps --lockfile_mode=error`. The result is a content signal, so
-an unchanged repository is not checked again.
+an unchanged repository is not checked again. The exception is a check that
+timed out or could not start Bazel: it is repeated on every collection until
+it produces a result.
 
 Bazel executes code from the repository and inherits the collector's
 environment, including the GitHub token. The check therefore runs only for
