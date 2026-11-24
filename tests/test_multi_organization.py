@@ -1,6 +1,8 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 import github
 import pytest
@@ -12,11 +14,14 @@ from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    OrganizationSignals,
     RepoEntry,
     RepoSnapshot,
+    TrackedDep,
     VolatileMetricsSnapshot,
+    WorkflowSignal,
 )
-from generate_repo_overview.org_config import load_org_config
+from generate_repo_overview.org_config import OrgConfig, load_org_config
 from generate_repo_overview.profile_readme import render_repo_row
 
 
@@ -273,7 +278,7 @@ repository_owner = "second-org"
     assert "policy-status changes-required" in policy_rows[0]
 
 
-@pytest.mark.parametrize("schema_version", [30, 31, 32, 33, 34])
+@pytest.mark.parametrize("schema_version", [30, 31, 32, 33, 34, 35])
 def test_older_snapshot_renders_but_is_not_reused_for_collection(
     schema_version: int, tmp_path: Path
 ) -> None:
@@ -348,3 +353,101 @@ def test_markdown_rejects_an_invalid_owner_instead_of_interpreting_it_as_markup(
         render_repo_row(entry, "first-org")
     with pytest.raises(ValueError, match="Invalid repository name in snapshot"):
         render_metrics_report(snapshot)
+
+
+def _two_org_snapshot() -> RepoSnapshot:
+    first_ci = WorkflowSignal("First CI", "first-org/cicd/.github/workflows/ci.yml@")
+    second_ci = WorkflowSignal("Second CI", "second-org/cicd/.github/workflows/ci.yml@")
+    return RepoSnapshot(
+        schema_version=SNAPSHOT_SCHEMA_VERSION,
+        org_name="first-org",
+        additional_org_names=("second-org",),
+        generated_at="2026-01-01T00:00:00+00:00",
+        repos=(
+            RepoEntry("app", "", "Apps", "General", owner="first-org"),
+            RepoEntry("lib", "", "Libraries", "General", owner="second-org"),
+        ),
+        organization_signals={
+            "first-org": OrganizationSignals(
+                tracked_deps=(TrackedDep("first-org/first-docs", "first_docs"),),
+                workflow_signals=(first_ci,),
+            ),
+            "second-org": OrganizationSignals(workflow_signals=(second_ci,)),
+        },
+    )
+
+
+def test_each_organization_shows_only_its_own_signals() -> None:
+    snapshot = RepoSnapshot.from_dict(_two_org_snapshot().to_dict())
+    pages = render_all_pages(snapshot)
+    index = pages["index.html"]
+
+    def section(tab: str, category: str) -> str:
+        marker = f'data-tab="{tab}" data-category="{category}"'
+        return index.split(marker, 1)[1].split('<div class="section hidden"', 1)[0]
+
+    assert "First CI" in section("workflows", "first-org / Apps")
+    assert "Second CI" not in section("workflows", "first-org / Apps")
+    assert "Second CI" in section("workflows", "second-org / Libraries")
+    assert "First CI" not in section("workflows", "second-org / Libraries")
+    assert "First Docs Version" in section("versions", "first-org / Apps")
+    assert "First Docs Version" not in section("versions", "second-org / Libraries")
+    second_detail = pages["@orgs/second-org/lib/index.html"]
+    assert "Second CI" in second_detail
+    assert "First CI" not in second_detail
+    assert "First Docs" not in second_detail
+
+
+def test_older_snapshot_applies_its_signals_to_every_organization() -> None:
+    data = _two_org_snapshot().to_dict()
+    del data["organization_signals"]
+    signal = {"label": "Shared CI", "reference": "org/cicd/ci.yml@"}
+    data.update(schema_version=35, workflow_signals=[signal], tracked_deps=[])
+
+    snapshot = RepoSnapshot.from_dict(data)
+
+    shared = (WorkflowSignal("Shared CI", "org/cicd/ci.yml@"),)
+    assert snapshot.signals_for("first-org").workflow_signals == shared
+    assert snapshot.signals_for("Second-Org").workflow_signals == shared
+
+
+def test_changed_signals_of_another_organization_keep_the_content_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = _two_org_snapshot()
+    cached_entries: list[RepoEntry | None] = []
+
+    def collect(**kwargs: Any) -> RepoEntry:
+        cached_entries.append(kwargs["cached_entry"])
+        return RepoEntry("lib", "", "Libraries", "General")
+
+    monkeypatch.setattr(
+        collector,
+        "fetch_active_repositories",
+        lambda organization, **_kwargs: {
+            "lib": collector.ActiveRepositoryData(
+                repository=SimpleNamespace(archived=False, name="lib"),
+                custom_properties={},
+            )
+        },
+    )
+    monkeypatch.setattr(collector.repo_entry, "collect_repository_entry", collect)
+    second_org = OrgConfig(
+        "second-org",
+        workflow_signals=snapshot.signals_for("second-org").workflow_signals,
+    )
+    changed_snapshot = replace(
+        snapshot,
+        organization_signals={
+            **snapshot.organization_signals,
+            "first-org": OrganizationSignals(),
+        },
+    )
+
+    collector.fetch_repositories(
+        cast("Any", SimpleNamespace(login="second-org")),
+        existing_snapshot=changed_snapshot,
+        config=second_org,
+    )
+
+    assert cached_entries == [snapshot.repos[1]]

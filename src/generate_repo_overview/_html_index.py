@@ -574,9 +574,10 @@ def _render_versions_sections(
 ) -> str:
     repos = sorted(snapshot.repos, key=lambda r: r.name.casefold())
     max_bazel = get_max_bazel_version(repos)
-    tracked_deps = snapshot.tracked_deps
     parts: list[str] = []
     for category, cat_repos in categories:
+        # Each section belongs to one organization and shows its tracked deps.
+        tracked_deps = snapshot.signals_for(cat_repos[0].owner).tracked_deps
         rows = "\n".join(_versions_row(r, snapshot, max_bazel) for r in cat_repos)
         cards = "\n".join(_versions_card(r, snapshot, max_bazel) for r in cat_repos)
         dep_headers = "".join(
@@ -614,7 +615,7 @@ def _versions_card(
     max_bazel: tuple[int, ...] | None,
 ) -> str:
     org_name = snapshot.org_name
-    tracked_deps = snapshot.tracked_deps
+    tracked_deps = snapshot.signals_for(entry.owner).tracked_deps
     bazel_cell = bazel_version_badge(entry.content.bazel_version, max_bazel)
     if (
         entry.volatile.release_bazel_version
@@ -761,7 +762,7 @@ def _versions_row(
     max_bazel: tuple[int, ...] | None,
 ) -> str:
     org_name = snapshot.org_name
-    tracked_deps = snapshot.tracked_deps
+    tracked_deps = snapshot.signals_for(entry.owner).tracked_deps
     name_cell = repo_name_cell(entry, org_name)
     filter_attrs = _repo_filter_attributes(entry)
 
@@ -814,20 +815,22 @@ def _render_workflow_sections(
     categories: list[tuple[str, list[RepoEntry]]],
     snapshot: RepoSnapshot,
 ) -> str:
-    if not snapshot.workflow_signals:
-        return ""
-    headers = "".join(
-        f'<th data-sort="workflow-{index}" title="Workflow pins resolved to version tags where available. Arrows compare the pin with the latest release of the workflow repository: ↑ ahead, ↓ behind.">'
-        f'{e(signal.label)} <span class="sort-arrow"></span></th>'
-        for index, signal in enumerate(snapshot.workflow_signals)
-    )
     parts: list[str] = []
     for category, repos in categories:
+        # Each section belongs to one organization and shows its workflows.
+        workflow_signals = snapshot.signals_for(repos[0].owner).workflow_signals
+        if not workflow_signals:
+            continue
+        headers = "".join(
+            f'<th data-sort="workflow-{index}" title="Workflow pins resolved to version tags where available. Arrows compare the pin with the latest release of the workflow repository: ↑ ahead, ↓ behind.">'
+            f'{e(signal.label)} <span class="sort-arrow"></span></th>'
+            for index, signal in enumerate(workflow_signals)
+        )
         rows: list[str] = []
         for entry in repos:
             cells = "".join(
                 f"<td>{workflow_ref_badges(entry, signal.label, snapshot.workflow_ref_resolutions)}</td>"
-                for signal in snapshot.workflow_signals
+                for signal in workflow_signals
             )
             rows.append(
                 f"<tr{_repo_filter_attributes(entry)}>"
@@ -1292,7 +1295,8 @@ def _render_traceability_section(
         if snapshot.additional_org_names
         else "Requirement Traceability"
     )
-    dep_repos = [r for r in repos if is_tracked_dep_repo(r, snapshot.tracked_deps)]
+    tracked_deps = snapshot.signals_for(owner).tracked_deps
+    dep_repos = [r for r in repos if is_tracked_dep_repo(r, tracked_deps)]
     if not dep_repos:
         return ""
 

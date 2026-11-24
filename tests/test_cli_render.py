@@ -6,6 +6,7 @@ from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
     DependencyDeclaration,
+    OrganizationSignals,
     RepoEntry,
     RepoSnapshot,
     SphinxItem,
@@ -245,11 +246,16 @@ def _make_snapshot_with_dac() -> RepoSnapshot:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        tracked_deps=(
-            TrackedDep(
-                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                tracked_deps=(
+                    TrackedDep(
+                        repo="eclipse-score/docs-as-code",
+                        module_name="score_docs_as_code",
+                    ),
+                )
+            )
+        },
         repos=(
             RepoEntry(
                 name="my-dac-repo",

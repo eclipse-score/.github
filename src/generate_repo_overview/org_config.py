@@ -107,20 +107,6 @@ class OverviewConfig:
     def primary(self) -> OrgConfig:
         return self.organizations[0]
 
-    @property
-    def tracked_deps(self) -> tuple[TrackedDep, ...]:
-        return tuple(
-            dict.fromkeys(dep for org in self.organizations for dep in org.tracked_deps)
-        )
-
-    @property
-    def workflow_signals(self) -> tuple[WorkflowSignal, ...]:
-        return tuple(
-            dict.fromkeys(
-                signal for org in self.organizations for signal in org.workflow_signals
-            )
-        )
-
 
 _ORGANIZATION_SETTINGS = {
     "repo_include_patterns",
@@ -128,6 +114,8 @@ _ORGANIZATION_SETTINGS = {
     "reference_integration_repo",
     "registry_repo",
     "grouping_levels",
+    "tracked_deps",
+    "workflow_signals",
 }
 
 
@@ -148,18 +136,9 @@ def load_org_config(path: Path) -> OverviewConfig:
     if not isinstance(signals, dict):
         raise ValueError("'signals' must be a table, not a scalar value.")
     signals = cast("dict[str, Any]", signals)
-    _reject_unknown_settings(
-        signals,
-        {"platform_repos", "tracked_deps", "workflow_signals"},
-        where="signals",
-    )
+    _reject_unknown_settings(signals, {"platform_repos"}, where="signals")
     return OverviewConfig(
-        organizations=_parse_organizations(
-            raw.get("organizations"),
-            # Signals apply to all organizations.
-            tracked_deps=_parse_tracked_deps(signals.get("tracked_deps")),
-            workflow_signals=_parse_workflow_signals(signals.get("workflow_signals")),
-        ),
+        organizations=_parse_organizations(raw.get("organizations")),
         platform_repos=_parse_repo_list(
             signals.get("platform_repos"), field_name="platform_repos"
         ),
@@ -167,12 +146,7 @@ def load_org_config(path: Path) -> OverviewConfig:
     )
 
 
-def _parse_organizations(
-    value: object,
-    *,
-    tracked_deps: tuple[TrackedDep, ...],
-    workflow_signals: tuple[WorkflowSignal, ...],
-) -> tuple[OrgConfig, ...]:
+def _parse_organizations(value: object) -> tuple[OrgConfig, ...]:
     if value is not None and not isinstance(value, dict):
         raise ValueError("'organizations' must be a table.")
     if not value:
@@ -209,8 +183,8 @@ def _parse_organizations(
                 ),
                 registry_repo=_parse_repo(table, "registry_repo", where=where),
                 grouping_levels=_parse_grouping_levels(table.get("grouping_levels")),
-                tracked_deps=tracked_deps,
-                workflow_signals=workflow_signals,
+                tracked_deps=_parse_tracked_deps(table.get("tracked_deps")),
+                workflow_signals=_parse_workflow_signals(table.get("workflow_signals")),
             )
         )
     return tuple(organizations)

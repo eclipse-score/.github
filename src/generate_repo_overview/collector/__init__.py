@@ -21,6 +21,7 @@ from generate_repo_overview.constants import (
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     CustomPropertyValue,
+    OrganizationSignals,
     RepoEntry,
     RepoSnapshot,
 )
@@ -217,8 +218,13 @@ def collect_snapshot(
             additional_org_names=tuple(c.org_name for c in configs[1:]),
             generated_at=datetime.now(UTC).isoformat(),
             repos=tuple(repos),
-            tracked_deps=config.tracked_deps,
-            workflow_signals=config.workflow_signals,
+            organization_signals={
+                org.org_name.casefold(): OrganizationSignals(
+                    tracked_deps=org.tracked_deps,
+                    workflow_signals=org.workflow_signals,
+                )
+                for org in configs
+            },
             workflow_ref_resolutions=workflow_versions.fetch_workflow_ref_resolutions(
                 repos, github=github, status_prefix=status_prefix
             ),
@@ -458,7 +464,8 @@ def fetch_repositories(
             f"{repo.owner or existing_snapshot.org_name}/{repo.name}".casefold(): repo
             for repo in existing_snapshot.repos
         }
-        if config.workflow_signals == existing_snapshot.workflow_signals:
+        cached_signals = existing_snapshot.signals_for(config.org_name)
+        if config.workflow_signals == cached_signals.workflow_signals:
             cached_by_full_name = earlier_by_full_name
         else:
             print_status(

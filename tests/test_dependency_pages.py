@@ -11,6 +11,7 @@ from generate_repo_overview.models import (
     DependencyOverride,
     DependencyPinKind,
     DependencyResolution,
+    OrganizationSignals,
     RepoEntry,
     RepoSnapshot,
     TrackedDep,
@@ -204,7 +205,11 @@ def test_tracked_git_pin_label_stays_neutral_in_version_summaries() -> None:
     snapshot = replace(
         snapshot,
         repos=(base, consumer),
-        tracked_deps=(TrackedDep(BASELIBS, "score_baselibs"),),
+        organization_signals={
+            snapshot.org_name.casefold(): OrganizationSignals(
+                tracked_deps=(TrackedDep(BASELIBS, "score_baselibs"),)
+            )
+        },
     )
     pages = render_all_pages(snapshot)
     assert '<span class="badge muted">1.1.0</span>' in pages["pinned/index.html"]

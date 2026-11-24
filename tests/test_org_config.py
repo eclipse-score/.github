@@ -67,19 +67,19 @@ class TestLoadOrgConfig:
             property = "team"
             default = "Unassigned"
 
+            [[organizations.other-org.tracked_deps]]
+            repo = "other-org/my-docs"
+            module_name = "my_docs_dep"
+
+            [[organizations.other-org.workflow_signals]]
+            label = "Nightly"
+            reference = "other-org/my-cicd/.github/workflows/nightly.yml@"
+
             [signals]
             platform_repos = [
               "other-org/public-platform",
               "other-org/private-platform",
             ]
-
-            [[signals.tracked_deps]]
-            repo = "other-org/my-docs"
-            module_name = "my_docs_dep"
-
-            [[signals.workflow_signals]]
-            label = "Nightly"
-            reference = "other-org/my-cicd/.github/workflows/nightly.yml@"
             """,
         )
         tracked_deps = (
@@ -101,8 +101,6 @@ class TestLoadOrgConfig:
             grouping_levels=(GroupingLevel(property="team", default="Unassigned"),),
             run_repository_tools=True,
         )
-        assert config.tracked_deps == tracked_deps
-        assert config.workflow_signals == workflow_signals
         assert config.platform_repos == (
             "other-org/public-platform",
             "other-org/private-platform",
@@ -126,7 +124,7 @@ class TestMultipleOrganizations:
             reference_integration_repo = "first/integration"
             grouping_levels = [{ property = "team", default = "Unassigned" }]
 
-            [[signals.workflow_signals]]
+            [[organizations.first.workflow_signals]]
             label = "Nightly"
             reference = "first/cicd/.github/workflows/nightly.yml@"
             """,
@@ -138,10 +136,9 @@ class TestMultipleOrganizations:
         assert second.registry_repo == ""
         assert second.reference_integration_repo == ""
         assert second.grouping_levels == ()
+        assert second.workflow_signals == ()
         assert first.run_repository_tools is True
-        # Signals apply to every organization.
-        assert first.workflow_signals == second.workflow_signals
-        assert config.workflow_signals == first.workflow_signals
+        assert [signal.label for signal in first.workflow_signals] == ["Nightly"]
 
     def test_run_repository_tools_is_required(self, tmp_path: Path) -> None:
         with pytest.raises(
@@ -248,17 +245,16 @@ class TestConfigValidation:
             tmp_path,
             MINIMAL_ORG
             + dedent("""\
-                [[signals.tracked_deps]]
+                [[organizations.test.tracked_deps]]
                 repo = "org/valid"
                 module_name = "valid_mod"
-                [[signals.tracked_deps]]
+                [[organizations.test.tracked_deps]]
                 repo = "org/missing-module"
-                [[signals.tracked_deps]]
+                [[organizations.test.tracked_deps]]
                 module_name = "missing-repo"
             """),
         )
-        assert len(config.tracked_deps) == 1
-        assert config.tracked_deps[0].repo == "org/valid"
+        assert config.primary.tracked_deps == (TrackedDep("org/valid", "valid_mod"),)
 
     def test_malformed_workflow_signals_entries_are_skipped(
         self, tmp_path: Path
@@ -267,17 +263,16 @@ class TestConfigValidation:
             tmp_path,
             MINIMAL_ORG
             + dedent("""\
-                [[signals.workflow_signals]]
+                [[organizations.test.workflow_signals]]
                 label = "Valid"
                 reference = "org/ref@"
-                [[signals.workflow_signals]]
+                [[organizations.test.workflow_signals]]
                 label = "Missing Reference"
-                [[signals.workflow_signals]]
+                [[organizations.test.workflow_signals]]
                 reference = "org/no-label@"
             """),
         )
-        assert len(config.workflow_signals) == 1
-        assert config.workflow_signals[0].label == "Valid"
+        assert config.primary.workflow_signals == (WorkflowSignal("Valid", "org/ref@"),)
 
 
 def _grouping(tmp_path: Path, levels: str) -> tuple[GroupingLevel, ...]:
@@ -399,6 +394,10 @@ class TestReferenceIntegrationOrgName:
             "Unknown signals setting(s): registry_repo",
         ),
         (
+            '[[signals.workflow_signals]]\nlabel = "Daily"\nreference = "org/ref@"',
+            "Unknown signals setting(s): workflow_signals",
+        ),
+        (
             "[organizations.second]\nrun_repo_tools = true",
             "Unknown organizations.second setting(s): run_repo_tools",
         ),
@@ -438,4 +437,5 @@ def test_shipped_org_config_is_accepted() -> None:
     assert [org.org_name for org in config.organizations] == ["eclipse-score"]
     assert config.primary.run_repository_tools is True
     assert config.primary.registry_repo == "eclipse-score/bazel_registry"
+    assert config.primary.workflow_signals
     assert config.policy_report.enabled

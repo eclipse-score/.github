@@ -198,11 +198,12 @@ def _render_tooling_section(entry: RepoEntry) -> str:
 
 
 def _render_workflows_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
-    if not snapshot.workflow_signals:
+    workflow_signals = snapshot.signals_for(entry.owner).workflow_signals
+    if not workflow_signals:
         return ""
     rows = "".join(
         f"<tr><th>{e(signal.label)}</th><td>{workflow_ref_badges(entry, signal.label, snapshot.workflow_ref_resolutions)}</td></tr>"
-        for signal in snapshot.workflow_signals
+        for signal in workflow_signals
     )
     return (
         '<section class="detail-section"><div class="section-header">'
@@ -277,7 +278,7 @@ def _render_versions_section(
         f'<div class="info-label">Bazel Version</div>{bazel_badge}</div>'
     )
 
-    for dep in snapshot.tracked_deps:
+    for dep in snapshot.signals_for(entry.owner).tracked_deps:
         dep_label = tracked_dep_label(dep)
         declaration = lookup_bazel_dependency(entry.content.bazel_deps, dep.module_name)
         badge = dependency_version_badge(declaration, entry, snapshot)

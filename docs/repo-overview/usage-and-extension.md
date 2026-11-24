@@ -85,8 +85,10 @@ grouping_levels = [{ property = "team", default = "Tooling" }]
 ```
 
 An omitted or empty `repo_include_patterns` includes all active repositories of
-the organization. Tracked dependencies, workflow signals, and platform
-documentation sources in `[signals]` apply to all organizations.
+the organization. Tracked dependencies and workflow signals are configured per
+organization as well, so each organization's sections show only its own
+columns; list a shared workflow or dependency in every organization that uses
+it. Platform documentation sources in `[signals]` apply to all organizations.
 
 `run_repository_tools` is required. Collection can start tools inside
 repository checkouts; currently this is the Bazel lockfile check. Such tools
@@ -114,15 +116,17 @@ entire report.
 
 ### Tracked Workflows
 
-Configure one `[[signals.workflow_signals]]` entry per reusable workflow:
+Configure one `[[organizations.<name>.workflow_signals]]` entry per reusable
+workflow:
 
 ```toml
-[[signals.workflow_signals]]
+[[organizations.example-platform.workflow_signals]]
 label = "Daily"
 reference = "eclipse-score/cicd-workflows/.github/workflows/daily.yml@"
 ```
 
 The **Workflows** tab appears only when at least one workflow is configured.
+It shows sections only for organizations with configured workflows.
 Each column shows the distinct tags, branches, or commit pins used by a repository,
 linked to the reusable workflow source. Full commit hashes are shortened for display;
 the full reference remains available on hover. Multiple pins are shown together,

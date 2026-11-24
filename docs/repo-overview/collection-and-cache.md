@@ -132,6 +132,8 @@ or an unreachable GitHub, not a single repository.
 
 ## Schema Changes
 
-Render commands can read snapshots using schemas 30 through 35. Snapshots
-older than schema 35 show consumer data as unavailable. Collection rebuilds
-them to refresh dependency declarations, sources, and release comparisons.
+Render commands can read snapshots using schemas 30 through 36. Snapshots
+older than schema 36 show consumer data as unavailable, and their tracked
+dependencies and workflow signals apply to every organization. Collection
+rebuilds them to refresh dependency declarations, sources, release
+comparisons, and the signals of each organization.

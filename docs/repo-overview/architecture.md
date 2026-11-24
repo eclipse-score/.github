@@ -7,8 +7,8 @@ The tool is split into four layers:
 1. `org_config.py`
    - Loads `org_config.toml` into one `OrgConfig` per organization, with its
      repository filters, grouping levels, reference integration repository,
-     registry repository, and whether repository tools may run. Tracked Bazel
-     dependencies, workflow signals, platform documentation repositories, and
+     registry repository, tracked Bazel dependencies, workflow signals, and
+     whether repository tools may run. Platform documentation repositories and
      the policy report settings are shared.
 2. `collector/`
    - Uses the GitHub API for organization metadata, custom properties, pull

@@ -15,6 +15,7 @@ from generate_repo_overview.metrics_html import render_all_pages
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    OrganizationSignals,
     RepoEntry,
     RepoSnapshot,
     WorkflowRefResolution,
@@ -366,7 +367,11 @@ def test_resolved_pins_roundtrip_and_render_in_both_views_without_losing_origina
         org_name="example",
         generated_at="2026-11-10T12:00:00+00:00",
         repos=(_repo(DAILY + SHA),),
-        workflow_signals=(WorkflowSignal("Daily", DAILY),),
+        organization_signals={
+            "example": OrganizationSignals(
+                workflow_signals=(WorkflowSignal("Daily", DAILY),)
+            )
+        },
         workflow_ref_resolutions=(resolution,),
     )
     restored = RepoSnapshot.from_dict(json.loads(json.dumps(snapshot.to_dict())))

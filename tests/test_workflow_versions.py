@@ -11,6 +11,7 @@ from generate_repo_overview.metrics_html import render_all_pages
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
+    OrganizationSignals,
     RepoEntry,
     RepoSnapshot,
     WorkflowSignal,
@@ -124,7 +125,7 @@ def _snapshot(content: DeepContentSignals) -> RepoSnapshot:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="example",
         generated_at="2026-11-10T12:00:00+00:00",
-        workflow_signals=SIGNALS,
+        organization_signals={"example": OrganizationSignals(workflow_signals=SIGNALS)},
         repos=(
             RepoEntry(
                 name="consumer",
@@ -149,7 +150,11 @@ def test_workflow_tab_has_linked_pins_and_leaves_tech_stack() -> None:
     )
     snapshot = replace(
         _snapshot(content),
-        workflow_signals=(*SIGNALS, WorkflowSignal("Unused", "other/ref@")),
+        organization_signals={
+            "example": OrganizationSignals(
+                workflow_signals=(*SIGNALS, WorkflowSignal("Unused", "other/ref@"))
+            )
+        },
     )
     pages = render_all_pages(snapshot)
     index = pages["index.html"]
@@ -173,7 +178,7 @@ def test_workflow_tab_has_linked_pins_and_leaves_tech_stack() -> None:
 
 
 def test_workflows_tab_absent_without_configuration() -> None:
-    snapshot = replace(_snapshot(DeepContentSignals()), workflow_signals=())
+    snapshot = replace(_snapshot(DeepContentSignals()), organization_signals={})
     pages = render_all_pages(snapshot)
     assert 'data-tab="workflows"' not in pages["index.html"]
     assert ">Workflows<" not in pages["consumer/index.html"]

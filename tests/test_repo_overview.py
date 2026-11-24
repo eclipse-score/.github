@@ -26,6 +26,7 @@ from generate_repo_overview.models import (
     DependencyDeclaration,
     DependencyResolution,
     GroupingLevel,
+    OrganizationSignals,
     RegistrySignals,
     RepoEntry,
     RepoSnapshot,
@@ -109,17 +110,22 @@ def test_snapshot_round_trip_preserves_repository_overview(tmp_path: Path) -> No
                 forks=4,
             ),
         ),
-        tracked_deps=(
-            TrackedDep(
-                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
-            ),
-        ),
-        workflow_signals=(
-            WorkflowSignal(
-                label="Daily Workflow",
-                reference="org/cicd/.github/workflows/daily.yml@",
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                tracked_deps=(
+                    TrackedDep(
+                        repo="eclipse-score/docs-as-code",
+                        module_name="score_docs_as_code",
+                    ),
+                ),
+                workflow_signals=(
+                    WorkflowSignal(
+                        label="Daily Workflow",
+                        reference="org/cicd/.github/workflows/daily.yml@",
+                    ),
+                ),
+            )
+        },
     )
     snapshot_path = tmp_path / "repo_overview.json"
 
@@ -296,12 +302,16 @@ def test_fetch_repositories_invalidates_cache_when_signal_labels_change() -> Non
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        workflow_signals=(
-            WorkflowSignal(
-                label="Daily Workflow",
-                reference="org/cicd/.github/workflows/daily.yml@",
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                workflow_signals=(
+                    WorkflowSignal(
+                        label="Daily Workflow",
+                        reference="org/cicd/.github/workflows/daily.yml@",
+                    ),
+                )
+            )
+        },
         repos=(
             RepoEntry(
                 name="tools",
@@ -1921,12 +1931,16 @@ def test_metrics_report_renders_summary_and_table() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        workflow_signals=(
-            WorkflowSignal(
-                label="Daily Workflow",
-                reference="org/cicd/.github/workflows/daily.yml@",
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                workflow_signals=(
+                    WorkflowSignal(
+                        label="Daily Workflow",
+                        reference="org/cicd/.github/workflows/daily.yml@",
+                    ),
+                )
+            )
+        },
         repos=(
             RepoEntry(
                 name="tools",
@@ -2117,11 +2131,16 @@ def test_metrics_report_renders_versions_table() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        tracked_deps=(
-            TrackedDep(
-                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                tracked_deps=(
+                    TrackedDep(
+                        repo="eclipse-score/docs-as-code",
+                        module_name="score_docs_as_code",
+                    ),
+                )
+            )
+        },
         repos=(
             RepoEntry(
                 name="process_description",
@@ -2162,11 +2181,16 @@ def test_versions_table_tracked_dep_color_rules() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        tracked_deps=(
-            TrackedDep(
-                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                tracked_deps=(
+                    TrackedDep(
+                        repo="eclipse-score/docs-as-code",
+                        module_name="score_docs_as_code",
+                    ),
+                )
+            )
+        },
         dependency_resolutions=tuple(
             DependencyResolution(
                 "eclipse-score/docs-as-code",
@@ -2258,12 +2282,19 @@ def test_versions_table_multiple_tracked_deps() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        tracked_deps=(
-            TrackedDep(
-                repo="eclipse-score/docs-as-code", module_name="score_docs_as_code"
-            ),
-            TrackedDep(repo="eclipse-score/toolchain", module_name="score_toolchain"),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                tracked_deps=(
+                    TrackedDep(
+                        repo="eclipse-score/docs-as-code",
+                        module_name="score_docs_as_code",
+                    ),
+                    TrackedDep(
+                        repo="eclipse-score/toolchain", module_name="score_toolchain"
+                    ),
+                )
+            )
+        },
         dependency_resolutions=(
             DependencyResolution(
                 "eclipse-score/docs-as-code",
@@ -2328,8 +2359,9 @@ def test_metrics_report_renders_without_tracked_deps_or_signals() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        tracked_deps=(),
-        workflow_signals=(),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(tracked_deps=(), workflow_signals=())
+        },
         repos=(
             RepoEntry(
                 name="basic-repo",
@@ -2356,16 +2388,20 @@ def test_metrics_report_automation_with_multiple_signals() -> None:
         schema_version=SNAPSHOT_SCHEMA_VERSION,
         org_name="eclipse-score",
         generated_at="2026-04-13T12:00:00+00:00",
-        workflow_signals=(
-            WorkflowSignal(
-                label="Daily Workflow",
-                reference="org/cicd/.github/workflows/daily.yml@",
-            ),
-            WorkflowSignal(
-                label="Nightly Build",
-                reference="org/cicd/.github/workflows/nightly.yml@",
-            ),
-        ),
+        organization_signals={
+            "eclipse-score": OrganizationSignals(
+                workflow_signals=(
+                    WorkflowSignal(
+                        label="Daily Workflow",
+                        reference="org/cicd/.github/workflows/daily.yml@",
+                    ),
+                    WorkflowSignal(
+                        label="Nightly Build",
+                        reference="org/cicd/.github/workflows/nightly.yml@",
+                    ),
+                )
+            )
+        },
         repos=(
             RepoEntry(
                 name="repo-a",
@@ -2503,11 +2539,19 @@ def test_snapshot_from_dict_filters_empty_tracked_deps() -> None:
         org_name="test",
         generated_at="2026-01-01",
         repos=(),
-        tracked_deps=(TrackedDep(repo="org/valid", module_name="valid_mod"),),
+        organization_signals={
+            "test": OrganizationSignals(
+                tracked_deps=(TrackedDep(repo="org/valid", module_name="valid_mod"),)
+            )
+        },
     )
     raw = snapshot.to_dict()
-    raw["tracked_deps"].append({"repo": "", "module_name": "empty_repo"})
-    raw["tracked_deps"].append({"repo": "org/x", "module_name": ""})
+    raw["organization_signals"]["test"]["tracked_deps"].extend(
+        [
+            {"repo": "", "module_name": "empty_repo"},
+            {"repo": "org/x", "module_name": ""},
+        ]
+    )
 
     loaded = RepoSnapshot.from_dict(raw)
 
@@ -2574,7 +2618,11 @@ def _fetch_with_failing_repositories(
             org_name="eclipse-score",
             generated_at="2026-04-13T12:00:00+00:00",
             repos=cached,
-            workflow_signals=snapshot_workflow_signals,
+            organization_signals={
+                "eclipse-score": OrganizationSignals(
+                    workflow_signals=snapshot_workflow_signals
+                )
+            },
         ),
     )
 
