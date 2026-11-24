@@ -109,7 +109,7 @@ def render_index_page(
         "</head>\n<body>\n"
         + _render_header(snapshot, repos, repos_by_org)
         + _render_tab_bar(show_workflows=bool(snapshot.workflow_signals))
-        + _render_filters_placeholder()
+        + _render_filters(snapshot, repos, repos_by_org)
         + _render_version_view_toggle()
         + '<div id="sections">\n'
         + _render_overview_sections(categories, snapshot.org_name)
@@ -141,30 +141,15 @@ def _render_header(
     repos: list[RepoEntry],
     repos_by_org: dict[str, list[RepoEntry]],
 ) -> str:
-    organization_filter = ""
     organization_summaries = ""
     if snapshot.additional_org_names:
-        options = "".join(
-            f'<option value="{e(org)}">{e(org)} ({len(entries)})</option>'
-            for org, entries in repos_by_org.items()
-        )
-        organization_filter = (
-            '<label class="filter-select" for="organization-filter">'
-            'Organization <select id="organization-filter" '
-            f'data-primary-org="{e(snapshot.org_name)}">'
-            f'<option value="">All organizations ({len(repos)})</option>{options}'
-            "</select></label>"
-        )
         organization_summaries = "".join(
             _render_header_summary(entries, org=org)
             for org, entries in repos_by_org.items()
         )
     return (
         "<header>\n"
-        '  <div class="dashboard-heading">\n'
-        "    <h1>Cross-Repo Metrics Report</h1>\n"
-        f"    {organization_filter}\n"
-        "  </div>\n"
+        "  <h1>Cross-Repo Metrics Report</h1>\n"
         f'  <p class="subtitle">Generated {e(snapshot.generated_at)}</p>\n'
         + _render_header_summary(repos)
         + organization_summaries
@@ -233,8 +218,26 @@ def _render_tab_bar(*, show_workflows: bool = False) -> str:
     )
 
 
-def _render_filters_placeholder() -> str:
-    return '<div id="filters"></div>\n\n'
+def _render_filters(
+    snapshot: RepoSnapshot,
+    repos: list[RepoEntry],
+    repos_by_org: dict[str, list[RepoEntry]],
+) -> str:
+    """Render the filter bar; the script adds the remaining filters."""
+    if not snapshot.additional_org_names:
+        return '<div id="filters"></div>\n\n'
+    options = "".join(
+        f'<option value="{e(org)}">{e(org)} ({len(entries)})</option>'
+        for org, entries in repos_by_org.items()
+    )
+    return (
+        '<div id="filters">'
+        '<label class="filter-select" for="organization-filter">'
+        '<span>Organization</span><select id="organization-filter" '
+        f'aria-label="Organization" data-primary-org="{e(snapshot.org_name)}">'
+        f'<option value="">All organizations ({len(repos)})</option>{options}'
+        "</select></label></div>\n\n"
+    )
 
 
 def _render_version_view_toggle() -> str:

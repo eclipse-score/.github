@@ -2,7 +2,10 @@
 // Optional tabs cannot be activated through stale bookmarks when absent.
 const TAB_IDS = Array.from(document.querySelectorAll('.tab-btn'), button => button.dataset.tab);
 
+// The organization filter is rendered with the page because its counts come
+// from the snapshot; renderFilters() keeps it at the start of the filter bar.
 const organizationFilter = document.getElementById('organization-filter');
+const organizationFilterLabel = organizationFilter?.closest('label');
 const organizationNames = new Set(Array.from(organizationFilter?.options ?? [], option => option.value));
 const primaryOrg = organizationFilter?.dataset.primaryOrg ?? '';
 function repositoryOwner(repository) {
@@ -176,7 +179,9 @@ function renderFilters() {
     current.textContent = active.length ? `Filtered by ${active.join(' · ')}` : 'Showing all repositories';
   };
   updateCurrent();
-  filtersEl.append(intro, groupSelect.wrapper, integrationSelect.wrapper, docsSelect.wrapper, current);
+  filtersEl.append(intro);
+  if (organizationFilterLabel) filtersEl.append(organizationFilterLabel);
+  filtersEl.append(groupSelect.wrapper, integrationSelect.wrapper, docsSelect.wrapper, current);
   groupSelect.select.addEventListener('change', () => {
     writeHashState(activeTab, groupSelect.select.value, activeIntegration, activeDocs);
   });

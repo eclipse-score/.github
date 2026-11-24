@@ -29,7 +29,6 @@ header {
   max-width: var(--report-max-width, 1400px);
   margin: 0 auto 2rem;
 }
-.dashboard-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.6rem 1rem; }
 h1 { font-size: 1.6rem; font-weight: 600; color: #e6edf3; }
 .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.3rem; }
 

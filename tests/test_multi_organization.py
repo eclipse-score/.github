@@ -110,6 +110,10 @@ reference_integration_repo = ""
     assert config.collection_configs()[1].repo_matches_filter("secondary-tool")
 
     pages = render_all_pages(snapshot)
+    filter_bar = (
+        pages["index.html"].split('<div id="filters">', 1)[1].split("</div>")[0]
+    )
+    assert 'id="organization-filter"' in filter_bar
     assert '<option value="">All organizations (2)</option>' in pages["index.html"]
     assert '<option value="first-org">first-org (1)</option>' in pages["index.html"]
     assert '<option value="second-org">second-org (1)</option>' in pages["index.html"]

@@ -103,8 +103,8 @@ run_repository_tools = true
 ```
 
 The dashboard lists each organization's groups together in the combined view.
-Use the **Organization** selector to scope repository lists and the overview
-summary to one organization. The selected organization can be bookmarked with
+The **Organization** filter in the filter bar scopes repository lists and the
+overview summary to one organization. The selected organization can be bookmarked with
 the tab and other filters.
 
 The snapshot and cache distinguish repositories by `owner/repo`. Primary
