@@ -22,7 +22,7 @@ org_config.toml                        — organization-specific settings (org n
 src/generate_repo_overview/
   org_config.py       — loads and validates org_config.toml
   metrics_html.py     — HTML renderer (index + per-repo detail pages)
-  metrics_report.py   — shared helpers: grouping, version comparison, badges
+  metrics_report.py   — shared helpers: grouping, version comparison
   models.py           — RepoEntry, RepoSnapshot, TrackedDep, WorkflowSignal dataclasses
   cli.py              — render-details writes all pages from render_all_pages()
   constants.py        — default paths (DEFAULT_METRICS_HTML_OUTPUT = _site/)

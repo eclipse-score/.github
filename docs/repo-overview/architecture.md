@@ -22,7 +22,7 @@ The tool is split into four layers:
    - Writes and reads the JSON snapshot.
 3. Renderers
    - `profile_readme.py` renders the organization profile.
-   - `metrics_report.py` renders Markdown metrics.
+   - `metrics_report.py` provides shared grouping and version helpers.
    - `metrics_html.py`, `_html_index.py`, `_html_detail.py`, and
      `_html_common.py` render the HTML dashboard.
    - Renderers consume normalized data and never query GitHub.
@@ -64,7 +64,7 @@ rather than Markdown- or HTML-specific values.
 - `collector/snapshot_io.py` serializes the normalized snapshot.
 - `models.py` defines the collection/rendering boundary.
 - `profile_readme.py` renders the organization profile.
-- `metrics_report.py` renders the Markdown metrics report.
+- `metrics_report.py` provides shared grouping and version helpers.
 - `metrics_html.py` and `_html_*.py` render the HTML overview and detail pages.
 - `cli.py` exposes collection and render commands.
 

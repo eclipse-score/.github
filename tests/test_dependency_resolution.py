@@ -10,7 +10,6 @@ import pytest
 import generate_repo_overview.collector as collector
 import generate_repo_overview.collector.dependency_resolution as dependency_resolution
 from generate_repo_overview.metrics_html import render_all_pages
-from generate_repo_overview.metrics_report import render_versions_section
 from generate_repo_overview.models import (
     DeepContentSignals,
     DependencyDeclaration,
@@ -535,8 +534,3 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
         )
         == 4
     )  # Two consumers, each in the table and card views.
-    markdown = render_versions_section(list(snapshot.repos), snapshot=snapshot)
-    assert any(
-        "first-org-consumer)" in line and "🟡 0.3.4" in line for line in markdown
-    )
-    assert any("override-consumer)" in line and "🟢 0.3.4" in line for line in markdown)

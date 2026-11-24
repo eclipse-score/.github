@@ -108,7 +108,12 @@ def render_index_page(
         f"  <style>{CSS}</style>\n"
         "</head>\n<body>\n"
         + _render_header(snapshot, repos, repos_by_org)
-        + _render_tab_bar(show_workflows=bool(snapshot.workflow_signals))
+        + _render_tab_bar(
+            show_workflows=any(
+                signals.workflow_signals
+                for signals in snapshot.organization_signals.values()
+            )
+        )
         + _render_filters(snapshot, repos, repos_by_org)
         + _render_version_view_toggle()
         + '<div id="sections">\n'

@@ -10,7 +10,6 @@ import pytest
 import generate_repo_overview.cli as cli
 import generate_repo_overview.collector as collector
 from generate_repo_overview.metrics_html import render_all_pages
-from generate_repo_overview.metrics_report import render_metrics_report
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
@@ -321,38 +320,23 @@ def test_older_snapshot_renders_but_is_not_reused_for_collection(
     assert collector.load_snapshot_if_present(cache) is None
 
 
-def test_markdown_qualifies_secondary_repository_names_in_each_table() -> None:
+def test_profile_readme_qualifies_secondary_repository_names() -> None:
     primary = RepoEntry("tools", "", "Tools", "General", owner="first-org")
     secondary = RepoEntry("tools", "", "Tools", "General", owner="second-org")
-    snapshot = RepoSnapshot(
-        schema_version=SNAPSHOT_SCHEMA_VERSION,
-        org_name="first-org",
-        generated_at="2026-01-01T00:00:00+00:00",
-        repos=(primary, secondary),
-        additional_org_names=("second-org",),
+    assert "[tools](https://github.com/first-org/tools)" in render_repo_row(
+        primary, "first-org"
     )
-    primary_link = "[tools](https://github.com/first-org/tools)"
-    secondary_link = "[second-org/tools](https://github.com/second-org/tools)"
-    markdown = render_metrics_report(snapshot)
-    assert markdown.count(primary_link) == 3
-    assert markdown.count(secondary_link) == 3
-    assert secondary_link in render_repo_row(secondary, "first-org")
+    assert "[second-org/tools](https://github.com/second-org/tools)" in (
+        render_repo_row(secondary, "first-org")
+    )
 
 
 def test_markdown_rejects_an_invalid_owner_instead_of_interpreting_it_as_markup() -> (
     None
 ):
     entry = RepoEntry("tools", "", "Tools", "General", owner="invalid]owner")
-    snapshot = RepoSnapshot(
-        schema_version=SNAPSHOT_SCHEMA_VERSION,
-        org_name="first-org",
-        generated_at="2026-01-01T00:00:00+00:00",
-        repos=(entry,),
-    )
     with pytest.raises(ValueError, match="Invalid repository name in snapshot"):
         render_repo_row(entry, "first-org")
-    with pytest.raises(ValueError, match="Invalid repository name in snapshot"):
-        render_metrics_report(snapshot)
 
 
 def _two_org_snapshot() -> RepoSnapshot:

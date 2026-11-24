@@ -3,7 +3,6 @@ from dataclasses import replace
 
 from generate_repo_overview.collector.bazel_modules import parse_dependencies
 from generate_repo_overview.metrics_html import render_all_pages
-from generate_repo_overview.metrics_report import render_versions_section
 from generate_repo_overview.models import (
     SNAPSHOT_SCHEMA_VERSION,
     DeepContentSignals,
@@ -214,8 +213,6 @@ def test_tracked_git_pin_label_stays_neutral_in_version_summaries() -> None:
     pages = render_all_pages(snapshot)
     assert '<span class="badge muted">1.1.0</span>' in pages["pinned/index.html"]
     assert pages["index.html"].count('<span class="badge muted">1.1.0</span>') == 2
-    markdown = render_versions_section(list(snapshot.repos), snapshot=snapshot)
-    assert any("⚪ 1.1.0" in line for line in markdown)
 
 
 def test_detail_page_marks_changed_archive_and_local_path_overrides() -> None:

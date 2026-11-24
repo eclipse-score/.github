@@ -647,28 +647,6 @@ class RepoSnapshot:
             (owner or self.org_name).casefold(), OrganizationSignals()
         )
 
-    @property
-    def tracked_deps(self) -> tuple[TrackedDep, ...]:
-        """The tracked dependencies of all organizations, without duplicates."""
-        return tuple(
-            dict.fromkeys(
-                dep
-                for org in self.organization_names
-                for dep in self.signals_for(org).tracked_deps
-            )
-        )
-
-    @property
-    def workflow_signals(self) -> tuple[WorkflowSignal, ...]:
-        """The workflow signals of all organizations, without duplicates."""
-        return tuple(
-            dict.fromkeys(
-                signal
-                for org in self.organization_names
-                for signal in self.signals_for(org).workflow_signals
-            )
-        )
-
     def dependency_repository(
         self, consumer: RepoEntry, declaration: DependencyDeclaration
     ) -> str | None:
