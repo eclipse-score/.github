@@ -109,7 +109,7 @@ def test_outdated_lockfile_reports_error_and_stops_the_server(
 def test_timed_out_check_stops_the_server(
     bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setattr(signal_detection, "BAZEL_LOCKFILE_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setenv("REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS", "0.2")
     checkout = _checkout(tmp_path, "repo", duration="5")
 
     assert detect_bazel_lockfile_ok(checkout) == (LockfileStatus.TIMEOUT, None)
@@ -300,3 +300,14 @@ def test_missing_lockfile_is_reported_without_repository_tools(
         run_repository_tools=False,
     )
     assert reused.content.bazel_lockfile_status == LockfileStatus.MISSING
+
+
+@pytest.mark.parametrize(
+    "value", ["", "soon", "0", "-5", "nan", "inf", "1e300", "86401"]
+)
+def test_invalid_lockfile_timeout_uses_the_default(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("REPO_OVERVIEW_BAZEL_LOCKFILE_TIMEOUT_SECONDS", value)
+
+    assert signal_detection.resolve_bazel_lockfile_timeout_seconds() == 60
