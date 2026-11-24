@@ -15,7 +15,6 @@ from generate_repo_overview.models import (
     RepoSnapshot,
 )
 from generate_repo_overview.org_config import (
-    OrgConfig,
     PolicyReportConfig,
     load_org_config,
 )
@@ -124,14 +123,15 @@ def _categorized_snapshot() -> RepoSnapshot:
 
 
 def test_policy_report_config_defaults_and_loading(tmp_path: Path) -> None:
-    default = OrgConfig(org_name="test").policy_report
+    default = PolicyReportConfig()
     assert default.enabled is False
     assert default.filename == "repo-policy-sync-report.json"
     assert default.cache_path == Path(".cache/repo-policy-sync-report.json")
 
     config_path = tmp_path / "org.toml"
     config_path.write_text(
-        """org_name = 'eclipse-score'
+        """[organizations.eclipse-score]
+run_repository_tools = false
 
 [policy_report]
 source_repo = 'eclipse-score/tools'
@@ -174,7 +174,7 @@ def test_policy_report_config_rejects_invalid_values(
         "filename": "filename = 'report.json'",
         "cache_path": "cache_path = '.cache/report.json'",
     }
-    lines = ["org_name = 'test'", "[policy_report]"]
+    lines = ["[organizations.test]", "run_repository_tools = false", "[policy_report]"]
     lines.extend(value for key, value in settings.items() if key != setting_key)
     lines.append(setting)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -185,7 +185,8 @@ def test_policy_report_config_rejects_invalid_values(
 def test_policy_report_config_rejects_duplicate_aliases(tmp_path: Path) -> None:
     path = tmp_path / "org.toml"
     path.write_text(
-        """org_name = 'test'
+        """[organizations.test]
+run_repository_tools = false
 [policy_report]
 source_repo = 'org/tools'
 source_repository = 'org/tools'
@@ -479,7 +480,8 @@ def test_render_details_discovers_configured_report_and_publishes_raw_json(
         json.dumps(_report_payload()), encoding="utf-8"
     )
     (tmp_path / "org.toml").write_text(
-        """org_name = 'eclipse-score'
+        """[organizations.eclipse-score]
+run_repository_tools = false
 [policy_report]
 source_repo = 'org/tools'
 workflow = 'repo-policy-sync.yml'

@@ -26,12 +26,13 @@ def test_same_repo_name_has_separate_cache_entries_and_detail_pages(
     config_path = tmp_path / "org.toml"
     config_path.write_text(
         """
-org_name = "first-org"
+[organizations.first-org]
+run_repository_tools = false
 repo_include_patterns = ["shared", "primary-*"]
 
 [organizations.second-org]
+run_repository_tools = false
 repo_include_patterns = ["shared", "secondary-*"]
-reference_integration_repo = ""
 """,
         encoding="utf-8",
     )
@@ -103,11 +104,12 @@ reference_integration_repo = ""
         ("first-org/shared", "Primary repo"),
         ("second-org/shared", "Secondary repo"),
     ]
-    # Disabling the integration clears the pin even when the repo content is reused.
+    # Without a reference integration, the pin is cleared even when the repo
+    # content is reused.
     assert snapshot.repos[1].content == DeepContentSignals(is_bazel_repo=True)
-    assert config.collection_configs()[0].repo_matches_filter("primary-tool")
-    assert not config.collection_configs()[1].repo_matches_filter("primary-tool")
-    assert config.collection_configs()[1].repo_matches_filter("secondary-tool")
+    assert config.organizations[0].repo_matches_filter("primary-tool")
+    assert not config.organizations[1].repo_matches_filter("primary-tool")
+    assert config.organizations[1].repo_matches_filter("secondary-tool")
 
     pages = render_all_pages(snapshot)
     filter_bar = (
@@ -195,8 +197,10 @@ def test_render_details_reserves_secondary_org_namespace(
     collector.write_snapshot(snapshot, Path("snapshot.json"))
     Path("org.toml").write_text(
         """
-org_name = "first-org"
+[organizations.first-org]
+run_repository_tools = false
 [organizations.second-org]
+run_repository_tools = false
 
 [policy_report]
 source_repo = "first-org/report-generator"

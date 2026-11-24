@@ -20,7 +20,6 @@ from generate_repo_overview.models import (
     RepoEntry,
     RepoSnapshot,
 )
-from generate_repo_overview.org_config import load_org_config
 
 FAKE_BAZEL = """#!/bin/sh
 # Log one line per event: <checkout name> <startup option> <event>
@@ -217,41 +216,6 @@ def test_skipped_lockfile_is_checked_once_repository_tools_are_enabled(
         "check-end",
         "shutdown",
     ]
-
-
-def test_only_the_primary_organization_runs_repository_tools_by_default(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "org.toml"
-    config_path.write_text(
-        """
-org_name = "primary"
-
-[organizations.untrusted]
-
-[organizations.trusted]
-run_repository_tools = true
-""",
-        encoding="utf-8",
-    )
-
-    configs = load_org_config(config_path).collection_configs()
-
-    assert {config.org_name: config.run_repository_tools for config in configs} == {
-        "primary": True,
-        "untrusted": False,
-        "trusted": True,
-    }
-
-
-def test_repository_tools_setting_must_be_a_boolean(tmp_path: Path) -> None:
-    config_path = tmp_path / "org.toml"
-    config_path.write_text(
-        'org_name = "primary"\nrun_repository_tools = "no"\n', encoding="utf-8"
-    )
-
-    with pytest.raises(ValueError, match="run_repository_tools must be true or false"):
-        load_org_config(config_path)
 
 
 def test_checked_lockfile_becomes_skipped_once_repository_tools_are_disabled(

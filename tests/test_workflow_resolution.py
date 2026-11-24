@@ -420,7 +420,7 @@ def test_collect_snapshot_refreshes_workflow_releases_while_reusing_consumer_con
     import sys
 
     import generate_repo_overview.collector as collector
-    from generate_repo_overview.org_config import OrgConfig
+    from generate_repo_overview.org_config import OrgConfig, OverviewConfig
 
     source = _source()
     source.compare.return_value = SimpleNamespace(ahead_by=1, behind_by=0)
@@ -453,8 +453,12 @@ def test_collect_snapshot_refreshes_workflow_releases_while_reusing_consumer_con
 
     monkeypatch.setattr(collector, "fetch_repositories", cached_consumers)
     cache_path = tmp_path / "snapshot.json"
-    config = OrgConfig(
-        org_name="example", workflow_signals=(WorkflowSignal("Daily", DAILY),)
+    config = OverviewConfig(
+        (
+            OrgConfig(
+                org_name="example", workflow_signals=(WorkflowSignal("Daily", DAILY),)
+            ),
+        )
     )
     first = collector.collect_snapshot(config=config, cache_path=cache_path)
     source.get_tags.return_value = [

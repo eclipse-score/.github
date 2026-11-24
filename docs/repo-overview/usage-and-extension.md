@@ -45,10 +45,10 @@ GitHub CLI (`gh auth login` is sufficient for local use).
 
 ## Configuration
 
-`org_config.toml` defines the organization, repository selection and grouping,
-tracked Bazel dependencies, workflow signals, shared registry and reference
-integration repositories, platform documentation repositories, and optional
-policy-sync report metadata. Category order and descriptions for the profile
+`org_config.toml` defines the organizations with their repository selection,
+grouping, registry, and reference integration repositories; tracked Bazel
+dependencies, workflow signals, and platform documentation repositories; and
+optional policy-sync report metadata. Category order and descriptions for the profile
 are stored in
 `src/generate_repo_overview/profile_readme_config.toml`.
 
@@ -63,53 +63,48 @@ profile configuration.
 The organization config rejects settings it does not know, so a misspelled
 key fails the command instead of silently using its default.
 
-### Multiple Organizations
+### Organizations
 
-Keep `org_name` as the primary organization and add one `organizations` table
-per additional GitHub organization. Each organization has its own repository name
-filters. An omitted or empty filter includes all its active repositories.
+Each GitHub organization has its own `[organizations.<name>]` table. An
+organization uses only the settings of its own table; nothing is inherited
+from another organization. Omit `registry_repo`, `reference_integration_repo`,
+or `grouping_levels` when the organization has none.
 
 ```toml
-org_name = "example-platform"
+[organizations.example-platform]
+run_repository_tools = true
 repo_include_patterns = ["platform-*"]
+registry_repo = "example-platform/bazel-registry"
+reference_integration_repo = "example-platform/integration"
+grouping_levels = [{ property = "category", default = "Uncategorized" }]
 
 [organizations.example-tools]
+run_repository_tools = false
 repo_include_patterns = ["compiler", "build-*"]
 grouping_levels = [{ property = "team", default = "Tooling" }]
-registry_repo = "example-tools/bazel-registry"
 ```
 
-Tracked dependencies, workflow signals, and platform documentation sources
-apply to the combined dashboard. Additional organizations inherit the primary
-grouping levels, registry, and Reference Integration unless they
-override `grouping_levels`, `registry_repo`, or `reference_integration_repo`.
-Use an empty grouping list or an empty repository string to disable the
-corresponding setting for that organization.
+An omitted or empty `repo_include_patterns` includes all active repositories of
+the organization. Tracked dependencies, workflow signals, and platform
+documentation sources in `[signals]` apply to all organizations.
 
-Collection can start tools inside repository checkouts. Currently this is the
-Bazel lockfile check. Such tools execute code from the repository and inherit
-the collector's environment, so that code could read and leak the GitHub
-token. `run_repository_tools` controls this per organization. It defaults to
-`true` for the primary organization and to `false` for additional
-organizations, whose lockfile status is then shown as `skipped`, or as
-`missing` when there is no lockfile:
-
-```toml
-# Only for organizations whose default branches are trusted with the token.
-run_repository_tools = false
-
-[organizations.example-tools]
-run_repository_tools = true
-```
+`run_repository_tools` is required. Collection can start tools inside
+repository checkouts; currently this is the Bazel lockfile check. Such tools
+execute code from the repository and inherit the collector's environment, so
+that code could read and leak the GitHub token. Set it to `true` only for
+organizations whose default branches are trusted with that token. Otherwise
+the lockfile status is shown as `skipped`, or as `missing` when there is no
+lockfile.
 
 The dashboard lists each organization's groups together in the combined view.
 The **Organization** filter in the filter bar scopes repository lists and the
 overview summary to one organization. The selected organization can be bookmarked with
 the tab and other filters.
 
-The snapshot and cache distinguish repositories by `owner/repo`. Primary
-organization detail URLs keep their existing `<repo>/index.html` format.
-Additional organizations use `@orgs/<owner>/<repo>/index.html`.
+The first table is the primary organization. The snapshot and cache
+distinguish repositories by `owner/repo`. Primary organization detail URLs use
+the `<repo>/index.html` format. Additional organizations use
+`@orgs/<owner>/<repo>/index.html`.
 
 Policy report entries with short repository names use the primary organization
 by default. Set `repository_owner` in `[policy_report]` when those names refer

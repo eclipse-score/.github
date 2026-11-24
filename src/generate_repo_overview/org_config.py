@@ -3,7 +3,7 @@ from __future__ import annotations
 import fnmatch
 import re
 import tomllib
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path, PureWindowsPath
 from typing import Any, cast
 
@@ -67,22 +67,8 @@ PolicySyncConfig = PolicyReportConfig
 
 
 @dataclass(frozen=True, slots=True)
-class OrganizationSettings:
-    """Repository filters and optional signal and grouping overrides."""
-
-    name: str
-    repo_include_patterns: tuple[str, ...] = ()
-    grouping_levels: tuple[GroupingLevel, ...] | None = None
-    reference_integration_repo: str | None = None
-    registry_repo: str | None = None
-    # See OrgConfig.run_repository_tools. Additional organizations are often
-    # less trusted than the primary one, so they must opt in.
-    run_repository_tools: bool = False
-
-
-@dataclass(frozen=True, slots=True)
 class OrgConfig:
-    """Organization-specific settings loaded from a TOML config file."""
+    """Settings for collecting the repositories of one organization."""
 
     org_name: str
     repo_include_patterns: tuple[str, ...] = ()
@@ -90,41 +76,13 @@ class OrgConfig:
     workflow_signals: tuple[WorkflowSignal, ...] = ()
     reference_integration_repo: str = ""
     registry_repo: str = ""
-    platform_repos: tuple[str, ...] = ()
     grouping_levels: tuple[GroupingLevel, ...] = ()
-    policy_report: PolicyReportConfig = field(default_factory=PolicyReportConfig)
     # Whether collection may start tools such as Bazel inside repository
     # checkouts. These tools execute code from the repository, for example
     # Bazel module extensions. They inherit the collector's environment, so
     # that code can read the GitHub token and leak it. Enable this only for
     # organizations whose default branches are trusted with that token.
-    run_repository_tools: bool = True
-
-    additional_organizations: tuple[OrganizationSettings, ...] = ()
-
-    def collection_configs(self) -> tuple[OrgConfig, ...]:
-        return (
-            self,
-            *(
-                replace(
-                    self,
-                    org_name=settings.name,
-                    repo_include_patterns=settings.repo_include_patterns,
-                    grouping_levels=self.grouping_levels
-                    if settings.grouping_levels is None
-                    else settings.grouping_levels,
-                    reference_integration_repo=self.reference_integration_repo
-                    if settings.reference_integration_repo is None
-                    else settings.reference_integration_repo,
-                    registry_repo=self.registry_repo
-                    if settings.registry_repo is None
-                    else settings.registry_repo,
-                    run_repository_tools=settings.run_repository_tools,
-                    additional_organizations=(),
-                )
-                for settings in self.additional_organizations
-            ),
-        )
+    run_repository_tools: bool = False
 
     def repo_matches_filter(self, repo_name: str) -> bool:
         if not self.repo_include_patterns:
@@ -134,35 +92,47 @@ class OrgConfig:
             for pattern in self.repo_include_patterns
         )
 
-    @property
-    def policy_sync_report(self) -> PolicyReportConfig:
-        """Alias for callers that use the upstream tool's terminology."""
 
-        return self.policy_report
+@dataclass(frozen=True, slots=True)
+class OverviewConfig:
+    """All settings loaded from an organization config file."""
 
-    @property
-    def policy_report_source_repo(self) -> str:
-        return self.policy_report.source_repo
-
-    @property
-    def policy_report_workflow(self) -> str:
-        return self.policy_report.workflow
+    # The first organization is the primary one. Its repositories keep the
+    # short detail page paths and short names in the rendered output.
+    organizations: tuple[OrgConfig, ...]
+    platform_repos: tuple[str, ...] = ()
+    policy_report: PolicyReportConfig = field(default_factory=PolicyReportConfig)
 
     @property
-    def policy_report_artifact(self) -> str:
-        return self.policy_report.artifact
+    def primary(self) -> OrgConfig:
+        return self.organizations[0]
 
     @property
-    def policy_report_filename(self) -> str:
-        return self.policy_report.filename
+    def tracked_deps(self) -> tuple[TrackedDep, ...]:
+        return tuple(
+            dict.fromkeys(dep for org in self.organizations for dep in org.tracked_deps)
+        )
 
     @property
-    def policy_report_cache_path(self) -> Path:
-        return self.policy_report.cache_path
+    def workflow_signals(self) -> tuple[WorkflowSignal, ...]:
+        return tuple(
+            dict.fromkeys(
+                signal for org in self.organizations for signal in org.workflow_signals
+            )
+        )
 
 
-def load_org_config(path: Path) -> OrgConfig:
-    """Load and validate an OrgConfig from a TOML file.
+_ORGANIZATION_SETTINGS = {
+    "repo_include_patterns",
+    "run_repository_tools",
+    "reference_integration_repo",
+    "registry_repo",
+    "grouping_levels",
+}
+
+
+def load_org_config(path: Path) -> OverviewConfig:
+    """Load and validate the organization config from a TOML file.
 
     Raises ``ValueError`` for missing/invalid required fields and malformed
     repo paths.  Silently drops tracked_deps and workflow_signals entries
@@ -171,15 +141,7 @@ def load_org_config(path: Path) -> OrgConfig:
     raw = tomllib.loads(path.read_text(encoding="utf-8"))
     _reject_unknown_settings(
         raw,
-        {
-            "org_name",
-            "repo_include_patterns",
-            "run_repository_tools",
-            "signals",
-            "grouping",
-            "organizations",
-            *_POLICY_REPORT_SECTIONS,
-        },
+        {"organizations", "signals", *_POLICY_REPORT_SECTIONS},
         where="top-level",
     )
     signals = raw.get("signals", {})
@@ -188,107 +150,70 @@ def load_org_config(path: Path) -> OrgConfig:
     signals = cast("dict[str, Any]", signals)
     _reject_unknown_settings(
         signals,
-        {
-            "reference_integration_repo",
-            "registry_repo",
-            "platform_repos",
-            "tracked_deps",
-            "workflow_signals",
-        },
+        {"platform_repos", "tracked_deps", "workflow_signals"},
         where="signals",
     )
-
-    org_name = raw.get("org_name")
-    if not isinstance(org_name, str) or not org_name.strip():
-        raise ValueError("org_name is required in the config file.")
-
-    reference_integration_repo = _str_or(signals.get("reference_integration_repo"), "")
-    registry_repo = _str_or(signals.get("registry_repo"), "")
-    platform_repos = _parse_repo_list(
-        signals.get("platform_repos"),
-        field_name="platform_repos",
-    )
-    for field_name, field_value in (
-        ("reference_integration_repo", reference_integration_repo),
-        ("registry_repo", registry_repo),
-    ):
-        if field_value and not is_safe_repository_path(field_value):
-            raise ValueError(
-                f"{field_name} must be in 'org/repo' format, got '{field_value}'."
-            )
-
-    raw_grouping = raw.get("grouping", {})
-    if not isinstance(raw_grouping, dict):
-        raise ValueError("'grouping' must be a table, not a scalar value.")
-    _reject_unknown_settings(
-        cast("dict[str, Any]", raw_grouping), {"levels"}, where="grouping"
-    )
-    grouping_levels = _parse_grouping_levels(raw_grouping.get("levels"))
-    policy_report = _parse_policy_report(raw)
-
-    return OrgConfig(
-        org_name=org_name.strip(),
-        repo_include_patterns=_parse_string_list(raw.get("repo_include_patterns")),
-        tracked_deps=_parse_tracked_deps(signals.get("tracked_deps")),
-        workflow_signals=_parse_workflow_signals(signals.get("workflow_signals")),
-        reference_integration_repo=reference_integration_repo,
-        registry_repo=registry_repo,
-        platform_repos=platform_repos,
-        grouping_levels=grouping_levels,
-        policy_report=policy_report,
-        run_repository_tools=_parse_bool(raw, "run_repository_tools", default=True),
-        additional_organizations=_parse_organizations(
-            raw.get("organizations", {}), primary_org=org_name.strip()
+    return OverviewConfig(
+        organizations=_parse_organizations(
+            raw.get("organizations"),
+            # Signals apply to all organizations.
+            tracked_deps=_parse_tracked_deps(signals.get("tracked_deps")),
+            workflow_signals=_parse_workflow_signals(signals.get("workflow_signals")),
         ),
+        platform_repos=_parse_repo_list(
+            signals.get("platform_repos"), field_name="platform_repos"
+        ),
+        policy_report=_parse_policy_report(raw),
     )
 
 
 def _parse_organizations(
-    value: object, *, primary_org: str
-) -> tuple[OrganizationSettings, ...]:
-    if not isinstance(value, dict):
+    value: object,
+    *,
+    tracked_deps: tuple[TrackedDep, ...],
+    workflow_signals: tuple[WorkflowSignal, ...],
+) -> tuple[OrgConfig, ...]:
+    if value is not None and not isinstance(value, dict):
         raise ValueError("'organizations' must be a table.")
+    if not value:
+        raise ValueError("Configure at least one [organizations.<name>] table.")
 
-    settings: list[OrganizationSettings] = []
-    seen = {primary_org.casefold()}
-    for name, overrides in cast("dict[str, Any]", value).items():
+    organizations: list[OrgConfig] = []
+    seen: set[str] = set()
+    for name, table in cast("dict[str, Any]", value).items():
         if not re.fullmatch(r"[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*", name):
             raise ValueError(f"Invalid GitHub organization name: {name!r}.")
         if name.casefold() in seen:
             raise ValueError(f"Duplicate GitHub organization: {name!r}.")
-        if not isinstance(overrides, dict):
-            raise ValueError(f"Organization settings for {name!r} must be a table.")
-        _reject_unknown_settings(
-            cast("dict[str, Any]", overrides),
-            {
-                "repo_include_patterns",
-                "grouping_levels",
-                "reference_integration_repo",
-                "registry_repo",
-                "run_repository_tools",
-            },
-            where=f"organizations.{name}",
-        )
         seen.add(name.casefold())
-        settings.append(
-            OrganizationSettings(
-                name=name,
+        if not isinstance(table, dict):
+            raise ValueError(f"Organization settings for {name!r} must be a table.")
+        where = f"organizations.{name}"
+        table = cast("dict[str, Any]", table)
+        _reject_unknown_settings(table, _ORGANIZATION_SETTINGS, where=where)
+        if "run_repository_tools" not in table:
+            raise ValueError(
+                f"{where}.run_repository_tools is required. Set it to true only "
+                "if the organization's default branches are trusted with the "
+                "collection token."
+            )
+        organizations.append(
+            OrgConfig(
+                org_name=name,
                 repo_include_patterns=_parse_string_list(
-                    overrides.get("repo_include_patterns")
+                    table.get("repo_include_patterns")
                 ),
-                grouping_levels=_parse_grouping_levels(overrides["grouping_levels"])
-                if "grouping_levels" in overrides
-                else None,
-                reference_integration_repo=_parse_repo_override(
-                    overrides, "reference_integration_repo"
+                run_repository_tools=_parse_bool(table, "run_repository_tools"),
+                reference_integration_repo=_parse_repo(
+                    table, "reference_integration_repo", where=where
                 ),
-                registry_repo=_parse_repo_override(overrides, "registry_repo"),
-                run_repository_tools=_parse_bool(
-                    overrides, "run_repository_tools", default=False
-                ),
+                registry_repo=_parse_repo(table, "registry_repo", where=where),
+                grouping_levels=_parse_grouping_levels(table.get("grouping_levels")),
+                tracked_deps=tracked_deps,
+                workflow_signals=workflow_signals,
             )
         )
-    return tuple(settings)
+    return tuple(organizations)
 
 
 def _reject_unknown_settings(
@@ -300,26 +225,20 @@ def _reject_unknown_settings(
         raise ValueError(f"Unknown {where} setting(s): " + ", ".join(unknown))
 
 
-def _parse_bool(table: dict[str, Any], key: str, *, default: bool) -> bool:
-    value = table.get(key, default)
+def _parse_bool(table: dict[str, Any], key: str) -> bool:
+    value = table[key]
     if not isinstance(value, bool):
         raise ValueError(f"{key} must be true or false.")
     return value
 
 
-def _parse_repo_override(overrides: dict[str, Any], key: str) -> str | None:
-    value = overrides.get(key)
+def _parse_repo(table: dict[str, Any], key: str, *, where: str) -> str:
+    value = table.get(key)
     if value is None:
-        return None
-    if not isinstance(value, str) or (value and not is_safe_repository_path(value)):
-        raise ValueError(f"{key} must be empty or in 'org/repo' format.")
-    return value
-
-
-def _str_or(value: object, default: str) -> str:
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return default
+        return ""
+    if not isinstance(value, str) or not is_safe_repository_path(value.strip()):
+        raise ValueError(f"{where}.{key} must be in 'org/repo' format, got {value!r}.")
+    return value.strip()
 
 
 def is_safe_repository_path(value: str) -> bool:
@@ -374,8 +293,10 @@ def _parse_repo_list(value: object, *, field_name: str) -> tuple[str, ...]:
 
 
 def _parse_grouping_levels(value: object) -> tuple[GroupingLevel, ...]:
-    if not isinstance(value, list):
+    if value is None:
         return ()
+    if not isinstance(value, list):
+        raise ValueError("grouping_levels must be a list of tables.")
     result: list[GroupingLevel] = []
     for item in cast("list[Any]", value):
         if not isinstance(item, dict):
@@ -393,7 +314,7 @@ def _parse_grouping_levels(value: object) -> tuple[GroupingLevel, ...]:
             )
     if len(result) > 2:
         raise ValueError(
-            f"grouping.levels supports at most 2 entries, got {len(result)}."
+            f"grouping_levels supports at most 2 entries, got {len(result)}."
         )
     return tuple(result)
 

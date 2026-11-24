@@ -34,7 +34,7 @@ from generate_repo_overview.models import (
     VolatileMetricsSnapshot,
     WorkflowSignal,
 )
-from generate_repo_overview.org_config import OrgConfig
+from generate_repo_overview.org_config import OrgConfig, OverviewConfig
 
 
 def _run_git(cwd: Path, *args: str) -> None:
@@ -139,7 +139,7 @@ def test_ensure_snapshot_prefers_existing_cache(tmp_path: Path) -> None:
     snapshot_io.write_snapshot(snapshot, snapshot_path)
 
     loaded_snapshot = collector.ensure_snapshot(
-        config=OrgConfig(org_name="eclipse-score"),
+        config=OverviewConfig((OrgConfig(org_name="eclipse-score"),)),
         cache_path=snapshot_path,
     )
 
@@ -1688,7 +1688,7 @@ def test_collect_snapshot_reports_rest_api_limits_before_and_after(
     monkeypatch.setattr(collector, "fetch_repositories", fake_fetch_repositories)
 
     snapshot = collector.collect_snapshot(
-        config=OrgConfig(org_name="eclipse-score"),
+        config=OverviewConfig((OrgConfig(org_name="eclipse-score"),)),
         cache_path=None,
     )
 

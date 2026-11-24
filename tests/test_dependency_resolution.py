@@ -22,7 +22,7 @@ from generate_repo_overview.models import (
     TrackedDep,
     VolatileMetricsSnapshot,
 )
-from generate_repo_overview.org_config import OrganizationSettings, OrgConfig
+from generate_repo_overview.org_config import OrgConfig, OverviewConfig
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -449,14 +449,21 @@ def test_registry_versions_and_consumers_use_their_organizations_registry(
             if repo.owner == owner
         ],
     )
-    config = OrgConfig(
-        org_name="first-org",
-        registry_repo="FIRST-ORG/REGISTRY",
-        additional_organizations=(
-            OrganizationSettings("second-org", registry_repo="second-org/registry"),
-            OrganizationSettings("disabled-org", registry_repo=""),
-        ),
-        tracked_deps=(TrackedDep(first_source, "score_python_basics"),),
+    tracked_deps = (TrackedDep(first_source, "score_python_basics"),)
+    config = OverviewConfig(
+        organizations=(
+            OrgConfig(
+                "first-org",
+                registry_repo="FIRST-ORG/REGISTRY",
+                tracked_deps=tracked_deps,
+            ),
+            OrgConfig(
+                "second-org",
+                registry_repo="second-org/registry",
+                tracked_deps=tracked_deps,
+            ),
+            OrgConfig("disabled-org", tracked_deps=tracked_deps),
+        )
     )
     snapshot = collector.collect_snapshot(config=config, cache_path=None)
     snapshot = RepoSnapshot.from_dict(snapshot.to_dict())
