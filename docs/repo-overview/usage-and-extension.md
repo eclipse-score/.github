@@ -60,6 +60,9 @@ repository.
 Use `--config /path/to/file.toml` with `render-overview` to select another
 profile configuration.
 
+The organization config rejects settings it does not know, so a misspelled
+key fails the command instead of silently using its default.
+
 ### Multiple Organizations
 
 Keep `org_name` as the primary organization and add one `organizations` table

@@ -1,15 +1,13 @@
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING
 
 import pytest
 
 from generate_repo_overview.models import GroupingLevel, TrackedDep, WorkflowSignal
 from generate_repo_overview.org_config import OrgConfig, load_org_config
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 class TestOrgConfigDefaults:
@@ -431,3 +429,39 @@ class TestReferenceIntegrationOrgName:
             org_name="wrong-org",
         )
         assert result is None
+
+
+@pytest.mark.parametrize(
+    ("config", "message"),
+    [
+        (
+            'repo_include_pattern = ["a"]',
+            "Unknown top-level setting(s): repo_include_pattern",
+        ),
+        (
+            '[signals]\nregistry = "org/registry"',
+            "Unknown signals setting(s): registry",
+        ),
+        ("[grouping]\nlevel = []", "Unknown grouping setting(s): level"),
+        (
+            "[organizations.second]\nrun_repo_tools = true",
+            "Unknown organizations.second setting(s): run_repo_tools",
+        ),
+    ],
+)
+def test_misspelled_setting_is_rejected(
+    tmp_path: Path, config: str, message: str
+) -> None:
+    config_path = tmp_path / "org.toml"
+    config_path.write_text(f'org_name = "primary"\n{config}\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=re.escape(message)):
+        load_org_config(config_path)
+
+
+def test_shipped_org_config_is_accepted() -> None:
+    # Tests run in an empty working directory, so load the file explicitly.
+    config = load_org_config(Path(__file__).parents[1] / "org_config.toml")
+
+    assert config.org_name == "eclipse-score"
+    assert config.policy_report.enabled

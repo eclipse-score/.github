@@ -169,7 +169,34 @@ def load_org_config(path: Path) -> OrgConfig:
     that have missing or non-string fields.
     """
     raw = tomllib.loads(path.read_text(encoding="utf-8"))
-    signals = cast("dict[str, Any]", raw.get("signals", {}))
+    _reject_unknown_settings(
+        raw,
+        {
+            "org_name",
+            "repo_include_patterns",
+            "run_repository_tools",
+            "signals",
+            "grouping",
+            "organizations",
+            *_POLICY_REPORT_SECTIONS,
+        },
+        where="top-level",
+    )
+    signals = raw.get("signals", {})
+    if not isinstance(signals, dict):
+        raise ValueError("'signals' must be a table, not a scalar value.")
+    signals = cast("dict[str, Any]", signals)
+    _reject_unknown_settings(
+        signals,
+        {
+            "reference_integration_repo",
+            "registry_repo",
+            "platform_repos",
+            "tracked_deps",
+            "workflow_signals",
+        },
+        where="signals",
+    )
 
     org_name = raw.get("org_name")
     if not isinstance(org_name, str) or not org_name.strip():
@@ -193,6 +220,9 @@ def load_org_config(path: Path) -> OrgConfig:
     raw_grouping = raw.get("grouping", {})
     if not isinstance(raw_grouping, dict):
         raise ValueError("'grouping' must be a table, not a scalar value.")
+    _reject_unknown_settings(
+        cast("dict[str, Any]", raw_grouping), {"levels"}, where="grouping"
+    )
     grouping_levels = _parse_grouping_levels(raw_grouping.get("levels"))
     policy_report = _parse_policy_report(raw)
 
@@ -228,6 +258,17 @@ def _parse_organizations(
             raise ValueError(f"Duplicate GitHub organization: {name!r}.")
         if not isinstance(overrides, dict):
             raise ValueError(f"Organization settings for {name!r} must be a table.")
+        _reject_unknown_settings(
+            cast("dict[str, Any]", overrides),
+            {
+                "repo_include_patterns",
+                "grouping_levels",
+                "reference_integration_repo",
+                "registry_repo",
+                "run_repository_tools",
+            },
+            where=f"organizations.{name}",
+        )
         seen.add(name.casefold())
         settings.append(
             OrganizationSettings(
@@ -248,6 +289,15 @@ def _parse_organizations(
             )
         )
     return tuple(settings)
+
+
+def _reject_unknown_settings(
+    table: dict[str, Any], allowed: set[str], *, where: str
+) -> None:
+    """Fail on a misspelled setting instead of silently using its default."""
+    unknown = sorted(str(key) for key in set(table) - allowed)
+    if unknown:
+        raise ValueError(f"Unknown {where} setting(s): " + ", ".join(unknown))
 
 
 def _parse_bool(table: dict[str, Any], key: str, *, default: bool) -> bool:
@@ -366,16 +416,20 @@ def _parse_workflow_signals(value: object) -> tuple[WorkflowSignal, ...]:
     return tuple(result)
 
 
+_POLICY_REPORT_SECTIONS = (
+    "policy_report",
+    "policy-report",
+    "policy_sync_report",
+    "policy-sync-report",
+)
+
+
 def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C901
     """Parse the optional policy report table with strict validation."""
 
-    section_names = (
-        "policy_report",
-        "policy-report",
-        "policy_sync_report",
-        "policy-sync-report",
-    )
-    present_sections = [name for name in section_names if raw.get(name) is not None]
+    present_sections = [
+        name for name in _POLICY_REPORT_SECTIONS if raw.get(name) is not None
+    ]
     if len(present_sections) > 1:
         raise ValueError(
             "Use only one policy report table in the config file: "
@@ -405,12 +459,9 @@ def _parse_policy_report(raw: dict[str, Any]) -> PolicyReportConfig:  # noqa: C9
         "report_path",
         "cache_file",
     }
-    unknown = sorted(set(value) - allowed)
-    if unknown:
-        raise ValueError(
-            "Unknown policy_report setting(s): "
-            + ", ".join(str(key) for key in unknown)
-        )
+    _reject_unknown_settings(
+        cast("dict[str, Any]", value), allowed, where="policy_report"
+    )
 
     source_repo = _policy_report_alias_string(
         value,
