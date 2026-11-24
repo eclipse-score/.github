@@ -131,13 +131,26 @@ def _module_sources(
         for name, repositories in registered.items():
             for repository in repositories:
                 modules_by_repository[repository].add(name)
+        own_roots = {
+            name: _prefer_owner(identities, owner) for name, identities in roots.items()
+        }
         sources[owner] = {
             name: entries[identity].full_name if identity in entries else identity
-            for name, identities in sorted((roots | registered).items())
+            for name, identities in sorted((own_roots | registered).items())
             if len(identities) == 1
             for identity in identities
         }
     return sources, modules_by_repository
+
+
+def _prefer_owner(identities: set[str], owner: str) -> set[str]:
+    """Resolve a module that several organizations declare, such as a mirror.
+
+    A consumer means the repository in its own organization. Without one, the
+    name stays ambiguous unless a single repository declares it.
+    """
+    own = {identity for identity in identities if identity.partition("/")[0] == owner}
+    return own or identities
 
 
 def _plan_pins(

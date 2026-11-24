@@ -228,6 +228,34 @@ def test_resolve_dependencies_skips_repositories_outside_the_collection(
     ) == ({"eclipse-score": {}}, ())
 
 
+def test_module_declared_in_two_organizations_resolves_within_the_consumer() -> None:
+    def module_root(owner: str, name: str) -> RepoEntry:
+        return RepoEntry(
+            name,
+            "",
+            "Platform",
+            "General",
+            owner=owner,
+            content=DeepContentSignals(bazel_module_name="score_baselibs"),
+        )
+
+    module_repositories, _ = dependency_resolution.collect_dependencies(
+        (
+            module_root("upstream", "baselibs"),
+            module_root("mirror", "score_baselibs"),
+            RepoEntry("consumer", "", "Platform", "General", owner="third"),
+        ),
+        {"upstream": None, "mirror": None, "third": None},
+    )
+
+    assert module_repositories == {
+        "upstream": {"score_baselibs": "upstream/baselibs"},
+        "mirror": {"score_baselibs": "mirror/score_baselibs"},
+        # No repository of its own: the name stays ambiguous.
+        "third": {},
+    }
+
+
 def _write_registry_module(
     root: Path, repository: str, versions: dict[str, dict[str, object]]
 ) -> None:
