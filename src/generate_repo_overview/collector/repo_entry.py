@@ -401,8 +401,11 @@ def _cached_lockfile_status_is_outdated(
     content = cached_entry.content
     if not content.has_bazel_module:
         return False
-    was_skipped = content.bazel_lockfile_status == LockfileStatus.SKIPPED
-    return was_skipped == run_repository_tools
+    status = content.bazel_lockfile_status
+    if run_repository_tools:
+        return status == LockfileStatus.SKIPPED
+    # A missing lockfile is found without running Bazel.
+    return status not in (LockfileStatus.SKIPPED, LockfileStatus.MISSING)
 
 
 def _detect_lockfile_ok_for_repo(
@@ -412,12 +415,12 @@ def _detect_lockfile_ok_for_repo(
     checkout_path: Path | None = None,
     run_repository_tools: bool = True,
 ) -> tuple[LockfileStatus, str | None]:
-    if not run_repository_tools:
+    if checkout_path is not None:
         # Bazel executes code from the repository, which could read and leak
         # the GitHub token from the collector's environment.
+        return detect_bazel_lockfile_ok(checkout_path, run_bazel=run_repository_tools)
+    if not run_repository_tools:
         return LockfileStatus.SKIPPED, None
-    if checkout_path is not None:
-        return detect_bazel_lockfile_ok(checkout_path)
     if default_branch is None:
         return LockfileStatus.UNKNOWN, None
     repository_identity = cast("str | None", getattr(repository, "full_name", None))

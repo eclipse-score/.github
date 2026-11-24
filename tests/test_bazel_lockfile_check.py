@@ -272,3 +272,31 @@ def test_checked_lockfile_becomes_skipped_once_repository_tools_are_disabled(
 
     assert entry.content.bazel_lockfile_status == LockfileStatus.SKIPPED
     assert _events(bazel_log) == []
+
+
+def test_missing_lockfile_is_reported_without_repository_tools(
+    bazel_log: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    checkout = _checkout(tmp_path, "repo")
+    (checkout / "MODULE.bazel.lock").unlink()
+
+    entry = _collect_entry(monkeypatch, checkout, run_repository_tools=False)
+
+    assert entry.content.bazel_lockfile_status == LockfileStatus.MISSING
+    assert _events(bazel_log) == []
+
+    # The status needs no Bazel, so the unchanged repository is reused as is.
+    monkeypatch.setattr(
+        repo_entry,
+        "inspect_repository_checkout",
+        lambda *_args, **_kwargs: pytest.fail("repository was inspected again"),
+    )
+    reused = repo_entry.collect_repository_entry(
+        repository_name="repo",
+        repository=SimpleNamespace(default_branch="main", description="Repo"),
+        custom_properties={},
+        bazel_registry_metadata=None,
+        cached_entry=entry,
+        run_repository_tools=False,
+    )
+    assert reused.content.bazel_lockfile_status == LockfileStatus.MISSING

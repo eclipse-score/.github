@@ -46,7 +46,8 @@ an unchanged repository is not checked again.
 Bazel executes code from the repository and inherits the collector's
 environment, including the GitHub token. The check therefore runs only for
 organizations with `run_repository_tools` enabled. Other repositories report
-`skipped`.
+`skipped`, or `missing` when they have no `MODULE.bazel.lock`, which is
+determined without Bazel.
 
 Repositories are collected in parallel, but only one lockfile check runs at a
 time. Bazel already uses all cores, and concurrent checks would overload small

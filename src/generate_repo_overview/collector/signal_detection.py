@@ -91,7 +91,9 @@ _BAZEL_COMMAND = ("bazel", "--max_idle_secs=30")
 _BAZEL_LOCKFILE_CHECK_LOCK = threading.Lock()
 
 
-def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str | None]:
+def detect_bazel_lockfile_ok(
+    checkout_path: Path, *, run_bazel: bool = True
+) -> tuple[LockfileStatus, str | None]:
     """Run `bazel mod deps --lockfile_mode=error` in the checkout.
 
     Only one check runs at a time, and its Bazel server is stopped afterwards.
@@ -101,12 +103,15 @@ def detect_bazel_lockfile_ok(checkout_path: Path) -> tuple[LockfileStatus, str |
       (ERROR,   stderr)  — lockfile check failed
       (MISSING, None)    — MODULE.bazel.lock does not exist
       (TIMEOUT, None)    — bazel timed out
+      (SKIPPED, None)    — lockfile exists, but Bazel must not run
       (UNKNOWN, None)    — bazel unavailable or MODULE.bazel missing
     """
     if not (checkout_path / "MODULE.bazel").exists():
         return LockfileStatus.UNKNOWN, None
     if not (checkout_path / "MODULE.bazel.lock").exists():
         return LockfileStatus.MISSING, None
+    if not run_bazel:
+        return LockfileStatus.SKIPPED, None
     with _BAZEL_LOCKFILE_CHECK_LOCK:
         try:
             return _run_bazel_lockfile_check(checkout_path)

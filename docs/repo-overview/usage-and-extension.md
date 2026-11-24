@@ -88,7 +88,8 @@ Bazel lockfile check. Such tools execute code from the repository and inherit
 the collector's environment, so that code could read and leak the GitHub
 token. `run_repository_tools` controls this per organization. It defaults to
 `true` for the primary organization and to `false` for additional
-organizations, whose lockfile status is then shown as `skipped`:
+organizations, whose lockfile status is then shown as `skipped`, or as
+`missing` when there is no lockfile:
 
 ```toml
 # Only for organizations whose default branches are trusted with the token.
