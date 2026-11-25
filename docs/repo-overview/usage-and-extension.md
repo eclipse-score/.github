@@ -103,9 +103,10 @@ overview summary to one organization. The selected organization can be bookmarke
 the tab and other filters.
 
 The first table is the primary organization. The snapshot and cache
-distinguish repositories by `owner/repo`. Primary organization detail URLs use
-the `<repo>/index.html` format. Additional organizations use
-`@orgs/<owner>/<repo>/index.html`.
+distinguish repositories by `owner/repo`. Primary organization detail pages
+are at `<repo>/`. Additional organizations use `@orgs/<owner>/<repo>/`.
+Every box on a detail page has an anchor, such as `<repo>/#used-by`; its title
+links to it.
 
 Policy report entries with short repository names use the primary organization
 by default. Set `repository_owner` in `[policy_report]` when those names refer

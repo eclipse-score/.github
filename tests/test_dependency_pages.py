@@ -157,7 +157,7 @@ def test_detail_page_shows_release_and_default_branch_freshness_separately() -> 
     assert "1.0.0" in release
     assert "v1.1.0 available" in release
     assert "3 behind main" in release
-    assert 'href="../baselibs/index.html"' in current
+    assert 'href="../baselibs/"' in current
     assert 'href="https://github.com/eclipse-score/baselibs"' in current
 
     pinned = pages["pinned/index.html"]

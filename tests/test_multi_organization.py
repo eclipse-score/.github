@@ -125,15 +125,15 @@ repo_include_patterns = ["shared", "secondary-*"]
     assert '<option value="second-org">second-org (1)</option>' in pages["index.html"]
     assert 'data-category="first-org / Infrastructure"' in pages["index.html"]
     assert 'data-category="second-org / Infrastructure"' in pages["index.html"]
-    assert 'href="shared/index.html"' in pages["index.html"]
-    assert 'href="@orgs/second-org/shared/index.html"' in pages["index.html"]
+    assert 'href="shared/"' in pages["index.html"]
+    assert 'href="@orgs/second-org/shared/"' in pages["index.html"]
     assert 'data-repo-filter="first-org/shared"' in pages["index.html"]
     assert 'data-repo-filter="second-org/shared"' in pages["index.html"]
     assert 'href="https://github.com/first-org/shared"' in pages["shared/index.html"]
     secondary = pages["@orgs/second-org/shared/index.html"]
     assert 'href="https://github.com/second-org/shared"' in secondary
-    assert 'href="../index.html"' in pages["shared/index.html"]
-    assert 'href="../../../index.html"' in secondary
+    assert 'href="../"' in pages["shared/index.html"]
+    assert 'href="../../../"' in secondary
     assert "&rsaquo; second-org/shared" in secondary
     assert 'src="../../../bazel_logo.svg"' in secondary
 

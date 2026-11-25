@@ -510,11 +510,15 @@ class RepoEntry:
             raise ValueError(f"Invalid repository name in snapshot: {self.full_name!r}")
 
     def detail_path(self, primary_org: str) -> str:
+        """Return the directory of the detail page, relative to the site root.
+
+        Links use the directory; the page itself is its ``index.html``.
+        """
         self.validate_path_segments(primary_org)
         if self.owner and self.owner.casefold() != primary_org.casefold():
             # The @ prefix reserves a namespace outside the GitHub repository name alphabet.
-            return f"@orgs/{self.full_name}/index.html"
-        return f"{self.name}/index.html"
+            return f"@orgs/{self.full_name}/"
+        return f"{self.name}/"
 
     def matches_repository(self, repository: str) -> bool:
         identity = repository if self.owner else repository.rsplit("/", 1)[-1]

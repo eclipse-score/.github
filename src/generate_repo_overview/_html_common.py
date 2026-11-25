@@ -74,6 +74,17 @@ def e(text: str) -> str:
     return html.escape(text, quote=True)
 
 
+def detail_section(anchor: str, title: str, body: str) -> str:
+    """Render a box of a detail page; its title links to the box itself."""
+    return (
+        f'<section class="detail-section" id="{anchor}">\n'
+        f'  <div class="section-header"><a class="section-title section-anchor" '
+        f'href="#{anchor}">{e(title)}</a></div>\n'
+        f'  <div class="detail-body">{body}</div>\n'
+        "</section>\n\n"
+    )
+
+
 def language_badge(lang: str | None) -> str:
     if not lang:
         return '<span class="text-muted">—</span>'

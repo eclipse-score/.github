@@ -355,6 +355,11 @@ button:hover { border-color: var(--accent); color: var(--accent); }
   font-weight: 600;
   color: #e6edf3;
 }
+a.section-anchor, a.section-anchor:hover { text-decoration: none; }
+a.section-anchor:hover::after {
+  content: " #";
+  color: var(--muted);
+}
 .section-count {
   font-size: 0.72rem;
   color: var(--muted);

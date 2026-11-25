@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import generate_repo_overview.cli as cli
@@ -415,4 +416,12 @@ def test_render_details_index_links_to_detail_pages(tmp_path: Path) -> None:
     )
 
     index_content = (output_dir / "index.html").read_text(encoding="utf-8")
-    assert 'href="tools/index.html"' in index_content
+    assert 'href="tools/"' in index_content
+    assert "index.html" not in index_content
+
+    detail = (output_dir / "tools" / "index.html").read_text(encoding="utf-8")
+    assert 'href="../"' in detail
+    sections = re.findall(r'<section class="detail-section" id="([^"]+)">', detail)
+    assert sections
+    for anchor in sections:
+        assert f'href="#{anchor}"' in detail

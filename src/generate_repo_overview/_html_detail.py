@@ -8,6 +8,7 @@ from ._html_common import (
     GITHUB_ICON,
     bazel_version_badge,
     dependency_version_badge,
+    detail_section,
     docs_url,
     e,
     language_badge,
@@ -83,7 +84,7 @@ def _render_hero(entry: RepoEntry, org_name: str, site_root: str) -> str:
     return (
         "<header>\n"
         '  <nav class="breadcrumb">\n'
-        f'    <a href="{site_root}index.html">Cross-Repo Metrics</a> &rsaquo; '
+        f'    <a href="{site_root}">Cross-Repo Metrics</a> &rsaquo; '
         f"{e(org_name)}/{e(entry.name)}\n"
         "  </nav>\n"
         f"  <h1>{name_html}"
@@ -124,12 +125,8 @@ def _render_stat_grid(entry: RepoEntry) -> str:
 def _render_release_section(entry: RepoEntry) -> str:
     v = entry.volatile
     if v.latest_release_version is None and v.latest_release_date is None:
-        version_html = '<span class="text-muted">No releases</span>'
-        return (
-            '<section class="detail-section">\n'
-            '  <div class="section-header"><span class="section-title">Release</span></div>\n'
-            f'  <div class="detail-body">{version_html}</div>\n'
-            "</section>\n\n"
+        return detail_section(
+            "release", "Release", '<span class="text-muted">No releases</span>'
         )
 
     items: list[str] = []
@@ -157,11 +154,8 @@ def _render_release_section(entry: RepoEntry) -> str:
             f"</div>"
         )
 
-    return (
-        '<section class="detail-section">\n'
-        '  <div class="section-header"><span class="section-title">Release</span></div>\n'
-        f'  <div class="detail-body"><div class="info-grid">{"".join(items)}</div></div>\n'
-        "</section>\n\n"
+    return detail_section(
+        "release", "Release", f'<div class="info-grid">{"".join(items)}</div>'
     )
 
 
@@ -187,11 +181,8 @@ def _render_tooling_section(entry: RepoEntry) -> str:
         f"{'&#10003;' if val else '—'}</span> {e(label)}</div>"
         for val, label in signals
     )
-    return (
-        '<section class="detail-section">\n'
-        '  <div class="section-header"><span class="section-title">Build &amp; Tooling</span></div>\n'
-        f'  <div class="detail-body"><div class="signal-grid">\n{items}\n  </div></div>\n'
-        "</section>\n\n"
+    return detail_section(
+        "tooling", "Build & Tooling", f'<div class="signal-grid">\n{items}\n  </div>'
     )
 
 
@@ -203,11 +194,7 @@ def _render_workflows_section(entry: RepoEntry, snapshot: RepoSnapshot) -> str:
         f"<tr><th>{e(signal.label)}</th><td>{workflow_ref_badges(entry, signal.label, snapshot.workflow_ref_resolutions)}</td></tr>"
         for signal in workflow_signals
     )
-    return (
-        '<section class="detail-section"><div class="section-header">'
-        '<span class="section-title">Workflows</span></div>'
-        f'<div class="detail-body"><table>{rows}</table></div></section>\n'
-    )
+    return detail_section("workflows", "Workflows", f"<table>{rows}</table>")
 
 
 def _render_ownership_section(entry: RepoEntry) -> str:
@@ -230,11 +217,8 @@ def _render_ownership_section(entry: RepoEntry) -> str:
             '<span class="text-muted">No ownership information available</span>'
         )
 
-    return (
-        '<section class="detail-section">\n'
-        '  <div class="section-header"><span class="section-title">Ownership</span></div>\n'
-        f'  <div class="detail-body"><div class="info-grid">{"".join(parts)}</div></div>\n'
-        "</section>\n\n"
+    return detail_section(
+        "ownership", "Ownership", f'<div class="info-grid">{"".join(parts)}</div>'
     )
 
 
@@ -292,18 +276,15 @@ def _render_versions_section(
             f"</div>"
         )
 
-    return (
-        '<section class="detail-section">\n'
-        '  <div class="section-header"><span class="section-title">Versions</span></div>\n'
-        f'  <div class="detail-body"><div class="info-grid">{"".join(items)}</div></div>\n'
-        "</section>\n\n"
+    return detail_section(
+        "versions", "Versions", f'<div class="info-grid">{"".join(items)}</div>'
     )
 
 
 def _render_footer(snapshot: RepoSnapshot, site_root: str) -> str:
     return (
         "\n<footer>\n"
-        f'  <a href="{site_root}index.html">&larr; Back to overview</a>'
+        f'  <a href="{site_root}">&larr; Back to overview</a>'
         f" — generated {e(snapshot.generated_at)}\n"
         "</footer>\n\n"
     )

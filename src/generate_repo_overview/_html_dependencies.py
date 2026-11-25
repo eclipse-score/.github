@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
-from ._html_common import e
+from ._html_common import detail_section, e
 
 if TYPE_CHECKING:
     from .models import (
@@ -79,10 +79,9 @@ def render_dependencies_section(
     release_columns = (
         f"<th>Release ({e(release_tag)})</th><th>Change</th>" if release_tag else ""
     )
-    return (
-        '<section class="detail-section" id="dependencies">\n'
-        '  <div class="section-header"><span class="section-title">Dependencies</span></div>\n'
-        '  <div class="detail-body">'
+    return detail_section(
+        "dependencies",
+        "Dependencies",
         '<p class="text-muted" style="margin:0 0 0.5rem">'
         "Direct Bazel dependencies as declared in the module files, with root module overrides. "
         "Bazel may select a different version when it resolves the full dependency graph. "
@@ -90,8 +89,7 @@ def render_dependencies_section(
         "for repositories in this overview.</p>"
         "<table><thead><tr><th>Dependency</th><th>Default branch</th>"
         f"{release_columns}</tr></thead>\n"
-        f"<tbody>\n{''.join(rows)}</tbody></table></div>\n"
-        "</section>\n\n"
+        f"<tbody>\n{''.join(rows)}</tbody></table>",
     )
 
 
@@ -158,14 +156,12 @@ def render_used_by_section(
         if snapshot.dependency_sources_available
         else '<span class="text-muted">Consumer data unavailable. Recollect the snapshot to see dependencies.</span>'
     )
-    return (
-        '<section class="detail-section" id="used-by">\n'
-        '  <div class="section-header"><span class="section-title">Used by</span></div>\n'
-        '  <div class="detail-body">'
+    return detail_section(
+        "used-by",
+        "Used by",
         '<p class="text-muted" style="margin:0 0 0.5rem">'
         "Declared direct dependencies only. Repositories in this overview are searched.</p>"
-        f"{body}</div>\n"
-        "</section>\n\n"
+        f"{body}",
     )
 
 
